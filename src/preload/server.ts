@@ -10,6 +10,64 @@ import type { HostEvent, HostHello, ThemeToken } from "../shared/types";
 /** The bridge version this app speaks. */
 const API_VERSION = 1;
 
+const hello = ipcRenderer.sendSync("host:hello") as HostHello | null;
+
+if (hello !== null && typeof hello === "object") {
+    let visible = hello.visible;
+    let listener: ((event: HostEvent) => void) | undefined;
+
+    ipcRenderer.on("host:event", (_event, message: HostEvent) => {
+        if (message.type === "visibility") {
+            visible = message.visible;
+        }
+
+        try {
+            listener?.(message);
+        } catch (error) {
+            console.error(error);
+        }
+    });
+
+    contextBridge.exposeInMainWorld("pocketHost", {
+        kind: "pi-pocket-gui",
+        apiVersion: API_VERSION,
+        capabilities: ["menu", "badge", "notify", "visibility", "pinned", "open", "newSession"],
+        menuItems: () => [{ id: "server-settings", label: "GUI Settings…", hint: "This desktop app's settings" }],
+        invoke: (id: unknown) => {
+            if (typeof id !== "string") {
+                return false;
+            }
+
+            ipcRenderer.send("host:invoke", id);
+
+            return true;
+        },
+        setBadge: (count: unknown) => {
+            ipcRenderer.send("host:badge", count);
+        },
+        notify: (message: unknown) => {
+            ipcRenderer.send("host:notify", message);
+        },
+        visible: () => visible,
+        setPinned: (list: unknown) => {
+            ipcRenderer.send("host:pinned", list);
+        },
+        // One listener: the page's `web/host.js` passes each event on to its own. A newer page also names the events
+        // it handles: the app sends one added to version 1 later (newSession) only to a page that named it.
+        subscribe: (next: unknown, events?: unknown) => {
+            listener = typeof next === "function" ? (next as (event: HostEvent) => void) : undefined;
+            ipcRenderer.send("host:events", Array.isArray(events) ? events.filter((each) => typeof each === "string") : []);
+        },
+    });
+
+    watchTheme();
+    reportRightClicks();
+
+    if (hello.dictation) {
+        offerDictation();
+    }
+}
+
 /** How long Pi Pocket's boot screen shows before the Reload button comes. */
 export const BOOT_RELOAD_DELAY_MS = 5_000;
 
@@ -179,63 +237,9 @@ function offerBootReload(): void {
     check();
 }
 
-const hello = ipcRenderer.sendSync("host:hello") as HostHello | null;
-
+// Only on the server's page (the same check as the bridge), never the settings page or the tray popup.
 if (hello !== null && typeof hello === "object") {
-    let visible = hello.visible;
-    let listener: ((event: HostEvent) => void) | undefined;
-
-    ipcRenderer.on("host:event", (_event, message: HostEvent) => {
-        if (message.type === "visibility") {
-            visible = message.visible;
-        }
-
-        try {
-            listener?.(message);
-        } catch (error) {
-            console.error(error);
-        }
-    });
-
-    contextBridge.exposeInMainWorld("pocketHost", {
-        kind: "pi-pocket-gui",
-        apiVersion: API_VERSION,
-        capabilities: ["menu", "badge", "notify", "visibility", "pinned", "open", "newSession"],
-        menuItems: () => [{ id: "server-settings", label: "GUI Settings…", hint: "This desktop app's settings" }],
-        invoke: (id: unknown) => {
-            if (typeof id !== "string") {
-                return false;
-            }
-
-            ipcRenderer.send("host:invoke", id);
-
-            return true;
-        },
-        setBadge: (count: unknown) => {
-            ipcRenderer.send("host:badge", count);
-        },
-        notify: (message: unknown) => {
-            ipcRenderer.send("host:notify", message);
-        },
-        visible: () => visible,
-        setPinned: (list: unknown) => {
-            ipcRenderer.send("host:pinned", list);
-        },
-        // One listener: the page's `web/host.js` passes each event on to its own. A newer page also names the events
-        // it handles: the app sends one added to version 1 later (newSession) only to a page that named it.
-        subscribe: (next: unknown, events?: unknown) => {
-            listener = typeof next === "function" ? (next as (event: HostEvent) => void) : undefined;
-            ipcRenderer.send("host:events", Array.isArray(events) ? events.filter((each) => typeof each === "string") : []);
-        },
-    });
-
-    watchTheme();
-    reportRightClicks();
     offerBootReload();
-
-    if (hello.dictation) {
-        offerDictation();
-    }
 }
 
 /** What the main process sends about one dictation (src/main/dictation.ts, PageMessage). */
