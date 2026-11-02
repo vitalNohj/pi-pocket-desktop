@@ -11,6 +11,7 @@ import { join } from "node:path";
 import type { LocalState, LocalStatus, LocalUpdate, ProbeResult, Settings } from "../shared/types";
 import { downloadChecked } from "./download";
 import type { LocalDown } from "./server-choice";
+import { activity, diagnose } from "./stall-watchdog";
 import { UpdateSchedule } from "./update-schedule";
 import {
     cleanLine,
@@ -40,6 +41,10 @@ const CONFIG_ERROR = 78;
 /** A new runtime that is not ready by then goes back to the one before. */
 const NEW_RUNTIME_LIMIT_MS = 120_000;
 const STOP_LIMIT_MS = 15_000;
+/** The launcher's lines when it restarts its server by itself (src/launcher/main.ts in Pi Pocket). */
+const LAUNCHER_RESTART = /Restarting the server|Server restarted|The server stopped/;
+/** The launcher's line once its server answers again after such a restart. */
+const LAUNCHER_RESTARTED = /Server restarted/;
 const LOG_LINES = 200;
 const LOG_FILE_LIMIT = 2 * 1024 * 1024;
 
@@ -58,6 +63,8 @@ export interface LocalHost {
     ready: (url: string, loginPath: string) => void;
     /** It stopped, failed, or was found running outside the app: the window cannot show it. Why, for the window. */
     down: (why: LocalDown) => void;
+    /** The launcher restarted its server by itself (no new sign-in): a page that waited for it may need a reload. */
+    restarted: () => void;
 }
 
 /** One runtime, as current.json keeps it. */
@@ -649,6 +656,8 @@ export function setUpLocalServer(host: LocalHost) {
         }
 
         if (readCurrent().next !== undefined) {
+            activity("local server: update switch");
+            diagnose("local server: switching to the new version");
             await adoptNext();
         }
 
@@ -670,7 +679,9 @@ export function setUpLocalServer(host: LocalHost) {
         const local = settings.local;
 
         set("starting", "Starting Pi Pocket…");
+        activity("local server: stop leftover");
         await stopLeftover();
+        activity("local server: start");
 
         // A Pi Pocket the app did not start already answers there: open that one rather than fight it for the port.
         const found = await host.probe(`http://127.0.0.1:${String(local.port)}`);
@@ -720,6 +731,7 @@ export function setUpLocalServer(host: LocalHost) {
             ? setTimeout(() => {
                   if (!ready && child === proc) {
                       log("The new version did not get ready in 2 minutes: going back to the one before.");
+                      diagnose("local server: the new version did not get ready in 2 minutes; going back");
                       proc.kill("SIGKILL");
                   }
               }, NEW_RUNTIME_LIMIT_MS)
@@ -737,6 +749,15 @@ export function setUpLocalServer(host: LocalHost) {
         const onLine = (line: string) => {
             log(line);
 
+            // The launcher restarts its server by itself (an update, a crash): the app gets no new sign-in line then.
+            if (LAUNCHER_RESTART.test(line)) {
+                diagnose(`local server: ${line.trim()}`);
+
+                if (LAUNCHER_RESTARTED.test(line) && child === proc && ready) {
+                    host.restarted();
+                }
+            }
+
             const signIn = signInLine(line);
 
             if (signIn !== undefined && child === proc) {
@@ -744,6 +765,7 @@ export function setUpLocalServer(host: LocalHost) {
                 clearTimeout(watchdog);
                 failures = 0;
                 url = localUrl(signIn.url);
+                diagnose(`local server: ready at ${url}${isNew ? " (new version)" : ""}`);
                 set("running");
                 host.ready(url, signIn.loginPath);
 
@@ -770,6 +792,7 @@ export function setUpLocalServer(host: LocalHost) {
             url = undefined;
             runningData = undefined;
             void rm(pidFile, { force: true });
+            diagnose(`local server: stopped (${signal ?? `code ${String(code)}`})${quitting || status === "stopping" ? ", as asked" : ""}`);
 
             if (quitting || status === "stopping") {
                 set("stopped");
@@ -841,6 +864,8 @@ export function setUpLocalServer(host: LocalHost) {
         }
 
         set("stopping", "Stopping Pi Pocket…");
+        activity("local server: stop");
+        diagnose("local server: stopping");
 
         // The launcher stops the server (sessions resume at the next start) and its tunnel. Windows has no SIGTERM:
         // the server notices its launcher is gone and stops by itself.

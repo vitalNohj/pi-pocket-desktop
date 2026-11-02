@@ -46,6 +46,8 @@ export interface TrayMenuInput {
     badge: number;
     /** The app's own update, or this computer's Pi Pocket waiting to restart. */
     update: { label: string; click: () => void } | undefined;
+    /** Load Pi Pocket's page again, while the window is up; the label says when the page does not answer. */
+    reload?: { label: string; click: () => void } | undefined;
     pins: PinnedSession[];
     showWindow: () => void;
     newSession: () => void;
@@ -55,8 +57,8 @@ export interface TrayMenuInput {
 }
 
 /**
- * The tray's items, in the order the native menu uses: Open Pi Pocket (with the needs-you count), New session, the
- * update when there is one, the pinned sessions, GUI Settings…, Quit.
+ * The tray's items, in the order the native menu uses: Open Pi Pocket (with the needs-you count), New session, Reload
+ * while the window is up, the update when there is one, the pinned sessions, GUI Settings…, Quit.
  */
 export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
     const open: TrayMenuAction = {
@@ -65,6 +67,8 @@ export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
         run: input.showWindow,
     };
     const newSession: TrayMenuAction = { id: "new-session", label: "New session", run: input.newSession };
+    const reload: TrayMenuAction | undefined =
+        input.reload === undefined ? undefined : { id: "reload", label: input.reload.label, run: input.reload.click };
     const update: TrayMenuAction | undefined =
         input.update === undefined ? undefined : { id: "update", label: input.update.label, run: input.update.click };
     const pins: TrayMenuAction[] = input.pins.map((pin) => ({
@@ -74,10 +78,11 @@ export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
     }));
     const settings: TrayMenuAction = { id: "settings", label: "GUI Settings…", run: input.openSettings };
     const quit: TrayMenuAction = { id: "quit", label: "Quit", run: input.quit };
-    const actions = [open, newSession, ...(update === undefined ? [] : [update]), ...pins, settings, quit];
+    const actions = [open, newSession, ...(reload === undefined ? [] : [reload]), ...(update === undefined ? [] : [update]), ...pins, settings, quit];
     const rows: TrayMenuRow[] = [
         rowOf(open),
         rowOf(newSession),
+        ...(reload === undefined ? [] : [rowOf(reload)]),
         ...(update === undefined ? [] : [rowOf(update)]),
         ...(pins.length > 0 ? [{ kind: "separator" as const }, { kind: "header" as const, label: "Pinned" }, ...pins.map(rowOf)] : []),
         { kind: "separator" },

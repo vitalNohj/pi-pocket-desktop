@@ -24,6 +24,11 @@ export interface TrayPopupHost {
     activate: (id: string) => void;
     /** Return focus to the notification area (Windows). */
     focusTray: () => void;
+    /** The popup did not appear in time (its page hung or did not load): show the native menu instead. */
+    fallback: () => void;
+    /** Says what the popup starts and notes its failures (the diagnostics log). */
+    activity: (label: string) => void;
+    diagnose: (line: string) => void;
 }
 
 const GAP = 4;
@@ -32,6 +37,10 @@ const MARGIN = 8;
 const WIDTH = 264;
 /** The page is measured after it loads; this only sizes the window for that moment. */
 const MAX_HEIGHT = 640;
+/** How long the page may take to load and be measured before the native menu replaces it. */
+const SHOW_LIMIT_MS = 2000;
+/** How long measuring may take; past it, the height comes from the rows. */
+const MEASURE_LIMIT_MS = 1000;
 
 export function setUpTrayPopup(host: TrayPopupHost): {
     /** Open the menu at the tray icon. A second call closes it. */
@@ -49,11 +58,44 @@ export function setUpTrayPopup(host: TrayPopupHost): {
     let listening = false;
     /** Which load is current. A newer open supersedes one still loading, so the old one must not place the window. */
     let load = 0;
+    /** Fires when an open popup did not appear in time. */
+    let limit: NodeJS.Timeout | undefined;
+
+    const stopLimit = (): void => {
+        if (limit !== undefined) {
+            clearTimeout(limit);
+            limit = undefined;
+        }
+    };
 
     const close = (): void => {
+        stopLimit();
         open = false;
         shown = false;
-        popup?.hide();
+
+        if (popup !== undefined && !popup.isDestroyed()) {
+            popup.hide();
+        }
+    };
+
+    /**
+     * The popup's page is stuck (did not load, did not answer, or its renderer went away). The tray must still answer:
+     * drop the window, so the next open makes a fresh one, and show the native menu now.
+     */
+    const giveUp = (why: string): void => {
+        const stuck = popup;
+
+        stopLimit();
+        open = false;
+        shown = false;
+        popup = undefined;
+        host.diagnose(`tray popup: ${why}; native menu shown instead`);
+
+        if (stuck !== undefined && !stuck.isDestroyed()) {
+            stuck.destroy();
+        }
+
+        host.fallback();
     };
 
     const onChoose = (event: IpcMainEvent, id: unknown): void => {
@@ -70,9 +112,21 @@ export function setUpTrayPopup(host: TrayPopupHost): {
         const menu = host.menu();
         const palette = trayMenuPalette(host.style(), host.windowsDark(), host.theme(), host.accent());
 
+        host.activity("tray popup open");
         open = true;
         load += 1;
-        paint(window, menu.rows, palette, load);
+        stopLimit();
+
+        const painted = load;
+
+        limit = setTimeout(() => {
+            limit = undefined;
+
+            if (open && !shown && painted === load) {
+                giveUp(`did not appear in ${SHOW_LIMIT_MS} ms`);
+            }
+        }, SHOW_LIMIT_MS);
+        paint(window, menu.rows, palette, painted);
     };
 
     /** The page has loaded: size the window to it, then place it by the tray icon. */
@@ -81,8 +135,10 @@ export function setUpTrayPopup(host: TrayPopupHost): {
             return;
         }
 
-        void measure(popup).then((height) => {
-            if (!open || popup === undefined || popup.isDestroyed()) {
+        const rows = host.menu().rows;
+
+        void measure(popup, rows).then((height) => {
+            if (!open || painted !== load || popup === undefined || popup.isDestroyed()) {
                 return;
             }
 
@@ -101,6 +157,7 @@ export function setUpTrayPopup(host: TrayPopupHost): {
             popup.show();
             popup.focus();
             shown = true;
+            stopLimit();
         });
     };
 
@@ -156,6 +213,16 @@ export function setUpTrayPopup(host: TrayPopupHost): {
         });
         contents.setWindowOpenHandler(() => ({ action: "deny" }));
         contents.on("will-navigate", (event) => event.preventDefault());
+        contents.on("render-process-gone", (_event, details) => {
+            if (popup?.webContents === contents) {
+                giveUp(`its page went away (${details.reason})`);
+            }
+        });
+        contents.on("unresponsive", () => {
+            if (popup?.webContents === contents && open) {
+                giveUp("its page stopped answering");
+            }
+        });
         contents.on("did-finish-load", () => {
             const painted = loadOf(contents.getURL());
 
@@ -169,6 +236,11 @@ export function setUpTrayPopup(host: TrayPopupHost): {
 
     return {
         toggle: () => {
+            if (open && !shown) {
+                // Still loading. A second click means the person is waiting: do not hide what they asked for.
+                return;
+            }
+
             if (open) {
                 close();
                 host.focusTray();
@@ -189,13 +261,27 @@ export function setUpTrayPopup(host: TrayPopupHost): {
     };
 }
 
-/** The page's own height, capped, so the window matches what it drew. */
-async function measure(window: BrowserWindow): Promise<number> {
-    const height = await window.webContents
-        .executeJavaScript("document.querySelector('.menu')?.offsetHeight ?? 0")
-        .catch(() => 0);
+/** The page's own height, capped, so the window matches what it drew. A page that does not answer gets an estimate. */
+async function measure(window: BrowserWindow, rows: TrayMenuRow[]): Promise<number> {
+    let timer: NodeJS.Timeout | undefined;
+    const late = new Promise<number>((resolve) => {
+        timer = setTimeout(() => resolve(0), MEASURE_LIMIT_MS);
+    });
+    const height = await Promise.race([
+        window.webContents.executeJavaScript("document.querySelector('.menu')?.offsetHeight ?? 0").catch(() => 0),
+        late,
+    ]);
 
-    return Math.min(typeof height === "number" && height > 0 ? height : 120, MAX_HEIGHT);
+    clearTimeout(timer);
+
+    return Math.min(typeof height === "number" && height > 0 ? height : estimateHeight(rows), MAX_HEIGHT);
+}
+
+/** The height the page draws for these rows (the CSS below), for when it cannot be measured. */
+export function estimateHeight(rows: TrayMenuRow[]): number {
+    const inner = rows.reduce((sum, row) => sum + (row.kind === "separator" ? 9 : row.kind === "header" ? 28 : 32), 0);
+
+    return inner + 10;
 }
 
 function cursorRect(): Rectangle {

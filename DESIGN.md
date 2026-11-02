@@ -51,6 +51,15 @@ when there is a sensible choice, it is a setting, with a safe default.
   GUI Settings…, Quit. Each pin shows the same state as Pi Pocket's sidebar square: working, waiting for you,
   failed, finished and unread, read. A click opens that session in the GUI window.
 - **Tray icon and badge** count every session that needs you, as Pi Pocket's home-screen badge does.
+- **The main process never waits.** It owns the tray and the menus, so nothing in it blocks: no synchronous child
+  processes, no long synchronous file work, and the one synchronous IPC (`host:hello`) is answered at once. A
+  worker thread watches a heartbeat from main (src/main/stall-watchdog.ts) and logs any stall over 3 s, with the
+  last activity main named, to `<userData>/diagnostics.log`.
+- **A stuck page recovers.** The health check also runs for This computer, and looks at the page: a page on the boot
+  screen (or not answering) for 15 s while the server answers is reloaded, then given a new renderer
+  (src/main/page-recovery.ts). The title bar's debugger stops Electron's `unresponsive` (electron#54323), so the
+  page's own answer to the check counts too. The tray always has Reload while the window is up; on Windows its
+  popup falls back to the native menu when it does not appear in 2 s.
 - **Close to tray** (default on). When the desktop has no tray (plain GNOME without AppIndicator), close minimizes, and
   the config screen says why.
 - **Launch at login** (default off), **global show/hide hotkey** (default off), **notifications** (default on), **GUI
