@@ -207,7 +207,10 @@
                         <div class="rows">
                             <p class="row-note" id="dictation-note">Download a speech model to use Pi Pocket's microphone button. The speech engine (<span id="dictation-engine-size"></span>) downloads with the first model and is removed with the last.</p>
                             <p class="row-note error" id="dictation-message" role="alert" hidden></p>
-                            <div id="dictation-models" class="models"></div>
+                            <details class="advanced" id="dictation-models-section">
+                                <summary id="dictation-models-toggle"><span>Speech models <small id="dictation-models-summary">· none downloaded</small></span></summary>
+                                <div id="dictation-models" class="models"></div>
+                            </details>
                             <label class="row"><span><strong>Words as you speak</strong><small>Show text before you pause. Uses more CPU.</small></span><input type="checkbox" data-key="dictation.live" /></label>
                             <div class="row"><span><strong>Model folder</strong><small id="dictation-folder"></small></span><button type="button" class="secondary" id="dictation-show-folder">Show folder</button></div>
                         </div>

@@ -918,8 +918,15 @@ button.danger {
     color: var(--err);
 }
 
+#dictation-models-toggle > span {
+    display: block;
+}
+
 .models {
     display: grid;
+    max-height: 340px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .row.model > span:first-child {
