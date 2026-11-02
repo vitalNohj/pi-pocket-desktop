@@ -31,7 +31,8 @@ if (hello !== null && typeof hello === "object") {
     contextBridge.exposeInMainWorld("pocketHost", {
         kind: "pi-pocket-gui",
         apiVersion: API_VERSION,
-        capabilities: ["menu", "badge", "notify", "visibility", "pinned", "open", "newSession"],
+        capabilities: ["menu", "badge", "notify", "visibility", "pinned", "open", "newSession", "saveFile"],
+        saveFile: (input: unknown) => ipcRenderer.invoke("host:save-file", input),
         menuItems: () => [{ id: "server-settings", label: "GUI Settings…", hint: "This desktop app's settings" }],
         invoke: (id: unknown) => {
             if (typeof id !== "string") {
