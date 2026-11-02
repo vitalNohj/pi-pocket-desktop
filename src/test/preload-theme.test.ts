@@ -44,6 +44,8 @@ function page(initial: Record<string, string>) {
             documentElement: root,
             head: {},
             readyState: "loading",
+            // The boot screen's Reload button (boot-reload.test.ts): no boot screen here.
+            getElementsByClassName: () => [],
             addEventListener: (name: string, callback: () => void) => listeners.set(name, callback),
             createElement: (tag: string) => tag === "canvas"
                 ? { getContext: () => paint }

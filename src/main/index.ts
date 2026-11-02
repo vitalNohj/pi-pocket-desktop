@@ -454,6 +454,7 @@ async function start(): Promise<void> {
         showWindow,
         toggleWindow,
         openSettings,
+        reloadServer,
         quit,
         updateItem: () => gui?.updates?.trayItem() ?? gui?.local?.trayItem(),
         theme: () => gui!.theme,
@@ -1571,6 +1572,28 @@ function createTray(): Tray {
     return tray;
 }
 
+/**
+ * Load the server's page again: the menu's Reload, and the Reload button over a boot screen that took too long. A view
+ * with nothing committed yet (its first load never finished) loads the server's address again instead.
+ */
+function reloadServer(): void {
+    const state = gui;
+
+    if (state === undefined) {
+        return;
+    }
+
+    const contents = state.server.webContents;
+
+    if (contents.getURL() === "" && state.loadedUrl !== undefined) {
+        void contents.loadURL(`${state.loadedUrl}/`).catch(() => {
+            // did-fail-load shows the error.
+        });
+    } else {
+        contents.reload();
+    }
+}
+
 /** New session (src/main/new-session.ts): the window shows, and the page opens its New session sheet when it can. */
 function newSession(starting = false): void {
     gui?.desktop?.newSession(starting);
@@ -1622,7 +1645,11 @@ function buildMenu(): void {
                     label: "Reload",
                     accelerator: "CommandOrControl+R",
                     click: () => {
-                        (gui?.showing === "config" ? gui.config : gui?.server)?.webContents.reload();
+                        if (gui?.showing === "config") {
+                            gui.config.webContents.reload();
+                        } else {
+                            reloadServer();
+                        }
                     },
                 },
                 {

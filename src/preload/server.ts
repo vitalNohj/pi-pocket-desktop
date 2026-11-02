@@ -68,6 +68,180 @@ if (hello !== null && typeof hello === "object") {
     }
 }
 
+/** How long Pi Pocket's boot screen shows before the Reload button comes. */
+export const BOOT_RELOAD_DELAY_MS = 5_000;
+
+/** The timers a {@link BootWait} uses: the page's own, or fake ones in a test. */
+export interface BootTimers {
+    set: (callback: () => void, ms: number) => unknown;
+    clear: (handle: unknown) => void;
+}
+
+/**
+ * When the Reload button shows: once the boot screen has shown for `delayMs` without a break. It goes as soon as the
+ * boot screen goes, and a boot screen that comes back waits again from the start. No DOM: the page tells it, with
+ * {@link update}, whether a boot screen shows now.
+ */
+export class BootWait {
+    #booting = false;
+    #shown = false;
+    #timer: unknown;
+
+    constructor(
+        private readonly delayMs: number,
+        private readonly timers: BootTimers,
+        private readonly show: () => void,
+        private readonly hide: () => void,
+    ) {}
+
+    /** Whether a full-screen boot screen shows now. Called again with the same answer, it changes nothing. */
+    update(booting: boolean): void {
+        if (booting === this.#booting) {
+            return;
+        }
+
+        this.#booting = booting;
+
+        if (booting) {
+            this.#timer = this.timers.set(() => {
+                this.#timer = undefined;
+                this.#shown = true;
+                this.show();
+            }, this.delayMs);
+
+            return;
+        }
+
+        if (this.#timer !== undefined) {
+            this.timers.clear(this.#timer);
+            this.#timer = undefined;
+        }
+
+        if (this.#shown) {
+            this.#shown = false;
+            this.hide();
+        }
+    }
+}
+
+/**
+ * Whether one of these `.boot` elements is Pi Pocket's full-screen boot screen (`data-part="boot"`, its theme API),
+ * and not the small loader inside a panel (`.boot.inline`).
+ */
+export function showsFullScreenBoot(boots: ArrayLike<{ classList: { contains: (name: string) => boolean }; getAttribute: (name: string) => string | null }>): boolean {
+    for (let index = 0; index < boots.length; index++) {
+        const boot = boots[index];
+
+        if (boot !== undefined && boot.getAttribute("data-part") === "boot" && !boot.classList.contains("inline")) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+const BOOT_RELOAD_CSS = `
+:host {
+    all: initial;
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2147483647;
+}
+button {
+    font: 500 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 14px;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+    animation: in 300ms ease-out;
+}
+button:hover { border-color: var(--fg); }
+button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+button:disabled { cursor: progress; opacity: 0.7; }
+b { font-weight: 650; }
+@keyframes in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { button { animation: none; } }
+:host(.still) button { animation: none; }
+`;
+
+/**
+ * A "Taking a while? Reload" button over Pi Pocket's boot screen once it has shown for 5 s: a server that never answers
+ * the app's start (its first `/api/me`) otherwise leaves only the menu's Reload. It is in a closed shadow root, so the
+ * page's styles do not reach it and its own stay inside. A click asks the main process to reload, as the menu does.
+ */
+function offerBootReload(): void {
+    // A live list: reading it on each change costs little, also on a busy page.
+    const boots = document.getElementsByClassName("boot");
+    let host: HTMLElement | undefined;
+
+    const color = (style: CSSStyleDeclaration, names: string[], fallback: string): string => {
+        for (const name of names) {
+            const value = style.getPropertyValue(`--${name}`).trim();
+
+            // Pi Pocket's --border is a width, not a color: take only a color.
+            if (value !== "" && CSS.supports("color", value)) {
+                return value;
+            }
+        }
+
+        return fallback;
+    };
+
+    const show = (): void => {
+        const root = document.documentElement;
+        const style = getComputedStyle(root);
+        const light = root.dataset.mode === "light";
+
+        host = document.createElement("pi-pocket-gui-reload");
+
+        if (root.dataset.motion === "reduced") {
+            host.className = "still";
+        }
+
+        const shadow = host.attachShadow({ mode: "closed" });
+        const sheet = document.createElement("style");
+        const button = document.createElement("button");
+        const strong = document.createElement("b");
+
+        sheet.textContent = BOOT_RELOAD_CSS;
+        button.type = "button";
+        button.style.setProperty("--fg", color(style, ["text"], light ? "#343b58" : "#c0caf5"));
+        button.style.setProperty("--bg", color(style, ["card"], light ? "#e6e7ed" : "#1f2335"));
+        button.style.setProperty("--line", color(style, ["border", "line"], light ? "#c4c8da" : "#3b4261"));
+        strong.textContent = "Reload";
+        button.append("Taking a while? ", strong);
+        button.addEventListener("click", () => {
+            button.disabled = true;
+            ipcRenderer.send("host:reload");
+        });
+        shadow.append(sheet, button);
+        (document.body ?? root).append(host);
+    };
+
+    const hide = (): void => {
+        host?.remove();
+        host = undefined;
+    };
+
+    const wait = new BootWait(BOOT_RELOAD_DELAY_MS, { set: (callback, ms) => setTimeout(callback, ms), clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>) }, show, hide);
+    const check = (): void => wait.update(showsFullScreenBoot(boots));
+
+    // The document itself, not its root: the boot screen is in the HTML, before any script, and a page whose script
+    // never loads never reaches DOMContentLoaded.
+    new MutationObserver(check).observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "data-part"] });
+    check();
+}
+
+// Only on the server's page (the same check as the bridge), never the settings page or the tray popup.
+if (hello !== null && typeof hello === "object") {
+    offerBootReload();
+}
+
 /** What the main process sends about one dictation (src/main/dictation.ts, PageMessage). */
 type DictationMessage =
     | { id: number; type: "result"; text: string; final: boolean }
