@@ -58,15 +58,15 @@ function setUp() {
     return { time, events, wait };
 }
 
-test("the button waits 5 s", () => {
-    assert.equal(BOOT_RELOAD_DELAY_MS, 5_000);
+test("the button waits 3 s", () => {
+    assert.equal(BOOT_RELOAD_DELAY_MS, 3_000);
 });
 
-test("no button before 5 s of boot screen; the button at 5 s", () => {
+test("no button before 3 s of boot screen; the button at 3 s", () => {
     const { time, events, wait } = setUp();
 
     wait.update(true);
-    time.tick(4_999);
+    time.tick(2_999);
     assert.deepEqual(events, []);
     time.tick(1);
     assert.deepEqual(events, ["show"]);
@@ -76,32 +76,32 @@ test("the button goes at once with the boot screen", () => {
     const { time, events, wait } = setUp();
 
     wait.update(true);
-    time.tick(6_000);
+    time.tick(4_000);
     wait.update(false);
     assert.deepEqual(events, ["show", "hide"]);
 });
 
-test("a boot screen that goes before 5 s never shows the button", () => {
+test("a boot screen that goes before 3 s never shows the button", () => {
     const { time, events, wait } = setUp();
 
     wait.update(true);
-    time.tick(3_000);
+    time.tick(2_000);
     wait.update(false);
     time.tick(10_000);
     assert.deepEqual(events, []);
     assert.equal(time.pending(), 0);
 });
 
-test("a new boot screen waits 5 s from its own start", () => {
+test("a new boot screen waits 3 s from its own start", () => {
     const { time, events, wait } = setUp();
 
     wait.update(true);
-    time.tick(4_000);
+    time.tick(2_500);
     wait.update(false);
     wait.update(true);
-    time.tick(4_000);
+    time.tick(2_500);
     assert.deepEqual(events, []);
-    time.tick(1_000);
+    time.tick(500);
     assert.deepEqual(events, ["show"]);
 });
 
