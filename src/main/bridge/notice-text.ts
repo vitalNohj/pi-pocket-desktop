@@ -2,7 +2,7 @@
  * How a notification shows what Pi Pocket sends: an approval's call made safe to read (invisible and reordering
  * characters shown as marks, cut to a length), and whether its notification offers Allow. Pure functions.
  */
-import type { AllowFromNotification } from "../shared/types";
+import type { AllowFromNotification } from "../../shared/types";
 
 /**
  * Characters that change how text reads without being seen: controls (but tab and line breaks), format characters

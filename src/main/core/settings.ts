@@ -4,8 +4,8 @@
  */
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute } from "node:path";
-import type { Settings, SettingsProblem } from "../shared/types";
-import { modelById } from "./dictation-catalog";
+import type { Settings, SettingsProblem } from "../../shared/types";
+import { modelById } from "../dictation/dictation-catalog";
 import { normalizeServerUrl } from "./url";
 
 export const DEFAULT_SERVER_URL = "http://127.0.0.1:8787";

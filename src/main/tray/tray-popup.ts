@@ -1,11 +1,11 @@
 /**
  * The tray menu on Windows: a frameless popup, because a native Win32 menu cannot be restyled. It opens at the tray
  * icon, stays on screen, and closes on blur, Escape, or a click outside it. Keyboard: Up, Down, Home, End, Enter,
- * Escape. Other desktops keep Electron's native menu (src/main/desktop.ts).
+ * Escape. Other desktops keep Electron's native menu (src/main/bridge/desktop.ts).
  */
-import { join } from "node:path";
+import { preloadPath } from "../core/paths";
 import { BrowserWindow, ipcMain, screen, type IpcMainEvent, type Rectangle, type Tray } from "electron";
-import type { ThemeColors } from "../shared/types";
+import type { ThemeColors } from "../../shared/types";
 import { placeTrayMenu, trayMenuPalette, type TrayMenuModel, type TrayMenuPalette, type TrayMenuRow, type TrayMenuStyle } from "./tray-menu";
 
 /** What the popup needs, and nothing of the rest of the app. */
@@ -183,7 +183,7 @@ export function setUpTrayPopup(host: TrayPopupHost): {
             roundedCorners: true,
             backgroundColor: "#00000000",
             webPreferences: {
-                preload: join(__dirname, "..", "preload", "tray-menu.js"),
+                preload: preloadPath("tray-menu"),
                 contextIsolation: true,
                 sandbox: true,
                 nodeIntegration: false,

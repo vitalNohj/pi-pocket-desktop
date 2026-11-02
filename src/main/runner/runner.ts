@@ -5,7 +5,7 @@
  * the Runner card with the server's address and a one-time code from its Menu → Runners (`runner link`), the link
  * stays in the app's own folder, and the app starts the runner again when it stops, unless the server ended the link.
  *
- * The runner comes from the Pi Pocket runtime the app installs (src/main/local-server.ts): one is installed for it
+ * The runner comes from the Pi Pocket runtime the app installs (src/main/local-server/local-server.ts): one is installed for it
  * when there is none yet, also when the app connects to another server.
  */
 import { spawn, type ChildProcess } from "node:child_process";
@@ -13,8 +13,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { RunnerState } from "../shared/types";
-import { cleanLine } from "./local-versions";
+import type { RunnerState } from "../../shared/types";
+import { cleanLine } from "../local-server/local-versions";
 
 /** `pi-pocket runner`'s exit code when the server ended the link for good: starting it again would not help. */
 export const STOPPED_BY_SERVER = 3;

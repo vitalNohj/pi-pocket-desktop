@@ -241,7 +241,7 @@ export function engineSize(platform: string, arch: string): number {
     return ENGINE_JS.size + (engineNative(platform, arch)?.size ?? 0) + VAD.size;
 }
 
-/** sherpa-onnx's model config for a model in a folder (src/main/dictation-worker.ts passes it on). */
+/** sherpa-onnx's model config for a model in a folder (src/main/dictation/dictation-worker.ts passes it on). */
 export function modelConfig(model: SpeechModel, folder: string, threads: number, join: (...parts: string[]) => string): Record<string, unknown> {
     const file = (name: string) => join(folder, name);
     // A file by the end of its name, matched at a word's start: "cached_decode" must not find "uncached_decode".

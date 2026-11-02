@@ -8,11 +8,11 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { appendFile, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { LocalState, LocalStatus, LocalUpdate, ProbeResult, Settings } from "../shared/types";
-import { downloadChecked } from "./download";
-import type { LocalDown } from "./server-choice";
-import { activity, diagnose } from "./stall-watchdog";
-import { UpdateSchedule } from "./update-schedule";
+import type { LocalState, LocalStatus, LocalUpdate, ProbeResult, Settings } from "../../shared/types";
+import { downloadChecked } from "../core/download";
+import type { LocalDown } from "../connection/server-choice";
+import { activity, diagnose } from "../diagnostics/stall-watchdog";
+import { UpdateSchedule } from "../updates/update-schedule";
 import {
     cleanLine,
     compareVersions,
@@ -924,7 +924,7 @@ export function setUpLocalServer(host: LocalHost) {
         },
         installed: () => usable(readCurrent().current),
         /**
-         * The runtime to run `pi-pocket runner` from (src/main/runner.ts): the current one, or the one an update built
+         * The runtime to run `pi-pocket runner` from (src/main/runner/runner.ts): the current one, or the one an update built
          * for the next start, whichever has the runner. Undefined when neither has.
          */
         runnerRuntime: (): { node: string; launcher: string; bin: string } | undefined => {

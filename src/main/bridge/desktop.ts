@@ -22,15 +22,15 @@ import {
     type Tray,
     type WebContents,
 } from "electron";
-import type { HostEvent, HostHello, HostNotification, PinnedSession, Settings, ThemeColors } from "../shared/types";
+import type { HostEvent, HostHello, HostNotification, PinnedSession, Settings, ThemeColors } from "../../shared/types";
 import { cornerDot, dotBitmap, paintDot, tint } from "./badge-image";
-import { readTheme, rgbOf } from "./theme";
+import { readTheme, rgbOf } from "../window/theme";
 import { pinLabel, readBadge, readNotification, readPinned } from "./bridge-input";
 import { offersAllow, showCall } from "./notice-text";
-import { buildTrayMenu, readAccent } from "./tray-menu";
-import { setUpTrayPopup } from "./tray-popup";
+import { buildTrayMenu, readAccent } from "../tray/tray-menu";
+import { setUpTrayPopup } from "../tray/tray-popup";
 import { type NewSessionView, PendingNewSession, readPageEvents } from "./new-session";
-import { activity, diagnose } from "./stall-watchdog";
+import { activity, diagnose } from "../diagnostics/stall-watchdog";
 
 /** What the bridge needs from the rest of the app. */
 export interface DesktopHost {
@@ -64,7 +64,7 @@ export interface DesktopHost {
     themeChanged: (theme: ThemeColors) => void;
     /** Offline dictation has an engine for this computer. */
     dictation: () => boolean;
-    /** A right-click the page left alone, as its preload saw it (src/main/themed-menu.ts reads it). */
+    /** A right-click the page left alone, as its preload saw it (src/main/window/themed-menu.ts reads it). */
     pageRightClick: (click: unknown) => void;
 }
 

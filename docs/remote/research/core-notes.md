@@ -81,7 +81,7 @@ Read-only investigation. No repository files were edited. No tests, builds, or s
 - `/home/nohj/pi-pocket/web/style.css:7145-7540`: existing folder picker CSS. This is mainly the folder/UI agent's scope.
 
 ## G. Runner packaging and security
-- `/home/nohj/pi-pocket-gui/src/main/desktop.ts:69-85`: `setUpDesktop` checks sender contents, top frame, and configured origin with `fromServerPage`. Reuse this policy for runner management only, not arbitrary filesystem IPC exposed to page JavaScript.
+- `/home/nohj/pi-pocket-gui/src/main/bridge/desktop.ts:69-85`: `setUpDesktop` checks sender contents, top frame, and configured origin with `fromServerPage`. Reuse this policy for runner management only, not arbitrary filesystem IPC exposed to page JavaScript.
 - `/home/nohj/pi-pocket-gui/src/preload/server.ts:40`: bridge capabilities currently lack a runner capability. Add narrow pairing/status/folder-grant controls and shared types; maintain version 1 capability negotiation.
 - `/home/nohj/pi-pocket-gui/src/main/index.ts:331-341`: GUI quit exits the app. Embedding the runner in main couples its lifetime and failures to the GUI. It avoids a separate runtime and is the simplest packaging option, but cannot stay available after GUI quit.
 - Prefer a separate Node-only runner with a GUI manager. A shared runner core can also run in a managed child. Independent availability after GUI quit needs an explicit user login service/daemon plus update/uninstall rules; merely forking does not establish that promise. Bundle a runtime or require Node. Electron utility-process lifecycle must not be mistaken for an independent service.

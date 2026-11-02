@@ -4,7 +4,7 @@
  * side the app opens at start). Looking at a side changes nothing; only Connect, Start, Open, or a server that stops
  * does. Decisions only, independent of Electron: src/main/index.ts acts on them.
  */
-import type { ChoiceStatus, ConfigReason, LocalState, ProbeResult, Side } from "../shared/types";
+import type { ChoiceStatus, ConfigReason, LocalState, ProbeResult, Side } from "../../shared/types";
 
 /** Why the window has no remote server: the connection dropped, or the last Connect failed. */
 export interface RemoteError {
@@ -156,7 +156,7 @@ export function remoteChoiceStatus(input: { connectedUrl: string | undefined; er
     return { label: "Not connected", state: "checking" };
 }
 
-/** Why this computer's Pi Pocket went down (src/main/local-server.ts). */
+/** Why this computer's Pi Pocket went down (src/main/local-server/local-server.ts). */
 export type LocalDown =
     /** It stopped on its own: a crash, or a start that failed. */
     | { kind: "crashed"; message: string }

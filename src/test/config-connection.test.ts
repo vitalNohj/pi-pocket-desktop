@@ -3,9 +3,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
-import { mayConnect } from "../main/connection";
-import { defaultSettings } from "../main/settings";
-import { DEFAULT_THEME } from "../main/theme";
+import { mayConnect } from "../main/connection/connection";
+import { defaultSettings } from "../main/core/settings";
+import { DEFAULT_THEME } from "../main/window/theme";
 import type { ConfigState, ProbeResult } from "../shared/types";
 
 const url = "https://example.com/pocket";

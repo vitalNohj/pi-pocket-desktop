@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { validateSettings } from "../main/settings";
-import { DEFAULT_THEME } from "../main/theme";
+import { validateSettings } from "../main/core/settings";
+import { DEFAULT_THEME } from "../main/window/theme";
 import type { WebContents } from "electron";
 import {
     bandHeight,
@@ -14,7 +14,7 @@ import {
     SchemeGuard,
     titleBarOptions,
     TRAFFIC_LIGHTS,
-} from "../main/titlebar";
+} from "../main/window/titlebar";
 
 test("the notch cuts the tiled window under the controls, on their side, only where corner-shape is supported", () => {
     assert.match(NOTCH_CSS, /^@supports \(corner-shape: notch\) \{/);

@@ -29,10 +29,10 @@ import {
     type WebContents,
 } from "electron";
 import type { BillionContextAction, ConfigReason, ConfigState, DictationAction, LocalAction, ProbeResult, Settings, SettingsProblem, Side, ThemeColors, TitleBarStyle } from "../shared/types";
-import { retryDelayMs } from "./backoff";
-import { mayConnect, NavigationResponses } from "./connection";
-import { CONFIG_URL, isAppPage, registerAppScheme, serveAppPages } from "./config-protocol";
-import { contextMenuTemplate, type ClickInfo, type MenuActions } from "./context-menu";
+import { retryDelayMs } from "./core/backoff";
+import { mayConnect, NavigationResponses } from "./connection/connection";
+import { CONFIG_URL, isAppPage, registerAppScheme, serveAppPages } from "./settings-screen/config-protocol";
+import { contextMenuTemplate, type ClickInfo, type MenuActions } from "./window/context-menu";
 import {
     eventCovered,
     MENU_WORLD,
@@ -44,17 +44,17 @@ import {
     readPageClick,
     runPicked,
     themedGroups,
-} from "./themed-menu";
-import { setUpAppearance } from "./appearance";
-import { parseAppsUseLightTheme, setUpTitleBar, titleBarOptions } from "./titlebar";
-import { loadTheme, sameTheme, saveTheme } from "./theme";
-import { setUpDesktop } from "./desktop";
-import { isNewSessionKey, listenForNewSessionLinks, newSessionMenuItem, offerNewSession } from "./new-session";
-import { setUpDictation } from "./dictation";
-import { INTEGRATION, INTEGRATION_PAGE, setUpBillionContext } from "./billion-context";
-import { setUpRunner } from "./runner";
-import { askRunnerSession } from "./runner-dialog";
-import { setUpLocalServer } from "./local-server";
+} from "./window/themed-menu";
+import { setUpAppearance } from "./window/appearance";
+import { parseAppsUseLightTheme, setUpTitleBar, titleBarOptions } from "./window/titlebar";
+import { loadTheme, sameTheme, saveTheme } from "./window/theme";
+import { setUpDesktop } from "./bridge/desktop";
+import { isNewSessionKey, listenForNewSessionLinks, newSessionMenuItem, offerNewSession } from "./bridge/new-session";
+import { setUpDictation } from "./dictation/dictation";
+import { INTEGRATION, INTEGRATION_PAGE, setUpBillionContext } from "./billion-context/billion-context";
+import { setUpRunner } from "./runner/runner";
+import { askRunnerSession } from "./runner/runner-dialog";
+import { setUpLocalServer } from "./local-server/local-server";
 import {
     canReturn,
     connectFailed,
@@ -72,19 +72,18 @@ import {
     whenLost,
     type LocalDown,
     type RemoteError,
-} from "./server-choice";
-import { setUpUpdates } from "./updates";
-import { setLaunchAtLogin, startedAtLogin, trayAvailable } from "./platform";
-import { networkMessage, probe } from "./probe";
-import { guardContents, guardSession, openOutside, type OriginPolicy } from "./security";
-import { defaultSettings, loadSettings, saveSettings, validateSettings } from "./settings";
-import { normalizeServerUrl } from "./url";
-import { loadWindowState, saveWindowState } from "./window-state";
-import { HangWatch, LOOK_SCRIPT, lookWithin, PageRecovery, type PageLook } from "./page-recovery";
-import { activity, diagnose, diagnosticsFile, startDiagnostics, stopDiagnostics } from "./stall-watchdog";
+} from "./connection/server-choice";
+import { setUpUpdates } from "./updates/updates";
+import { setLaunchAtLogin, startedAtLogin, trayAvailable } from "./core/platform";
+import { networkMessage, probe } from "./connection/probe";
+import { guardContents, guardSession, openOutside, type OriginPolicy } from "./core/security";
+import { defaultSettings, loadSettings, saveSettings, validateSettings } from "./core/settings";
+import { normalizeServerUrl } from "./core/url";
+import { loadWindowState, saveWindowState } from "./window/window-state";
+import { HangWatch, LOOK_SCRIPT, lookWithin, PageRecovery, type PageLook } from "./connection/page-recovery";
+import { activity, diagnose, diagnosticsFile, startDiagnostics, stopDiagnostics } from "./diagnostics/stall-watchdog";
 
-const ROOT = join(__dirname, "..", "..");
-const ASSETS = join(ROOT, "assets");
+import { ASSETS, RENDERER, preloadPath } from "./core/paths";
 const SERVER_PARTITION = "persist:server";
 const CONFIG_PARTITION = "gui-config";
 
@@ -107,7 +106,7 @@ registerAppScheme();
 if (!app.requestSingleInstanceLock()) {
     app.quit();
 } else {
-    // First: a stall of the main process from here on lands in the log (src/main/stall-watchdog.ts).
+    // First: a stall of the main process from here on lands in the log (src/main/diagnostics/stall-watchdog.ts).
     startDiagnostics(join(app.getPath("userData"), "diagnostics.log"));
     diagnose(`app started: version ${app.getVersion()}, Electron ${process.versions.electron}, ${process.platform} ${process.getSystemVersion()}`);
     listenForNewSessionLinks();
@@ -128,7 +127,7 @@ interface Gui {
     reason: ConfigReason;
     /**
      * The side of Connection the config screen shows. Choosing one only shows it; the server the window uses is
-     * `settings.server.mode` (src/main/server-choice.ts).
+     * `settings.server.mode` (src/main/connection/server-choice.ts).
      */
     viewing: Side;
     /** Why the window has no other server: its connection dropped, or the last Connect failed. */
@@ -151,35 +150,35 @@ interface Gui {
     retryAttempt: number;
     health: { timer: NodeJS.Timeout; failures: number } | undefined;
     quitting: boolean;
-    /** The host bridge's main-process side (src/main/desktop.ts). */
+    /** The host bridge's main-process side (src/main/bridge/desktop.ts). */
     desktop: ReturnType<typeof setUpDesktop> | undefined;
-    /** The app's own updates (src/main/updates.ts). */
+    /** The app's own updates (src/main/updates/updates.ts). */
     updates: ReturnType<typeof setUpUpdates> | undefined;
-    /** The see-through window (src/main/appearance.ts). */
+    /** The see-through window (src/main/window/appearance.ts). */
     appearance: ReturnType<typeof setUpAppearance> | undefined;
     /** Linux: the window was made see-through at start; turning that on needs a new window. */
     translucentAtStart: boolean;
-    /** The title bar (src/main/titlebar.ts), as the window was made: a change takes a restart. */
+    /** The title bar (src/main/window/titlebar.ts), as the window was made: a change takes a restart. */
     titleBar: ReturnType<typeof setUpTitleBar> | undefined;
     titleBarAtStart: TitleBarStyle;
-    /** Pi Pocket's colors, the last its page showed (src/main/theme.ts), and where they are kept. */
+    /** Pi Pocket's colors, the last its page showed (src/main/window/theme.ts), and where they are kept. */
     theme: ThemeColors;
     themePath: string;
     /** The notice about a server without the bridge was shown in this run. */
     toldNoBridge: boolean;
-    /** Pi Pocket on this computer (src/main/local-server.ts). */
+    /** Pi Pocket on this computer (src/main/local-server/local-server.ts). */
     local: ReturnType<typeof setUpLocalServer> | undefined;
-    /** Offline dictation (src/main/dictation.ts). */
+    /** Offline dictation (src/main/dictation/dictation.ts). */
     dictation: ReturnType<typeof setUpDictation> | undefined;
-    /** billion-context-pi-pocket in this computer's Pi Pocket (src/main/billion-context.ts). */
+    /** billion-context-pi-pocket in this computer's Pi Pocket (src/main/billion-context/billion-context.ts). */
     billionContext: ReturnType<typeof setUpBillionContext> | undefined;
-    /** This computer as a runner for a server (src/main/runner.ts). */
+    /** This computer as a runner for a server (src/main/runner/runner.ts). */
     runner: ReturnType<typeof setUpRunner> | undefined;
     /** The login link was opened: the next page drops it from the view's history. */
     signingIn: boolean;
     /** Whether the server's page answers (Electron's unresponsive, and the health check's look at the page). */
     pageHang: HangWatch;
-    /** When to reload a page that stays stuck while its server answers (src/main/page-recovery.ts). */
+    /** When to reload a page that stays stuck while its server answers (src/main/connection/page-recovery.ts). */
     recovery: PageRecovery;
     /**
      * The page's renderer is being replaced on purpose (reloadServer): its render-process-gone is not a crash, and the
@@ -233,7 +232,7 @@ async function start(): Promise<void> {
     const configSession = session.fromPartition(CONFIG_PARTITION);
 
     serverSession.setUserAgent(`${serverSession.getUserAgent()} PiPocketGUI/${app.getVersion()}`);
-    serveAppPages(configSession, join(ROOT, "dist", "renderer"));
+    serveAppPages(configSession, RENDERER);
     configSession.setPermissionRequestHandler((_contents, permission, callback) => {
         callback(permission === "clipboard-sanitized-write");
     });
@@ -242,7 +241,7 @@ async function start(): Promise<void> {
         webPreferences: {
             session: serverSession,
             // window.pocketHost, the host bridge; the main process decides at its start whether the page gets it.
-            preload: join(__dirname, "..", "preload", "server.js"),
+            preload: preloadPath("server"),
             contextIsolation: true,
             sandbox: true,
             nodeIntegration: false,
@@ -255,7 +254,7 @@ async function start(): Promise<void> {
     const config = new WebContentsView({
         webPreferences: {
             session: configSession,
-            preload: join(__dirname, "..", "preload", "config.js"),
+            preload: preloadPath("config"),
             contextIsolation: true,
             sandbox: true,
             nodeIntegration: false,
@@ -1001,7 +1000,7 @@ function layout(): void {
     }
 
     const { width, height } = gui.window.getContentBounds();
-    // Below the title bar's strip only when the page could not be told to keep clear of it (src/main/titlebar.ts).
+    // Below the title bar's strip only when the page could not be told to keep clear of it (src/main/window/titlebar.ts).
     const top = gui.titleBar?.offset() ?? 0;
 
     const recovery = gui.showing === "server" && gui.unverified ? Math.min(48, height) : 0;
@@ -1388,7 +1387,7 @@ let menusDrawn = 0;
 
 /**
  * The right-click menu on one of the server's pages: `contextMenuTemplate`'s items, drawn in the page in Pi Pocket's
- * theme (src/main/themed-menu.ts). Where the page cannot draw it, the same template pops up as the native menu.
+ * theme (src/main/window/themed-menu.ts). Where the page cannot draw it, the same template pops up as the native menu.
  */
 function openContextMenu(
     window: BaseWindow,
@@ -1491,7 +1490,7 @@ function openServerWindow(url: string): void {
         openContextMenu(child, child.webContents, params, params, {});
     });
     // The caption buttons' nativeTheme is process-wide: this window is given the system's scheme, and until it is,
-    // nativeTheme stays "system" (src/main/titlebar.ts). Registered before loading, which the protocol needs first.
+    // nativeTheme stays "system" (src/main/window/titlebar.ts). Registered before loading, which the protocol needs first.
     void state.titleBar?.followSystemScheme(child.webContents);
     void child.loadURL(url);
 }
@@ -1572,7 +1571,7 @@ async function retry(): Promise<void> {
 /**
  * Checks the server the window uses, and its page, every healthIntervalSeconds. Another server that stops answering
  * shows the config screen; this computer's Pi Pocket says that itself (its process). For both, a page that stays stuck
- * (the boot screen, or no answer) while the server answers is reloaded (src/main/page-recovery.ts).
+ * (the boot screen, or no answer) while the server answers is reloaded (src/main/connection/page-recovery.ts).
  */
 function startHealth(): void {
     const state = gui!;
@@ -1654,7 +1653,7 @@ function stopHealth(): void {
 const LOOK_LIMIT_MS = 3000;
 
 /**
- * What the server's page shows now (src/main/page-recovery.ts, PageLook). A page that does not answer in time also
+ * What the server's page shows now (src/main/connection/page-recovery.ts, PageLook). A page that does not answer in time also
  * counts toward "not responding": Electron's own unresponsive does not fire while the title bar's debugger is attached.
  */
 async function lookAtPage(): Promise<PageLook> {
@@ -1810,7 +1809,7 @@ function applyDesktopSettings(before: Settings | undefined): void {
     state.desktop?.refreshTray();
 }
 
-/** The tray icon. Its menu and image (the pins, a dot when sessions need you) come from src/main/desktop.ts. */
+/** The tray icon. Its menu and image (the pins, a dot when sessions need you) come from src/main/bridge/desktop.ts. */
 function createTray(): Tray {
     const image = nativeImage.createFromPath(join(ASSETS, "icon-192.png")).resize({ width: 22, height: 22 });
     const tray = new Tray(image);
@@ -1909,7 +1908,7 @@ function loadAgain(): void {
     }
 }
 
-/** New session (src/main/new-session.ts): the window shows, and the page opens its New session sheet when it can. */
+/** New session (src/main/bridge/new-session.ts): the window shows, and the page opens its New session sheet when it can. */
 function newSession(starting = false): void {
     gui?.desktop?.newSession(starting);
 }

@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 /**
- * The right-click menu's look. What it offers stays `contextMenuTemplate`'s (src/main/context-menu.ts): this module
+ * The right-click menu's look. What it offers stays `contextMenuTemplate`'s (src/main/window/context-menu.ts): this module
  * only draws that template inside the page, styled like Pi Pocket's own session menu and in the page's live colors,
  * and runs the item the person picks. Where it cannot be drawn, the caller pops the template up as a native menu.
  *
@@ -9,7 +9,7 @@
  * are the page's CSS variables, which inherit into the shadow root, so a theme change restyles an open menu too.
  */
 import type { MenuItemConstructorOptions } from "electron";
-import type { ThemeColors } from "../shared/types";
+import type { ThemeColors } from "../../shared/types";
 import type { ClickInfo } from "./context-menu";
 
 /** The isolated world the menu runs in. Any id other than 0 (the page) and the preload's own. */

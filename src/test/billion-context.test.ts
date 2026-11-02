@@ -4,8 +4,8 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { INTEGRATION, INTEGRATION_PAGE, LEGACY_INTEGRATION, integrationFiles, blobSha, REMOTE_COMMAND, type TreeEntry } from "../main/billion-context";
-import { validateSettings } from "../main/settings";
+import { INTEGRATION, INTEGRATION_PAGE, LEGACY_INTEGRATION, integrationFiles, blobSha, REMOTE_COMMAND, type TreeEntry } from "../main/billion-context/billion-context";
+import { validateSettings } from "../main/core/settings";
 
 const blob = (path: string, mode = "100644"): TreeEntry => ({ path, mode, type: "blob", sha: "0".repeat(40), size: 1 });
 
@@ -72,8 +72,8 @@ test("automatic updates are off unless turned on", () => {
 
 test("the extension folder stays the running Pi Pocket's until it restarts with a new data folder", async () => {
     const { mkdirSync, symlinkSync, writeFileSync: write } = await import("node:fs");
-    const { setUpLocalServer } = await import("../main/local-server");
-    const { defaultSettings } = await import("../main/settings");
+    const { setUpLocalServer } = await import("../main/local-server/local-server");
+    const { defaultSettings } = await import("../main/core/settings");
     const home = mkdtempSync(join(tmpdir(), "bc-local-"));
     const runtime = join(home, "runtimes", "r1");
     const launcher = join(runtime, "lib", "node_modules", "pi-pocket", "bin", "pi-pocket.js");

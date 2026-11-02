@@ -9,7 +9,7 @@ import {
     type NewSessionView,
     PendingNewSession,
     readPageEvents,
-} from "../main/new-session";
+} from "../main/bridge/new-session";
 
 const NEWER = new Set(["visibility", "open", "approve", "newSession"]);
 const server = (pageEvents: ReadonlySet<string> | undefined): NewSessionView => ({ showingServer: true, serverLoaded: true, pageEvents });

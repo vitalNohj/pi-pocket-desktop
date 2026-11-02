@@ -3,8 +3,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { setUpRunner, type RunnerConfirmation, type RunnerHost } from "../main/runner";
-import { validateSettings } from "../main/settings";
+import { setUpRunner, type RunnerConfirmation, type RunnerHost } from "../main/runner/runner";
+import { validateSettings } from "../main/core/settings";
 
 function host(home: string, overrides: Partial<RunnerHost> = {}): RunnerHost {
     let enabled = true;

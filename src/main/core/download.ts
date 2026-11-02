@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { createWriteStream } from "node:fs";
 import { rename, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { safeFileName } from "./update-pick";
+import { safeFileName } from "../updates/update-pick";
 
 export interface DownloadRequest {
     url: string;

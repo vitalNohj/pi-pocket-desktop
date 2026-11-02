@@ -242,7 +242,7 @@ if (hello !== null && typeof hello === "object") {
     offerBootReload();
 }
 
-/** What the main process sends about one dictation (src/main/dictation.ts, PageMessage). */
+/** What the main process sends about one dictation (src/main/dictation/dictation.ts, PageMessage). */
 type DictationMessage =
     | { id: number; type: "result"; text: string; final: boolean }
     | { id: number; type: "error"; error: string }
@@ -471,7 +471,7 @@ function installRecognition(dictation: {
 }
 
 /**
- * The page's own right-click, for the app's menu (src/main/themed-menu.ts). Electron's `context-menu` event opens the
+ * The page's own right-click, for the app's menu (src/main/window/themed-menu.ts). Electron's `context-menu` event opens the
  * menu wherever it fires; macOS has been known not to fire it for this view, and then this report is what opens it.
  * Only a right-click the page left alone: Pi Pocket's own menus (a session row's) call preventDefault, and the
  * listener runs after theirs, as the event bubbles. A right-click, a two-finger click, and a Control+click on macOS
@@ -512,7 +512,7 @@ function textField(target: EventTarget | null): HTMLElement | undefined {
     return target.isContentEditable ? target : undefined;
 }
 
-// The tokens src/main/theme.ts takes. A preload cannot import a module of its own, so the list is here too.
+// The tokens src/main/window/theme.ts takes. A preload cannot import a module of its own, so the list is here too.
 const TOKENS: ThemeToken[] = [
     "desk",
     "bg",
@@ -531,7 +531,7 @@ const TOKENS: ThemeToken[] = [
 ];
 
 /**
- * Pi Pocket's colors as the page shows them, for the app's settings screen, window, and tray (src/main/theme.ts): read
+ * Pi Pocket's colors as the page shows them, for the app's settings screen, window, and tray (src/main/window/theme.ts): read
  * at start and again whenever the theme changes (the root's attributes and inline variables, or a theme stylesheet).
  * Each token is resolved to #rrggbb[aa] by painting it, so color-mix() and theme files of any form come out the same.
  */

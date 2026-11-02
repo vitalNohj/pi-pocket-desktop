@@ -19,7 +19,7 @@
 
 :root {
     /* Pi Pocket's own token names (its theme surface). The app sets them inline from the theme the server's page shows
-     * (src/main/theme.ts); these are its default, Tokyo Night, for before any server has. */
+     * (src/main/window/theme.ts); these are its default, Tokyo Night, for before any server has. */
     --desk: #0e0e14;
     --bg: #1a1b26;
     --card: #202230;
@@ -109,7 +109,7 @@ body.recovering {
 .page {
     max-width: 1320px;
     margin: 0 auto;
-    /* The window's controls sit over the top edge (src/main/titlebar.ts): the page starts below them. */
+    /* The window's controls sit over the top edge (src/main/window/titlebar.ts): the page starts below them. */
     padding: calc(max(32px, env(titlebar-area-height, 0px) + 12px)) 24px 48px;
     display: grid;
     gap: 16px;
@@ -729,7 +729,7 @@ input[type="range"] {
     opacity: 0.5;
 }
 
-/* The strip at the top edge, under the window's controls, drags the window (src/main/titlebar.ts). */
+/* The strip at the top edge, under the window's controls, drags the window (src/main/window/titlebar.ts). */
 :root::after {
     content: "";
     position: fixed;

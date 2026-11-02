@@ -2,9 +2,9 @@ import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { buildTrayMenu, placeTrayMenu, readAccent, trayMenuPalette, type ScreenRect, type TrayScreen } from "../main/tray-menu";
-import { estimateHeight, menuPage } from "../main/tray-popup";
-import { defaultSettings, validateSettings } from "../main/settings";
+import { buildTrayMenu, placeTrayMenu, readAccent, trayMenuPalette, type ScreenRect, type TrayScreen } from "../main/tray/tray-menu";
+import { estimateHeight, menuPage } from "../main/tray/tray-popup";
+import { defaultSettings, validateSettings } from "../main/core/settings";
 import type { PinnedSession, ThemeColors } from "../shared/types";
 
 /** A display whose taskbar takes nothing, so the work area is the whole screen. */

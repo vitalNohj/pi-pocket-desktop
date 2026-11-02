@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { pageCss, translucencySupport } from "../main/appearance";
-import { defaultSettings, validateSettings } from "../main/settings";
+import { pageCss, translucencySupport } from "../main/window/appearance";
+import { defaultSettings, validateSettings } from "../main/core/settings";
 
 test("macOS and Windows 11 22H2 blur at any time; Linux needs the window made see-through at start", () => {
     assert.deepEqual(translucencySupport("darwin", "15.1.0", false), { kind: "live", blur: "system" });

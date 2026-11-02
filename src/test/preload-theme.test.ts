@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
-import { DEFAULT_THEME, THEME_TOKENS } from "../main/theme";
+import { DEFAULT_THEME, THEME_TOKENS } from "../main/window/theme";
 import type { ThemeColors } from "../shared/types";
 
 /** Run the actual sandboxed preload, without Electron, and deliver its DOM/style/load events explicitly. */

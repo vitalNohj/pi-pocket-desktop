@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { UpdateSchedule } from "../main/update-schedule";
+import { UpdateSchedule } from "../main/updates/update-schedule";
 
 /** A schedule with fake timers: the test runs a due check by hand. */
 function schedule(hours = 6) {

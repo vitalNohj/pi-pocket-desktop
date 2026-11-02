@@ -1,5 +1,5 @@
 /** Connection decisions shared by the IPC boundary and its tests, independent of Electron. */
-import type { ProbeResult } from "../shared/types";
+import type { ProbeResult } from "../../shared/types";
 
 /** Detection is required, except for an HTML/sign-in page the person has explicitly chosen to open. */
 export function mayConnect(result: ProbeResult, allowUnverified = false): boolean {

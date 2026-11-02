@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { HangWatch, lookWithin, PageRecovery, type HangTimers, type PageLook } from "../main/page-recovery";
+import { HangWatch, lookWithin, PageRecovery, type HangTimers, type PageLook } from "../main/connection/page-recovery";
 
 const STUCK = 15_000;
 

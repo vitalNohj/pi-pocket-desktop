@@ -5,7 +5,7 @@
  *
  * The server page's preload (src/preload/server.ts) stands in the browser's SpeechRecognition, so Pi Pocket's own
  * mic button and Alt+V use it unchanged. Its audio comes here, and goes on to a worker process
- * (src/main/dictation-worker.ts) that runs the model. The audio never leaves the computer.
+ * (src/main/dictation/dictation-worker.ts) that runs the model. The audio never leaves the computer.
  *
  * On disk, in <userData>/dictation: engine-<version>/ (node_modules with the addon, silero_vad.onnx), models/<id>/.
  * A folder takes its name only once all its files are in and checked.
@@ -16,7 +16,7 @@ import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { ipcMain, utilityProcess, type IpcMainEvent, type IpcMainInvokeEvent, type UtilityProcess } from "electron";
-import type { DictationAction, DictationState, Settings } from "../shared/types";
+import type { DictationAction, DictationState, Settings } from "../../shared/types";
 import {
     ENGINE_JS,
     ENGINE_VERSION,
@@ -30,7 +30,7 @@ import {
     type CatalogFile,
     type SpeechModel,
 } from "./dictation-catalog";
-import { downloadChecked } from "./download";
+import { downloadChecked } from "../core/download";
 import type { WorkerIn, WorkerOut } from "./dictation-worker";
 
 export interface DictationHost {

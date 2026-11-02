@@ -9,8 +9,8 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { copyFile, cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import type { BillionContextState, Settings } from "../shared/types";
-import { downloadChecked } from "./download";
+import type { BillionContextState, Settings } from "../../shared/types";
+import { downloadChecked } from "../core/download";
 
 export const INTEGRATION = {
     repo: "vitalNohj/billion-context-pi-pocket",

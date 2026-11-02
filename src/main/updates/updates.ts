@@ -17,8 +17,8 @@ import { execFile } from "node:child_process";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { app, dialog, net, Notification, shell, type BaseWindow } from "electron";
-import type { Settings, UpdateState } from "../shared/types";
-import { downloadChecked } from "./download";
+import type { Settings, UpdateState } from "../../shared/types";
+import { downloadChecked } from "../core/download";
 import {
     CheckGenerations,
     isNewer,

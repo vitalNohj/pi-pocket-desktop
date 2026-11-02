@@ -4,8 +4,8 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test, type TestContext } from "node:test";
-import { INTEGRATION, LEGACY_INTEGRATION, REMOTE_COMMAND, blobSha, legacySettings, setUpBillionContext, type TreeEntry } from "../main/billion-context";
-import { defaultSettings } from "../main/settings";
+import { INTEGRATION, LEGACY_INTEGRATION, REMOTE_COMMAND, blobSha, legacySettings, setUpBillionContext, type TreeEntry } from "../main/billion-context/billion-context";
+import { defaultSettings } from "../main/core/settings";
 
 const COMMIT = "a".repeat(40);
 const OLD_COMMIT = "b".repeat(40);
