@@ -190,6 +190,11 @@ interface Gui {
     reloadCheck: NodeJS.Timeout | undefined;
     /** The "page not responding" question shows. */
     askingHang: boolean;
+    /**
+     * A load of this computer's Pi Pocket failed while its process runs (it was restarting): the health check loads
+     * the page again once the server answers. Its process, not a failed load, says when it is down.
+     */
+    loadFailed: boolean;
 }
 
 let gui: Gui | undefined;
@@ -308,6 +313,7 @@ async function start(): Promise<void> {
         replacing: undefined,
         reloadCheck: undefined,
         askingHang: false,
+        loadFailed: false,
     };
 
     gui.titleBar = setUpTitleBar({
@@ -406,6 +412,10 @@ async function start(): Promise<void> {
             // Its launcher restarted the server (an update, a crash): the page reconnects by itself, and the health
             // check reloads it if it stays on the boot screen.
             gui?.recovery.serverRestarted(Date.now());
+
+            if (gui !== undefined && gui.settings.server.mode === "local" && gui.loadedUrl !== undefined && gui.health === undefined) {
+                startHealth();
+            }
         },
     });
 
@@ -1203,6 +1213,11 @@ function watchServerView(): void {
     contents.on("did-start-navigation", (details) => {
         if (details.isMainFrame && !details.isSameDocument) {
             responses.started();
+
+            // A new load: if it fails too, did-fail-load says so again.
+            if (gui !== undefined) {
+                gui.loadFailed = false;
+            }
         }
     });
 
@@ -1250,6 +1265,24 @@ function watchServerView(): void {
         }
 
         diagnose(`page: did-fail-load ${String(code)} ${description} ${url}`);
+
+        // This computer's Pi Pocket still runs (its launcher restarts the server, or a reload met the restart): keep
+        // it, and load again once it answers. When its process stops, localDown says so. (With the checks turned off,
+        // the settings screen shows the error, as before.)
+        if (
+            gui.settings.server.mode === "local" &&
+            gui.loadedUrl !== undefined &&
+            gui.local?.state().status === "running" &&
+            gui.settings.connection.healthIntervalSeconds > 0
+        ) {
+            gui.loadFailed = true;
+
+            if (gui.health === undefined) {
+                startHealth();
+            }
+
+            return;
+        }
 
         serverLost({ kind: "load-failed", url, message: networkMessage(new Error(description), gui.settings.connection.probeTimeoutMs) }, true);
     });
@@ -1580,6 +1613,17 @@ function startHealth(): void {
 
         // Detected: Pi Pocket answers its info (a server still starting answers 503, which is not up yet).
         const up = found.kind === "detected";
+
+        // The last load of this computer's Pi Pocket failed while it restarted: it answers now, load it again.
+        if (up && gui.loadFailed) {
+            diagnose("page: the server answers again after a failed load; loading it again");
+            gui.loadFailed = false;
+            gui.recovery.reset();
+            loadAgain();
+            gui.health.timer = setTimeout(() => void tick(), gui.settings.connection.healthIntervalSeconds * 1000);
+
+            return;
+        }
         const look = up ? await lookAtPage() : "ready";
 
         if (gui.health === undefined) {
