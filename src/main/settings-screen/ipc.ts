@@ -5,7 +5,7 @@ import { app, dialog, ipcMain, shell, type IpcMainInvokeEvent } from "electron";
 import type { BillionContextAction, DictationAction, LocalAction } from "../../shared/types";
 import { mayConnect } from "../connection/connection";
 import { isAppPage } from "./config-protocol";
-import { canReturn, connectFailed } from "../connection/server-choice";
+import { connectFailed } from "../connection/server-choice";
 import { saveSettings, validateSettings } from "../core/settings";
 import { configState, pushConfigState, showConfig } from "./screen";
 import { sameAddress, checkAddress } from "../connection/address";
@@ -15,6 +15,7 @@ import { startHealth } from "../connection/health";
 import { connect } from "../connection/connect";
 import { openSettings } from "../app/menu";
 import { show } from "../window/views";
+import { navigate } from "../window/navigation";
 import { openLocal, localAction } from "../local-server/use";
 import { LINKS } from "../app/links";
 import { billionContextAction } from "../billion-context/action";
@@ -146,14 +147,7 @@ export function registerIpc(): void {
     handle("config:open-settings", openSettings);
 
     handle("config:back", () => {
-        const state = appState.gui!;
-
-        state.connectionAttempt++;
-
-        if (canReturn({ inUse: state.settings.server.mode, viewing: state.viewing, loaded: state.loadedUrl !== undefined })) {
-            state.reason = { kind: "user" };
-            show("server");
-        }
+        if (appState.gui?.showing === "config") navigate("back");
     });
 
     handle("config:retry", async () => {

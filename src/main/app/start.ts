@@ -29,9 +29,10 @@ import { SERVER_PARTITION, state as appState } from "./state";
 import { pageHangChanged, startHealth, reloadServer, reloadShowing } from "../connection/health";
 import { originOf, currentOrigin, checkAddress } from "../connection/address";
 import { pushConfigState, lockConfigView, showConfig } from "../settings-screen/screen";
-import { openSettings, quit, buildMenu, newSession } from "./menu";
+import { openSettings, openSettingsOn, quit, buildMenu, newSession } from "./menu";
 import { localReady, localDown } from "../local-server/use";
 import { show, showWindow, toggleWindow, layout } from "../window/views";
+import { setUpNavigation } from "../window/navigation";
 import { contextMenuEventAt, clipboardHasContent, openContextMenu } from "../window/page-menu";
 import { openServerWindow, watchServerView, connect } from "../connection/connect";
 import { registerIpc } from "../settings-screen/ipc";
@@ -73,6 +74,10 @@ export async function start(): Promise<void> {
     const serverSession = session.fromPartition(SERVER_PARTITION);
     const configSession = session.fromPartition(CONFIG_PARTITION);
 
+    for (const viewSession of [serverSession, configSession]) {
+        viewSession.registerPreloadScript({ type: "frame", filePath: preloadPath("navigation") });
+    }
+
     serverSession.setUserAgent(`${serverSession.getUserAgent()} PiPocketGUI/${app.getVersion()}`);
     serveAppPages(configSession, RENDERER);
     configSession.setPermissionRequestHandler((_contents, permission, callback) => {
@@ -84,6 +89,7 @@ export async function start(): Promise<void> {
             session: serverSession,
             // window.pocketHost, the host bridge; the main process decides at its start whether the page gets it.
             preload: preloadPath("server"),
+            additionalArguments: ["--pocket-gui-navigation"],
             contextIsolation: true,
             sandbox: true,
             nodeIntegration: false,
@@ -97,6 +103,7 @@ export async function start(): Promise<void> {
         webPreferences: {
             session: configSession,
             preload: preloadPath("config"),
+            additionalArguments: ["--pocket-gui-navigation"],
             contextIsolation: true,
             sandbox: true,
             nodeIntegration: false,
@@ -122,6 +129,7 @@ export async function start(): Promise<void> {
         configPath,
         showing: "config",
         reason: { kind: "first-run" },
+        navigation: {},
         viewing: loaded.settings.server.mode,
         remoteError: undefined,
         localAsked: false,
@@ -223,8 +231,7 @@ export async function start(): Promise<void> {
             pushConfigState();
         },
         needModel: () => {
-            openSettings();
-            appState.gui?.config.webContents.send("config:focus", "dictation");
+            openSettingsOn(undefined, "dictation");
         },
     });
 
@@ -395,6 +402,7 @@ export async function start(): Promise<void> {
     guardContents(server.webContents, policy, openServerWindow);
     lockConfigView();
     watchServerView();
+    setUpNavigation();
     layout();
     window.on("resize", layout);
     window.on("maximize", layout);

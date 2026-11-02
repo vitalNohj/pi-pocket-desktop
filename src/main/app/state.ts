@@ -11,6 +11,7 @@ import type { setUpLocalServer } from "../local-server/local-server";
 import type { LocalStopNotice, RemoteError } from "../connection/server-choice";
 import type { setUpUpdates } from "../updates/updates";
 import type { HangWatch, PageRecovery } from "../connection/page-recovery";
+import type { NavigationState } from "../window/navigation-state";
 
 export const SERVER_PARTITION = "persist:server";
 
@@ -26,6 +27,7 @@ export interface Gui {
     configPath: string;
     showing: "server" | "config";
     reason: ConfigReason;
+    navigation: NavigationState;
     /**
      * The side of Connection the config screen shows. Choosing one only shows it; the server the window uses is
      * `settings.server.mode` (src/main/connection/server-choice.ts).
