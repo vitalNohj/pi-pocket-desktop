@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { BrowserWindow, dialog, session, type ContextMenuParams } from "electron";
 import { NavigationResponses } from "./connection";
 import { isNewSessionKey } from "../bridge/new-session";
+import { saveRequestEnded, saveRequestStarted, saveResponse } from "../bridge/save-file";
 import { networkMessage } from "./probe";
 import { guardContents, openOutside, type OriginPolicy } from "../core/security";
 import { saveSettings } from "../core/settings";
@@ -86,8 +87,22 @@ export function watchServerView(): void {
         }
     });
 
+    contents.session.webRequest.onBeforeRequest((details, callback) => {
+        saveRequestStarted(details.id, details.url, details.webContentsId);
+        callback({});
+    });
+    contents.session.webRequest.onCompleted((details) => saveRequestEnded(details.id));
+    contents.session.webRequest.onErrorOccurred((details) => saveRequestEnded(details.id, details.error));
+
     // Record before commitment, but do not change UI here: an attachment has headers yet never replaces the page.
     contents.session.webRequest.onHeadersReceived((details, callback) => {
+        // Electron has one headers hook per session: share it with the pending file saves.
+        if (saveResponse(details.id, details.statusCode)) {
+            callback({ cancel: true });
+
+            return;
+        }
+
         if (details.webContentsId === contentsId && details.resourceType === "mainFrame") {
             const type = Object.entries(details.responseHeaders ?? {}).find(([name]) => name.toLowerCase() === "content-type")?.[1][0] ?? "";
 

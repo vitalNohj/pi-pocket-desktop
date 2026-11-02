@@ -4,6 +4,7 @@
  * address applies at once.
  */
 import { shell, type Session, type WebContents } from "electron";
+import { saveDownload } from "../bridge/save-file";
 
 export interface OriginPolicy {
     /** The origins the window may show: the server's, and the extra ones from settings (a sign-in in front of it). */
@@ -72,8 +73,9 @@ export function guardSession(session: Session, policy: OriginPolicy): void {
     });
 
     session.setDevicePermissionHandler(() => false);
-    session.on("will-download", () => {
-        // Electron asks where to save, as a browser does.
+    session.on("will-download", (event, item, contents) => {
+        // Only pending bridge saves choose a path. Other downloads keep Electron's save dialog.
+        saveDownload(event, item, contents);
     });
 }
 

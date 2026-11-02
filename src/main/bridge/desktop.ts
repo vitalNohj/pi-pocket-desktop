@@ -31,6 +31,7 @@ import { buildTrayMenu, readAccent } from "../tray/tray-menu";
 import { setUpTrayPopup } from "../tray/tray-popup";
 import { type NewSessionView, PendingNewSession, readPageEvents } from "./new-session";
 import { activity, diagnose } from "../diagnostics/stall-watchdog";
+import { saveFile } from "./save-file";
 
 /** What the bridge needs from the rest of the app. */
 export interface DesktopHost {
@@ -353,6 +354,14 @@ export function setUpDesktop(host: DesktopHost): {
             : null;
 
         event.returnValue = hello;
+    });
+
+    ipcMain.handle("host:save-file", (event, input: unknown) => {
+        if (!fromServerPage(event)) {
+            return { ok: false, error: "Not allowed." };
+        }
+
+        return saveFile(input, host.contents(), host.origin());
     });
 
     // The page subscribed to the app's events, and named the ones it handles (an older page names none).
