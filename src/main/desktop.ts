@@ -50,6 +50,8 @@ export interface DesktopHost {
     showWindow: () => void;
     toggleWindow: () => void;
     openSettings: () => void;
+    /** Load the server's page again, as the menu's Reload does: the page's boot screen took too long. */
+    reloadServer: () => void;
     quit: () => void;
     /** A tray line for the app's own update, when there is one to take. */
     updateItem: () => { label: string; click: () => void } | undefined;
@@ -347,6 +349,13 @@ export function setUpDesktop(host: DesktopHost): {
     ipcMain.on("host:invoke", (event, id: unknown) => {
         if (fromServerPage(event) && id === "server-settings") {
             host.openSettings();
+        }
+    });
+
+    // The page's Reload button (src/preload/server.ts, offerBootReload): its boot screen took too long.
+    ipcMain.on("host:reload", (event) => {
+        if (fromServerPage(event)) {
+            host.reloadServer();
         }
     });
 
