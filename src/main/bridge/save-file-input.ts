@@ -25,17 +25,21 @@ export function saveFileName(name: string, platform: NodeJS.Platform = process.p
     let safe = name.replace(/[/\\\x00-\x1f\x7f-\x9f]/g, "_").replace(/^\./, "_");
 
     if (platform === "win32") {
-        safe = safe.replace(/[<>:"|?*]/g, "_").replace(/[. ]+$/, "");
-
-        if (/^(?:con|prn|aux|nul|conin\$|conout\$|com[1-9¹²³]|lpt[1-9¹²³])[ ]*(?:\.|$)/i.test(safe)) {
-            safe = "_" + safe;
-        }
+        safe = safe.replace(/[<>:"|?*]/g, "_");
     }
 
     safe = safe.slice(0, 200);
 
-    // Truncation can itself put a dot or a space at the end on Windows.
-    return (platform === "win32" ? safe.replace(/[. ]+$/, "") : safe) || "download";
+    if (platform === "win32") {
+        // Truncation and trimming can themselves produce a device name. Check their final result.
+        safe = safe.replace(/[. ]+$/, "");
+
+        if (/^(?:con|prn|aux|nul|conin\$|conout\$|com[1-9¹²³]|lpt[1-9¹²³])[ ]*(?:\.|$)/i.test(safe)) {
+            safe = ("_" + safe).slice(0, 200).replace(/[. ]+$/, "");
+        }
+    }
+
+    return safe || "download";
 }
 
 /** The next unused name, with the count before the last extension. `taken` includes downloads still in progress. */

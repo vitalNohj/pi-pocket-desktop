@@ -42,6 +42,14 @@ test("Windows names cannot use invalid characters, device names, or trailing dot
         assert.equal(saveFileName(name, "win32"), name);
     }
 
+    assert.equal(saveFileName("CON" + " ".repeat(197) + "x", "win32"), "_CON");
+    assert.equal(saveFileName("NUL" + ".".repeat(197) + "x", "win32"), "_NUL");
+    const longDevice = saveFileName("CON." + "x".repeat(194) + ".x", "win32");
+
+    assert.ok(longDevice.startsWith("_CON."));
+    assert.ok(longDevice.length <= 200);
+    assert.ok(!/[. ]$/.test(longDevice));
+
     // Unix names retain characters that are valid there.
     assert.equal(saveFileName("report:notes?.txt", "linux"), "report:notes?.txt");
     assert.equal(saveFileName("report.txt. ", "darwin"), "report.txt. ");
