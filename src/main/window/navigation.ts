@@ -1,5 +1,5 @@
 // Every Back/Forward input goes here: the server's history, and one return step to GUI Settings.
-import { ipcMain } from "electron";
+import { app, ipcMain, type WebContents } from "electron";
 import { state } from "../app/state";
 import { currentOrigin, originOf } from "../connection/address";
 import { canReturn } from "../connection/server-choice";
@@ -74,13 +74,16 @@ export function setUpNavigation(): void {
         });
     }
 
-    for (const view of [server, config]) {
-        // registerAccelerator:false is Windows/Linux only. On macOS, let this key reach the preload too, so it can
-        // check editable focus before taking it. Reset this for every other key; other menu shortcuts still work.
-        view.webContents.on("before-input-event", (_event, input) => {
-            view.webContents.setIgnoreMenuShortcuts(navigationKey(input, process.platform) !== undefined);
+    const passNavigationKey = (contents: WebContents): void => {
+        // registerAccelerator:false is Windows/Linux only. Let this key reach the primary views' preload for its
+        // focus check. In pop-outs, leave the key to their page, never a menu shortcut that moves the primary view.
+        contents.on("before-input-event", (_event, input) => {
+            contents.setIgnoreMenuShortcuts(navigationKey(input, process.platform) !== undefined);
         });
-    }
+    };
+
+    for (const view of [server, config]) passNavigationKey(view.webContents);
+    app.on("web-contents-created", (_event, contents) => passNavigationKey(contents));
 
     ipcMain.on("window:navigate", (event, direction: unknown) => {
         if (direction !== "back" && direction !== "forward") {

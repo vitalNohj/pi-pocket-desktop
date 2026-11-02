@@ -23,7 +23,8 @@ export function keyDirection(event: KeyboardEvent, platform: string): "back" | "
         : event.key === (platform === "darwin" ? "]" : "ArrowRight") ? "forward" : undefined;
 }
 
-if (process.isMainFrame) {
+// The server session also belongs to pop-out windows. Only the two primary views opt in to input interception.
+if (process.isMainFrame && process.argv.includes("--pocket-gui-navigation")) {
     window.addEventListener("keydown", (event) => {
         const direction = keyDirection(event, process.platform);
 

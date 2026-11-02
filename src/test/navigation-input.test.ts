@@ -6,7 +6,7 @@ import { runInNewContext } from "node:vm";
 import { navigationKey } from "../main/window/navigation-state";
 import type * as Preload from "../preload/navigation";
 
-function page(platform = "linux", isMainFrame = true) {
+function page(platform = "linux", isMainFrame = true, primaryView = true) {
     const listeners = new Map<string, (event: unknown) => void>();
     const messages: unknown[][] = [];
     const document = { activeElement: null as unknown };
@@ -14,7 +14,7 @@ function page(platform = "linux", isMainFrame = true) {
 
     runInNewContext(readFileSync(join(__dirname, "..", "preload", "navigation.js"), "utf8"), {
         exports,
-        process: { platform, isMainFrame },
+        process: { platform, isMainFrame, argv: primaryView ? ["--pocket-gui-navigation"] : [] },
         document,
         window: { addEventListener: (name: string, listener: (event: unknown) => void, capture: boolean) => {
             assert.equal(capture, true);
@@ -110,6 +110,12 @@ test("only macOS installs the mouse fallback; it sends one message for buttons 3
         assert.equal(event.prevented, button === 3 || button === 4);
     }
     assert.deepEqual(mac.messages, [["window:navigate", "back"], ["window:navigate", "forward"]]);
+});
+
+test("secondary windows in the shared server session never consume keyboard or mouse input", () => {
+    for (const platform of ["linux", "win32", "darwin"]) {
+        assert.equal(page(platform, true, false).listeners.size, 0);
+    }
 });
 
 test("subframes never install keyboard or mouse handlers", () => {

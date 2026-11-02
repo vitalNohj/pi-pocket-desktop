@@ -7,6 +7,8 @@ import { runInNewContext } from "node:vm";
 import * as rules from "../main/window/navigation-state";
 import type { ConfigReason } from "../shared/types";
 import type * as Navigation from "../main/window/navigation";
+import type { MenuItemConstructorOptions } from "electron";
+import type * as AppMenu from "../main/app/menu";
 
 /** Actual main-process wiring and pure rules, with only Electron and the rest of the app replaced. */
 function app(platform = "linux") {
@@ -36,6 +38,7 @@ function app(platform = "linux") {
         connectionAttempt: 0,
     };
     const ipcMain = new EventEmitter();
+    const electronApp = new EventEmitter();
     const exports = {} as typeof Navigation;
     const openSettings: ConfigReason[] = [];
 
@@ -44,7 +47,7 @@ function app(platform = "linux") {
         process: { platform },
         require: (name: string) => {
             switch (name) {
-                case "electron": return { ipcMain };
+                case "electron": return { app: electronApp, ipcMain };
                 case "../app/state": return { state: { gui } };
                 case "./navigation-state": return rules;
                 case "../connection/address": return { currentOrigin: () => "https://pocket.example", originOf: (url: string) => new URL(url).origin };
@@ -58,7 +61,7 @@ function app(platform = "linux") {
     });
     exports.setUpNavigation();
 
-    return { gui, ipcMain, historyCalls, shortcuts, openSettings, navigate: exports.navigate, commit: () => gui.server.webContents.emit("did-navigate-in-page", {}, entries[index], true) };
+    return { gui, ipcMain, electronApp, historyCalls, shortcuts, openSettings, navigate: exports.navigate, commit: () => gui.server.webContents.emit("did-navigate-in-page", {}, entries[index], true) };
 }
 
 test("BaseWindow app-command handles both views on Windows and Linux, without a second mouse path", () => {
@@ -127,6 +130,20 @@ test("main ignores menu shortcuts only for the navigation keys in both views, re
     }
 });
 
+test("pop-out navigation keys are delivered to their page, not the primary view's menu shortcut", () => {
+    const state = app("darwin");
+    const ignored: boolean[] = [];
+    const popout = Object.assign(new EventEmitter(), { setIgnoreMenuShortcuts: (ignore: boolean) => ignored.push(ignore) });
+    const event = { prevented: false, preventDefault() { this.prevented = true; } };
+
+    state.electronApp.emit("web-contents-created", {}, popout);
+    popout.emit("before-input-event", event, { key: "[", meta: true, alt: false, control: false, shift: false });
+    popout.emit("before-input-event", event, { key: "r", meta: true, alt: false, control: false, shift: false });
+    assert.deepEqual(ignored, [true, false]);
+    assert.equal(event.prevented, false);
+    assert.equal(state.historyCalls.length, 0);
+});
+
 test("main-frame navigation clears Forward to settings, but subframes and our own history steps do not", () => {
     const state = app();
 
@@ -140,6 +157,45 @@ test("main-frame navigation clears Forward to settings, but subframes and our ow
     assert.equal(state.gui.navigation.forwardConfig?.kind, "user");
     state.gui.server.webContents.emit("did-navigate", {}, "https://pocket.example/other");
     assert.equal(state.gui.navigation.forwardConfig, undefined);
+});
+
+test("the View menu shows the platform keys, and its actions never move the primary view from a pop-out", () => {
+    for (const platform of ["linux", "win32", "darwin"]) {
+        const gui = { window: {}, pageHang: { hung: false } };
+        const calls: string[] = [];
+        const exports = {} as typeof AppMenu;
+        let menu: MenuItemConstructorOptions[] = [];
+
+        runInNewContext(readFileSync(join(__dirname, "..", "main", "app", "menu.js"), "utf8"), {
+            exports, process: { platform },
+            require: (name: string) => {
+                switch (name) {
+                    case "electron": return { Menu: { buildFromTemplate: (items: MenuItemConstructorOptions[]) => items, setApplicationMenu: (items: MenuItemConstructorOptions[]) => { menu = items; } } };
+                    case "./state": return { state: { gui } };
+                    case "../window/navigation": return { navigate: (direction: string) => calls.push(direction) };
+                    case "../bridge/new-session": return { newSessionMenuItem: () => ({ label: "New Session" }) };
+                    case "./links": return { LINKS: {} };
+                    default: return {};
+                }
+            },
+        });
+        exports.buildMenu();
+        const items = menu.find((item) => item.label === "View")!.submenu as MenuItemConstructorOptions[];
+        const back = items.find((item) => item.label === "Back")!;
+        const forward = items.find((item) => item.label === "Forward")!;
+
+        assert.equal(back.accelerator, platform === "darwin" ? "Command+[" : "Alt+Left");
+        assert.equal(forward.accelerator, platform === "darwin" ? "Command+]" : "Alt+Right");
+        assert.equal(back.registerAccelerator, false);
+        const click = (item: MenuItemConstructorOptions, window: object) => (item.click as (item: object, window: object) => void)(item, window);
+
+        click(back, {});
+        click(forward, {});
+        assert.deepEqual(calls, []);
+        click(back, gui.window);
+        click(forward, gui.window);
+        assert.deepEqual(calls, ["back", "forward"]);
+    }
 });
 
 test("same canReturn condition as the button: no return from first run or another server's side", () => {

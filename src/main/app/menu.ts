@@ -77,8 +77,12 @@ export function buildMenu(): void {
         {
             label: "View",
             submenu: [
-                { label: "Back", accelerator: mac ? "Command+[" : "Alt+Left", registerAccelerator: false, click: () => navigate("back") },
-                { label: "Forward", accelerator: mac ? "Command+]" : "Alt+Right", registerAccelerator: false, click: () => navigate("forward") },
+                { label: "Back", accelerator: mac ? "Command+[" : "Alt+Left", registerAccelerator: false, click: (_item, window) => {
+                    if (window === state.gui?.window) navigate("back");
+                } },
+                { label: "Forward", accelerator: mac ? "Command+]" : "Alt+Right", registerAccelerator: false, click: (_item, window) => {
+                    if (window === state.gui?.window) navigate("forward");
+                } },
                 { type: "separator" },
                 {
                     label: state.gui?.pageHang.hung === true ? "Reload (page not responding)" : "Reload",

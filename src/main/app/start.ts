@@ -89,6 +89,7 @@ export async function start(): Promise<void> {
             session: serverSession,
             // window.pocketHost, the host bridge; the main process decides at its start whether the page gets it.
             preload: preloadPath("server"),
+            additionalArguments: ["--pocket-gui-navigation"],
             contextIsolation: true,
             sandbox: true,
             nodeIntegration: false,
@@ -102,6 +103,7 @@ export async function start(): Promise<void> {
         webPreferences: {
             session: configSession,
             preload: preloadPath("config"),
+            additionalArguments: ["--pocket-gui-navigation"],
             contextIsolation: true,
             sandbox: true,
             nodeIntegration: false,
