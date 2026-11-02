@@ -15,7 +15,7 @@ import {
     stoppedAnswering,
     whenLocalReady,
     whenLost,
-} from "../main/server-choice";
+} from "../main/connection/server-choice";
 import type { ConfigReason, Side } from "../shared/types";
 
 const remote = "https://pocket.example.com/";

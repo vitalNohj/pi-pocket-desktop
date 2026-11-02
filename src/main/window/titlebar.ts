@@ -13,7 +13,7 @@
  * is a see-through strip of that height to drag the window by.
  */
 import type { BaseWindow, BaseWindowConstructorOptions, WebContents } from "electron";
-import type { ThemeColors, TitleBarStyle } from "../shared/types";
+import type { ThemeColors, TitleBarStyle } from "../../shared/types";
 
 /** Where macOS's traffic lights sit: close to the corner, so the band they need is short (their 14 px, and 7 on each side). */
 export const TRAFFIC_LIGHTS = { x: 12, y: 7 };

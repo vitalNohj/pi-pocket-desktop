@@ -1,5 +1,5 @@
 /**
- * Dictation's worker: an Electron utility process (src/main/dictation.ts starts it) that runs the speech model, so a
+ * Dictation's worker: an Electron utility process (src/main/dictation/dictation.ts starts it) that runs the speech model, so a
  * slow or failing model never holds up or brings down the app. It loads sherpa-onnx from the folder the app downloaded
  * it to, finds where speech starts and stops with Silero VAD, and recognises each phrase once it ends. While a phrase
  * is still being spoken, a quick model also recognises what it has so far, for words that show as you speak.

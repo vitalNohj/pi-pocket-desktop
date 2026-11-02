@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { probe, type Fetch } from "../main/probe";
-import { retryDelayMs } from "../main/backoff";
+import { probe, type Fetch } from "../main/connection/probe";
+import { retryDelayMs } from "../main/core/backoff";
 
 function server(routes: Record<string, () => Response>): Fetch {
     return async (url) => {

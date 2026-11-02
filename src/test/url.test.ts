@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { normalizeServerUrl } from "../main/url";
+import { normalizeServerUrl } from "../main/core/url";
 
 const ok = (input: string) => {
     const result = normalizeServerUrl(input);

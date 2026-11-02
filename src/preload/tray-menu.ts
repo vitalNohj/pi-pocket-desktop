@@ -1,5 +1,5 @@
 /**
- * The tray menu's page (src/main/tray-popup.ts). It only reports which item was chosen; the main process checks the
+ * The tray menu's page (src/main/tray/tray-popup.ts). It only reports which item was chosen; the main process checks the
  * sender and runs the action. Keyboard movement stays in the page.
  */
 import { contextBridge, ipcRenderer } from "electron";

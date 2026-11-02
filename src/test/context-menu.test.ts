@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import type { MenuItemConstructorOptions } from "electron";
-import { contextMenuTemplate, MAX_SUGGESTIONS, type ClickInfo } from "../main/context-menu";
+import { contextMenuTemplate, MAX_SUGGESTIONS, type ClickInfo } from "../main/window/context-menu";
 
 const flags = { canUndo: true, canRedo: true, canCut: true, canCopy: true, canPaste: true, canDelete: true, canSelectAll: true, canEditRichly: false };
 

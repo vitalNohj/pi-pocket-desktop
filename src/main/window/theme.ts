@@ -6,7 +6,7 @@
  */
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import type { ThemeColors, ThemeToken } from "../shared/types";
+import type { ThemeColors, ThemeToken } from "../../shared/types";
 
 /** The tokens the app takes, by Pi Pocket's names (docs/extensions/reference/theme-surface.md there). */
 export const THEME_TOKENS: readonly ThemeToken[] = [

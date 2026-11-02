@@ -2,7 +2,7 @@
  * What the server's page sends through the host bridge, checked: the page is another program, and may be of another
  * version, so every value is read as unknown and anything wrong is dropped. Pure functions.
  */
-import type { HostNotification, PinnedSession, PinState } from "../shared/types";
+import type { HostNotification, PinnedSession, PinState } from "../../shared/types";
 
 const PIN_STATES = new Set<PinState>(["waiting", "limited", "working", "failed", "fresh", "seen"]);
 const MAX_PINS = 20;

@@ -11,7 +11,7 @@
  * there): when a release renames them, the page only stays solid.
  */
 import type { BaseWindow, WebContents, WebContentsView } from "electron";
-import type { Settings, TranslucencySupport } from "../shared/types";
+import type { Settings, TranslucencySupport } from "../../shared/types";
 
 const CLEAR = "#00000000";
 

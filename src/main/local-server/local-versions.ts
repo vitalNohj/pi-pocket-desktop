@@ -1,6 +1,6 @@
 /**
  * Which Node.js and which Pi Pocket this computer's Pi Pocket runs on, and where their files go. Pure: the downloads
- * and processes are in src/main/local-server.ts.
+ * and processes are in src/main/local-server/local-server.ts.
  */
 import { join } from "node:path";
 

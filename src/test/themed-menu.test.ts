@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import type { MenuItemConstructorOptions } from "electron";
-import { contextMenuTemplate, type ClickInfo } from "../main/context-menu";
-import { DEFAULT_THEME } from "../main/theme";
+import { contextMenuTemplate, type ClickInfo } from "../main/window/context-menu";
+import { DEFAULT_THEME } from "../main/window/theme";
 import {
     acceleratorHint,
     eventCovered,
@@ -19,7 +19,7 @@ import {
     readPageClick,
     runPicked,
     themedGroups,
-} from "../main/themed-menu";
+} from "../main/window/themed-menu";
 
 const flags = { canUndo: true, canRedo: true, canCut: true, canCopy: true, canPaste: true, canDelete: true, canSelectAll: true, canEditRichly: false };
 

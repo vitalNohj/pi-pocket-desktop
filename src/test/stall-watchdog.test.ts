@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { Worker } from "node:worker_threads";
-import { appendCapped, newStallState, stallStep, WORKER_SOURCE, type StallEvent } from "../main/stall-watchdog";
+import { appendCapped, newStallState, stallStep, WORKER_SOURCE, type StallEvent } from "../main/diagnostics/stall-watchdog";
 
 const STALL = 3000;
 

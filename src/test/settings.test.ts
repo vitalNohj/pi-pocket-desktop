@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { defaultSettings, loadSettings, saveSettings, validateSettings } from "../main/settings";
+import { defaultSettings, loadSettings, saveSettings, validateSettings } from "../main/core/settings";
 
 test("a missing file gives the defaults, quietly", () => {
     const loaded = loadSettings(join(mkdtempSync(join(tmpdir(), "gui-")), "config.json"));

@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { CheckGenerations, nextUpdateStep, whenDownloaded, recheckFailedMessage, sameVersion, singleFlight, withTimeout, type RecheckFacts } from "../main/update-pick";
+import { CheckGenerations, nextUpdateStep, whenDownloaded, recheckFailedMessage, sameVersion, singleFlight, withTimeout, type RecheckFacts } from "../main/updates/update-pick";
 
 const offline = new Error("net::ERR_INTERNET_DISCONNECTED");
 

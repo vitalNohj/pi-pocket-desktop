@@ -1,10 +1,10 @@
 /**
  * The tray menu as data, and where its popup sits on the screen. Pure: no Electron, so the tests cover the items and
- * the on-screen clamping without a window. Windows draws this in a frameless popup (src/main/tray-popup.ts); other
+ * the on-screen clamping without a window. Windows draws this in a frameless popup (src/main/tray/tray-popup.ts); other
  * desktops keep Electron's native menu.
  */
-import type { PinnedSession, ThemeColors, TrayMenuStyle } from "../shared/types";
-import { pinLabel } from "./bridge-input";
+import type { PinnedSession, ThemeColors, TrayMenuStyle } from "../../shared/types";
+import { pinLabel } from "../bridge/bridge-input";
 
 export type { TrayMenuStyle };
 
@@ -95,7 +95,7 @@ export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
 }
 
 function rowOf(action: TrayMenuAction): TrayMenuItem {
-    // A pin's label is "<mark>  <title>" (src/main/bridge-input.ts). The mark is one character, so a title that itself
+    // A pin's label is "<mark>  <title>" (src/main/bridge/bridge-input.ts). The mark is one character, so a title that itself
     // holds two spaces stays whole. The title doubles every "&" so a native menu shows one; the popup has no
     // mnemonics, so it draws the title with the doubling undone.
     const mark = action.id.startsWith("pin-") ? action.label.slice(0, 1) : undefined;

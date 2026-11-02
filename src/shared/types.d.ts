@@ -85,7 +85,7 @@ export interface Settings {
         check: boolean;
         intervalHours: number;
     };
-    /** This computer's Pi Pocket (src/main/local-server.ts). A change takes a restart of it. */
+    /** This computer's Pi Pocket (src/main/local-server/local-server.ts). A change takes a restart of it. */
     local: {
         /** The folder new sessions start in; empty: the home folder. */
         folder: string;
@@ -110,7 +110,7 @@ export interface Settings {
         trayMenu: TrayMenuStyle;
     };
     dictation: {
-        /** The speech model Pi Pocket's mic button uses, by id (src/main/dictation-catalog.ts); empty: none downloaded. */
+        /** The speech model Pi Pocket's mic button uses, by id (src/main/dictation/dictation-catalog.ts); empty: none downloaded. */
         model: string;
         /** Show the words while a phrase is spoken (recognises it more than once: more CPU). */
         live: boolean;
@@ -119,7 +119,7 @@ export interface Settings {
         /** Install newer versions of billion-context-pi-pocket in this computer's Pi Pocket without asking. */
         autoUpdate: boolean;
     };
-    /** This computer as a runner for a Pi Pocket server (src/main/runner.ts). */
+    /** This computer as a runner for a Pi Pocket server (src/main/runner/runner.ts). */
     runner: {
         /** Run `pi-pocket runner` while the app runs, once this computer is linked. */
         enabled: boolean;
@@ -130,7 +130,7 @@ export interface Settings {
     };
 }
 
-/** This computer as a runner (src/main/runner.ts). */
+/** This computer as a runner (src/main/runner/runner.ts). */
 export interface RunnerState {
     /**
      * unlinked: no link yet. off: linked, turned off. connecting: started, not connected yet (or reconnecting).
@@ -177,7 +177,7 @@ export interface DictationModelState {
     download?: { step: string; percent: number };
 }
 
-/** Offline dictation (src/main/dictation.ts). */
+/** Offline dictation (src/main/dictation/dictation.ts). */
 export interface DictationState {
     /** The speech engine exists for this computer's system and processor. */
     supported: boolean;
@@ -191,7 +191,7 @@ export interface DictationState {
     downloading: boolean;
 }
 
-/** billion-context-pi-pocket in this computer's Pi Pocket (src/main/billion-context.ts). */
+/** billion-context-pi-pocket in this computer's Pi Pocket (src/main/billion-context/billion-context.ts). */
 export interface BillionContextState {
     /** Where Pi Pocket runs: another server (instructions only), or this computer's, not installed, stopped, or running. */
     server: "remote" | "absent" | "stopped" | "running";
@@ -313,7 +313,7 @@ export interface LocalState {
     home: string;
 }
 
-/** Where the app's own update stands (src/main/updates.ts). */
+/** Where the app's own update stands (src/main/updates/updates.ts). */
 export interface UpdateState {
     /** How an update reaches this copy: installed by the app, a disk image to drag over, the release page, or git. */
     method: "install" | "download" | "page" | "source";
@@ -423,7 +423,7 @@ export type HostEvent =
     /** Open the New session sheet: only for a page that named "newSession" as it subscribed. */
     | { type: "newSession" };
 
-/** Pi Pocket's theme tokens the app takes (src/main/theme.ts). */
+/** Pi Pocket's theme tokens the app takes (src/main/window/theme.ts). */
 /** How the window's top looks: Pi Pocket up to the edge, or the system's own title bar. */
 export type TitleBarStyle = "seamless" | "system";
 
@@ -452,7 +452,7 @@ export interface ThemeColors {
 /** What the server page's preload learns when it starts: whether it may offer the bridge, and the window's state. */
 export interface HostHello {
     visible: boolean;
-    /** Offline dictation can run here: the page's mic button uses it (src/main/dictation.ts). */
+    /** Offline dictation can run here: the page's mic button uses it (src/main/dictation/dictation.ts). */
     dictation: boolean;
 }
 

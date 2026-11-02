@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cornerDot, dotBitmap, paintDot } from "../main/badge-image";
-import { pinLabel, readBadge, readNotification, readPinned, serverPath } from "../main/bridge-input";
-import { markHidden, offersAllow, showCall } from "../main/notice-text";
+import { cornerDot, dotBitmap, paintDot } from "../main/bridge/badge-image";
+import { pinLabel, readBadge, readNotification, readPinned, serverPath } from "../main/bridge/bridge-input";
+import { markHidden, offersAllow, showCall } from "../main/bridge/notice-text";
 
 test("hidden characters show as marks; tabs and line breaks stay", () => {
     assert.deepEqual(markHidden("rm -rf /\u202Etxt.sh"), { text: "rm -rf /⟨U+202E⟩txt.sh", marked: true });
@@ -128,7 +128,7 @@ test("the dot paints opaque in its middle and leaves the far corner alone", () =
 });
 
 test("an update reaches each kind of install its own way", async () => {
-    const { updateMethod } = await import("../main/update-pick");
+    const { updateMethod } = await import("../main/updates/update-pick");
 
     assert.equal(updateMethod("darwin", { packaged: true, appImage: false, teamSigned: false }), "download");
     assert.equal(updateMethod("darwin", { packaged: true, appImage: false, teamSigned: true }), "install");
@@ -139,7 +139,7 @@ test("an update reaches each kind of install its own way", async () => {
 });
 
 test("versions compare as numbers, and pre-releases are never newer", async () => {
-    const { isNewer } = await import("../main/update-pick");
+    const { isNewer } = await import("../main/updates/update-pick");
 
     assert.equal(isNewer("v0.1.10", "0.1.9"), true);
     assert.equal(isNewer("0.2.0", "0.10.0"), false);
@@ -148,7 +148,7 @@ test("versions compare as numbers, and pre-releases are never newer", async () =
 });
 
 test("a release is read with its Mac images and checksums; drafts and pre-releases are skipped", async () => {
-    const { macImage, readRelease, safeFileName, sha256Of } = await import("../main/update-pick");
+    const { macImage, readRelease, safeFileName, sha256Of } = await import("../main/updates/update-pick");
     const hex = "a".repeat(64);
     const release = readRelease({
         tag_name: "v0.2.0",
@@ -176,7 +176,7 @@ test("a download keeps its name only when its checksum matches", async () => {
     const { tmpdir } = await import("node:os");
     const { join } = await import("node:path");
     const { createHash } = await import("node:crypto");
-    const { downloadChecked } = await import("../main/download");
+    const { downloadChecked } = await import("../main/core/download");
     const folder = mkdtempSync(join(tmpdir(), "gui-dl-"));
     const body = "disk image bytes";
     const good = createHash("sha256").update(body).digest("hex");

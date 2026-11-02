@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { mayConnect, NavigationResponses, pageProblem } from "../main/connection";
+import { mayConnect, NavigationResponses, pageProblem } from "../main/connection/connection";
 import type { ProbeResult } from "../shared/types";
 
 const detected: ProbeResult = { kind: "detected", url: "http://localhost:8787", bridge: 1, via: "info" };

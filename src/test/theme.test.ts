@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { tint } from "../main/badge-image";
-import { DEFAULT_THEME, loadTheme, readTheme, saveTheme, THEME_TOKENS } from "../main/theme";
+import { tint } from "../main/bridge/badge-image";
+import { DEFAULT_THEME, loadTheme, readTheme, saveTheme, THEME_TOKENS } from "../main/window/theme";
 
 const gruvbox = {
     mode: "dark",

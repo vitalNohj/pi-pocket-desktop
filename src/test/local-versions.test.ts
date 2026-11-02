@@ -1,8 +1,8 @@
 import { strict as assert } from "node:assert";
-import { cause } from "../main/local-server";
+import { cause } from "../main/local-server/local-server";
 import { test } from "node:test";
-import { cleanLine, compareVersions, pickNode, runtimePaths, satisfies, shasumFor, signInLine } from "../main/local-versions";
-import { validateSettings } from "../main/settings";
+import { cleanLine, compareVersions, pickNode, runtimePaths, satisfies, shasumFor, signInLine } from "../main/local-server/local-versions";
+import { validateSettings } from "../main/core/settings";
 
 test("satisfies reads the engines ranges packages write", () => {
     assert.equal(satisfies("v22.19.0", ">=22.19"), true);

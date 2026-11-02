@@ -1,8 +1,8 @@
 import { strict as assert } from "node:assert";
 import { join } from "node:path";
 import { test } from "node:test";
-import { engineNative, engineSize, MODELS, modelById, modelConfig, VAD } from "../main/dictation-catalog";
-import { validateSettings } from "../main/settings";
+import { engineNative, engineSize, MODELS, modelById, modelConfig, VAD } from "../main/dictation/dictation-catalog";
+import { validateSettings } from "../main/core/settings";
 
 test("every model is pinned: https, a size, and a SHA-256 for each file", () => {
     const ids = new Set<string>();
