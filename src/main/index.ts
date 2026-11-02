@@ -1572,7 +1572,6 @@ function createTray(): Tray {
     return tray;
 }
 
-/** New session (src/main/new-session.ts): the window shows, and the page opens its New session sheet when it can. */
 /**
  * Load the server's page again: the menu's Reload, and the Reload button over a boot screen that took too long. A view
  * with nothing committed yet (its first load never finished) loads the server's address again instead.
@@ -1595,6 +1594,7 @@ function reloadServer(): void {
     }
 }
 
+/** New session (src/main/new-session.ts): the window shows, and the page opens its New session sheet when it can. */
 function newSession(starting = false): void {
     gui?.desktop?.newSession(starting);
 }
