@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { buildTrayMenu, placeTrayMenu, readAccent, trayMenuPalette, type ScreenRect, type TrayScreen } from "../main/tray-menu";
-import { menuPage } from "../main/tray-popup";
+import { estimateHeight, menuPage } from "../main/tray-popup";
 import { defaultSettings, validateSettings } from "../main/settings";
 import type { PinnedSession, ThemeColors } from "../shared/types";
 
@@ -83,6 +83,44 @@ test("without a badge, an update, or pins, the menu is Open, New session, GUI Se
         menu.rows.map((row) => (row.kind === "action" ? row.label : row.kind)),
         ["Open Pi Pocket", "New session", "separator", "GUI Settings…", "separator", "Quit"],
     );
+});
+
+test("while the window is up, Reload comes after New session, and says when the page does not answer", () => {
+    let reloaded = 0;
+    const menu = buildTrayMenu({
+        badge: 0,
+        update: { label: "Update ready to install", click: () => undefined },
+        reload: { label: "Reload (page not responding)", click: () => (reloaded += 1) },
+        pins: [],
+        showWindow: () => undefined,
+        newSession: () => undefined,
+        openSettings: () => undefined,
+        quit: () => undefined,
+        openPin: () => undefined,
+    });
+
+    assert.deepEqual(
+        menu.rows.map((row) => (row.kind === "action" ? row.label : row.kind)),
+        ["Open Pi Pocket", "New session", "Reload (page not responding)", "Update ready to install", "separator", "GUI Settings…", "separator", "Quit"],
+    );
+    menu.actions.find((action) => action.id === "reload")?.run();
+    assert.equal(reloaded, 1);
+});
+
+test("a popup that cannot be measured gets the height its rows draw", () => {
+    const menu = buildTrayMenu({
+        badge: 0,
+        update: undefined,
+        pins: [pin(1, "First draft")],
+        showWindow: () => undefined,
+        newSession: () => undefined,
+        openSettings: () => undefined,
+        quit: () => undefined,
+        openPin: () => undefined,
+    });
+
+    // 5 items of 32, the Pinned header of 28, 3 separators of 9, and the menu's padding and border.
+    assert.equal(estimateHeight(menu.rows), 5 * 32 + 28 + 3 * 9 + 10);
 });
 
 test("the menu opens away from the taskbar and stays on its screen", () => {

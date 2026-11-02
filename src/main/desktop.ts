@@ -30,6 +30,7 @@ import { offersAllow, showCall } from "./notice-text";
 import { buildTrayMenu, readAccent } from "./tray-menu";
 import { setUpTrayPopup } from "./tray-popup";
 import { type NewSessionView, PendingNewSession, readPageEvents } from "./new-session";
+import { activity, diagnose } from "./stall-watchdog";
 
 /** What the bridge needs from the rest of the app. */
 export interface DesktopHost {
@@ -52,6 +53,8 @@ export interface DesktopHost {
     openSettings: () => void;
     /** Load the server's page again, as the menu's Reload does: the page's boot screen took too long. */
     reloadServer: () => void;
+    /** The tray's Reload line while the window is up (its label says when the page does not answer). */
+    reloadItem: () => { label: string; click: () => void } | undefined;
     quit: () => void;
     /** A tray line for the app's own update, when there is one to take. */
     updateItem: () => { label: string; click: () => void } | undefined;
@@ -185,24 +188,20 @@ export function setUpDesktop(host: DesktopHost): {
         });
     };
 
-    const refreshTray = (): void => {
-        const tray = host.tray();
-
-        if (tray === undefined || tray.isDestroyed()) {
-            return;
-        }
-
-        attachClicks(tray);
-
+    /** The native tray menu: macOS and Linux always, Windows when its popup does not appear. */
+    const nativeTemplate = (): MenuItemConstructorOptions[] => {
         const pinItems: MenuItemConstructorOptions[] = pins.map((pin) => ({
             label: pinLabel(pin),
             toolTip: pin.label,
             click: () => open(pin.url),
         }));
         const update = host.updateItem();
-        const template: MenuItemConstructorOptions[] = [
+        const reload = host.reloadItem();
+
+        return [
             { label: badge > 0 ? `Open Pi Pocket  (${badge} need you)` : "Open Pi Pocket", click: host.showWindow },
             { label: "New session", click: () => newSession() },
+            ...(reload === undefined ? [] : [{ label: reload.label, click: reload.click }]),
             ...(update === undefined ? [] : [{ label: update.label, click: update.click }]),
             ...(pinItems.length > 0
                 ? [{ type: "separator" as const }, { label: "Pinned", enabled: false }, ...pinItems]
@@ -212,12 +211,21 @@ export function setUpDesktop(host: DesktopHost): {
             { type: "separator" },
             { label: "Quit", click: host.quit },
         ];
+    };
 
+    const refreshTray = (): void => {
+        const tray = host.tray();
+
+        if (tray === undefined || tray.isDestroyed()) {
+            return;
+        }
+
+        attachClicks(tray);
         if (process.platform === "win32") {
             // A native Win32 menu cannot be restyled, so Windows gets the popup. It opens on click and on right-click.
             tray.setContextMenu(null);
         } else {
-            tray.setContextMenu(Menu.buildFromTemplate(template));
+            tray.setContextMenu(Menu.buildFromTemplate(nativeTemplate()));
         }
 
         tray.setImage(badge > 0 ? icons().dot : icons().plain);
@@ -229,6 +237,7 @@ export function setUpDesktop(host: DesktopHost): {
         buildTrayMenu({
             badge,
             update: host.updateItem(),
+            reload: host.reloadItem(),
             pins,
             showWindow: host.showWindow,
             newSession: () => newSession(),
@@ -249,6 +258,15 @@ export function setUpDesktop(host: DesktopHost): {
                   accent: () => readAccent(systemPreferences.getAccentColor()),
                   activate: (id) => menuModel().actions.find((action) => action.id === id)?.run(),
                   focusTray: () => host.tray()?.focus(),
+                  fallback: () => {
+                      const tray = host.tray();
+
+                      if (tray !== undefined && !tray.isDestroyed()) {
+                          tray.popUpContextMenu(Menu.buildFromTemplate(nativeTemplate()));
+                      }
+                  },
+                  activity,
+                  diagnose,
               })
             : undefined;
 
@@ -323,6 +341,7 @@ export function setUpDesktop(host: DesktopHost): {
         });
         notification.on("close", forget);
         notification.on("failed", forget);
+        activity("notification show");
         notification.show();
     };
 

@@ -191,6 +191,20 @@ The settings are also a JSON file you can edit by hand. A value that is not vali
 | macOS | `~/Library/Application Support/pi-pocket-gui/config.json` |
 | Windows | `%APPDATA%\pi-pocket-gui\config.json` |
 
+### When the page hangs
+
+The app checks the server and its page every 10 seconds (**Remote server → Advanced**), also for **This computer**. Sometimes the page stays on Pi Pocket's "starting" screen after the server answers again. If it stays there for 15 seconds, the app reloads it once. If that does not help, the app starts the page again in a new renderer. When the page does not answer for 10 seconds, the app asks if you want to reload it. While the window is up, the tray menu always has **Reload**. Its label says when the page does not answer. **View → Reload** does the same.
+
+### Diagnostics
+
+The app writes a diagnostics log. It records page hangs and crashes, failed loads, server restarts, and main-process stalls. A stall is a time of more than 3 seconds when the app cannot answer (for example, the tray does not open). The log names the last task the app started before the stall. Open it from **Help → Open diagnostics log**, and attach it to a bug report. It stays under 1 MiB.
+
+| | |
+|---|---|
+| Linux | `~/.config/pi-pocket-gui/diagnostics.log` |
+| macOS | `~/Library/Application Support/pi-pocket-gui/diagnostics.log` |
+| Windows | `%APPDATA%\pi-pocket-gui\diagnostics.log` |
+
 ### Updates
 
 The **Updates** card manages the desktop app, not the server. The app checks at startup and every 6 hours by default. Choose **Check now** to check manually. Change the interval in **Updates → Advanced**. Server updates are under **Connection → Pi Pocket on this computer → Server updates**.
