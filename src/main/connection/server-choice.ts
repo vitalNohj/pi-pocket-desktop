@@ -2,7 +2,7 @@
  * The two sides of Connection: This computer and Another server. Two things are kept apart: the side the settings
  * screen shows (the person can look at either), and the server the window uses (saved as `settings.server.mode`, the
  * side the app opens at start). Looking at a side changes nothing; only Connect, Start, Open, or a server that stops
- * does. Decisions only, independent of Electron: src/main/index.ts acts on them.
+ * does. Decisions only, independent of Electron: src/main/ acts on them.
  */
 import type { ChoiceStatus, ConfigReason, LocalState, ProbeResult, Side } from "../../shared/types";
 
