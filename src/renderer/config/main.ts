@@ -9,6 +9,16 @@ declare global {
 
 const gui = window.gui;
 
+for (const link of document.querySelectorAll<HTMLAnchorElement>(".settings-nav a")) {
+    link.addEventListener("click", (event) => {
+        event.preventDefault();
+        const card = document.getElementById(link.hash.slice(1));
+
+        if (card instanceof HTMLDetailsElement) card.open = true;
+        card?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+}
+
 function element<T extends HTMLElement>(id: string): T {
     const found = document.getElementById(id);
 

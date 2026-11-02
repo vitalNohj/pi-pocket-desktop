@@ -157,7 +157,7 @@ The server must support runners. For now, use [vitalNohj/pi-pocket](https://gith
 
 Open **GUI Settings…** from the File menu, tray menu, Pi Pocket menu, or a right-click on the page. You can also press Ctrl+, (⌘, on macOS). This shortcut works even if the server page fails.
 
-The top links go to **Connection**, **App preferences**, **Runner**, and **Server tools**. Connection comes first, with the server and the Billion context card. App preferences follow, then server tools. Most cards start closed. Each card has a short description. Ports, timeouts, limits, and update intervals are in closed **Advanced** sections.
+The top links go to **Appearance**, **Updates**, **Notifications**, and **Runner**, and open that card. Connection comes first, with the server and the Billion context card. App preferences follow, then server tools. Most cards start closed. Each card has a short description. Ports, timeouts, limits, and update intervals are in closed **Advanced** sections.
 
 | Section | Card | What it controls |
 |---|---|---|
