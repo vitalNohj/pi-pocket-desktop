@@ -217,12 +217,22 @@ How:
   its process group (macOS, Linux) or its process tree (Windows).
 - First version: jobs end when the runner stops, and the session says so.
 
-### 7. The browser and this computer's `localhost`
+### 7. The browser (decided 2026-11-03)
 
-- The browser panel runs on the server, so it cannot reach this computer's `localhost`.
-- ★ Later: the runner is a whole Pi Pocket, browser code included. A remote session's browser could run on this
-  computer and reach its `localhost` directly, sending its frames to the server as now.
-- Until then: a per-session tunnel (the server's browser reaches this computer's `localhost` through the runner).
+- **Chromium stays on the server.** A remote session's browser gets its own server Chromium, whose network goes
+  through a proxy to the runner: the computer makes every connection (pages, `localhost`, WebSockets, DNS). WebRTC
+  UDP and QUIC are off, so nothing leaves from the server.
+- **No Chromium on the runner, now or later.** It was weighed for downloads (research:
+  `~/work/runner-downloads-research.md`) and refused: a bundled Chromium per computer, the Linux sandbox setup, and
+  logins split per computer cost more than it gives.
+- **Downloads:** Chromium saves to a private temp folder on the server (`<tmpdir>/pi-pocket-downloads-<uid>/<session>/`,
+  0700), the file goes over the runner's link to the computer (`<tmpdir>/pi-pocket-downloads/<session>/`, or the
+  folder set with `pi-pocket runner settings downloads`), and the server deletes its copy. Nothing is cancelled or
+  fetched again. The tool result gives the path and size only.
+- **No network restriction.** Pages can reach whatever the computer can: `localhost`, the home network, a tailnet,
+  a VPN. This is an accepted risk of a runner, like `bash` there. No modes, switches, allowlists, or DNS rebinding
+  guard: each one broke real setups (intranet names, `*.plex.direct`, own domains at home) and kept needing
+  exceptions. The computer can still refuse to share its network: `pi-pocket runner settings network refuse`.
 
 ### 8. Extensions
 
