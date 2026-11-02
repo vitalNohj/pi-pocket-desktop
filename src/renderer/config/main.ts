@@ -985,7 +985,15 @@ function modelRow(model: DictationModelState, busy: boolean): HTMLElement {
 }
 
 const modelsSection = element<HTMLDetailsElement>("dictation-models-section");
+const modelsList = element("dictation-models");
 let modelsDownloading = false;
+
+function updateModelsFade(): void {
+    modelsList.classList.toggle("has-more", modelsList.scrollTop + modelsList.clientHeight < modelsList.scrollHeight - 1);
+}
+
+modelsList.addEventListener("scroll", updateModelsFade);
+if (typeof ResizeObserver !== "undefined") new ResizeObserver(updateModelsFade).observe(modelsList);
 
 function revealImportantModel(): void {
     const list = element("dictation-models");
@@ -1001,7 +1009,10 @@ element("dictation-models-toggle").addEventListener("click", (event) => {
 });
 modelsSection.addEventListener("toggle", () => {
     if (!modelsSection.open && modelsDownloading) modelsSection.open = true;
-    if (modelsSection.open) revealImportantModel();
+    if (modelsSection.open) {
+        revealImportantModel();
+        updateModelsFade();
+    }
 });
 
 function renderDictation(next: ConfigState): void {
@@ -1029,6 +1040,7 @@ function renderDictation(next: ConfigState): void {
     const started = dictation.downloading && !modelsDownloading;
     modelsDownloading = dictation.downloading;
     list.replaceChildren(...dictation.models.map((model) => modelRow(model, dictation.downloading)));
+    if (modelsSection.open) updateModelsFade();
     if (started) {
         modelsSection.open = true;
         revealImportantModel();
