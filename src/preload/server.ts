@@ -69,7 +69,7 @@ if (hello !== null && typeof hello === "object") {
 }
 
 /** How long Pi Pocket's boot screen shows before the Reload button comes. */
-export const BOOT_RELOAD_DELAY_MS = 5_000;
+export const BOOT_RELOAD_DELAY_MS = 3_000;
 
 /** The timers a {@link BootWait} uses: the page's own, or fake ones in a test. */
 export interface BootTimers {
@@ -170,7 +170,7 @@ b { font-weight: 650; }
 `;
 
 /**
- * A "Taking a while? Reload" button over Pi Pocket's boot screen once it has shown for 5 s: a server that never answers
+ * A "Taking a while? Reload" button over Pi Pocket's boot screen once it has shown for 3 s: a server that never answers
  * the app's start (its first `/api/me`) otherwise leaves only the menu's Reload. It is in a closed shadow root, so the
  * page's styles do not reach it and its own stay inside. A click asks the main process to reload, as the menu does.
  */
