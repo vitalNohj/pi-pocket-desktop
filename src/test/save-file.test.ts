@@ -27,6 +27,26 @@ test("save-file names are bounded, not paths, and not hidden", () => {
     assert.equal(saveFileName("résumé.txt"), "résumé.txt");
 });
 
+test("Windows names cannot use invalid characters, device names, or trailing dots and spaces", () => {
+    assert.equal(saveFileName("report?.txt", "win32"), "report_.txt");
+    assert.equal(saveFileName("report:notes.txt", "win32"), "report_notes.txt");
+    assert.equal(saveFileName('a<b>c"d|e?f*g.txt', "win32"), "a_b_c_d_e_f_g.txt");
+    assert.equal(saveFileName("report.txt.  ", "win32"), "report.txt");
+    assert.equal(saveFileName("   ", "win32"), "download");
+    assert.equal(saveFileName("a".repeat(199) + ".rest", "win32"), "a".repeat(199));
+
+    for (const name of ["CON", "con.txt", "PRN", "AUX.log", "nul.txt", "COM1", "com9.txt", "LPT1", "lpt9.txt", "COM¹.txt", "LPT²", "COM³", "CONIN$", "CONOUT$.log", "con .txt"]) {
+        assert.equal(saveFileName(name, "win32"), "_" + name, name);
+    }
+    for (const name of ["content.txt", "COM10.txt", "LPT0.txt", "ordinary.txt"]) {
+        assert.equal(saveFileName(name, "win32"), name);
+    }
+
+    // Unix names retain characters that are valid there.
+    assert.equal(saveFileName("report:notes?.txt", "linux"), "report:notes?.txt");
+    assert.equal(saveFileName("report.txt. ", "darwin"), "report.txt. ");
+});
+
 test("save-file collisions count before the extension, including in-progress paths", () => {
     const folder = join("tmp", "downloads");
     const existing = new Set([join(folder, "notes.txt"), join(folder, "notes (1).txt")]);
