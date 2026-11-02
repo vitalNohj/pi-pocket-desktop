@@ -112,7 +112,7 @@ Words show while you speak and are corrected when you pause (**Words as you spea
 
 This is an experimental feature. I have used it every day for over a month, and I want it available to everybody I made this app for. It can still change.
 
-The **Billion context** card, under **Server tools**, installs [billion-context-pi-pocket](https://github.com/vitalNohj/billion-context-pi-pocket) (context compression for long conversations) in the Pi Pocket the app runs on this computer, and turns it on. Pi Pocket must be running.
+The **Billion context** card, under **Server tools**, installs [billion-context-pi-pocket](https://github.com/vitalNohj/billion-context-pi-pocket) (context compression for long conversations) in the Pi Pocket the app runs on this computer, and turns it on. Pi Pocket must be running. When the app is connected to a remote server (**Another server**), the card says so and shows the steps to install the extension on that server itself (Linux or macOS) instead.
 
 <!-- Temporary note: remove when Pi Pocket accepts the desktop bridge. -->
 Ideally, only agents, meaning long-running sessions, would use billion-context, and regular sessions would not. Pi Pocket does not separate agents from sessions (a session with a schedule or trigger is an agent), and that is a big feature to add, so this app turns the extension on for all sessions, which is how I use it.
