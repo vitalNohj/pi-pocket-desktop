@@ -112,7 +112,7 @@ Words show while you speak and are corrected when you pause (**Words as you spea
 
 This is an experimental feature. I have used it every day for over a month, and I want it available to everybody I made this app for. It can still change.
 
-The **Billion context** card, under **Server tools**, installs [billion-context-pi-pocket](https://github.com/vitalNohj/billion-context-pi-pocket) (context compression for long conversations) in the Pi Pocket the app runs on this computer, and turns it on. Pi Pocket must be running. When the app is connected to a remote server (**Another server**), the card says so and shows the steps to install the extension on that server itself (Linux or macOS) instead.
+The **Billion context** card, in the **Connection** column under the server it installs to, installs [billion-context-pi-pocket](https://github.com/vitalNohj/billion-context-pi-pocket) (context compression for long conversations) in the Pi Pocket the app runs on this computer, and turns it on. Pi Pocket must be running. When the app is connected to a remote server (**Another server**), the card says so and shows the steps to install the extension on that server itself (Linux or macOS) instead.
 
 <!-- Temporary note: remove when Pi Pocket accepts the desktop bridge. -->
 Ideally, only agents, meaning long-running sessions, would use billion-context, and regular sessions would not. Pi Pocket does not separate agents from sessions (a session with a schedule or trigger is an agent), and that is a big feature to add, so this app turns the extension on for all sessions, which is how I use it.
@@ -157,20 +157,20 @@ The server must support runners. For now, use [vitalNohj/pi-pocket](https://gith
 
 Open **GUI Settings…** from the File menu, tray menu, Pi Pocket menu, or a right-click on the page. You can also press Ctrl+, (⌘, on macOS). This shortcut works even if the server page fails.
 
-The top links go to **Connection**, **App preferences**, **Runner**, and **Server tools**. Connection comes first. App preferences follow, then server tools. Most cards start closed. Each card has a short description. Ports, timeouts, limits, and update intervals are in closed **Advanced** sections.
+The top links go to **Connection**, **App preferences**, **Runner**, and **Server tools**. Connection comes first, with the server and the Billion context card. App preferences follow, then server tools. Most cards start closed. Each card has a short description. Ports, timeouts, limits, and update intervals are in closed **Advanced** sections.
 
 | Section | Card | What it controls |
 |---|---|---|
 | Connection | **Pi Pocket on this computer** | Install and run the server here. Choose a session folder and who can connect. Server updates are separate from app updates. |
 | Connection | **Another server** | Enter a full address or a host and port. Check it, then connect. |
 | Connection | **Get the server** | Set up Pi Pocket on another computer. Shown with **Another server**. |
+| Connection | **Billion context** | Install context compression here, or get installation steps for your server. |
 | App preferences | **Window** | Startup, tray, title bar, links, and the global shortcut. |
 | App preferences | **Appearance** | Background transparency, opacity, and system effects. |
 | App preferences | **Notifications** | Desktop alerts, sound, and approval buttons. |
 | App preferences | **Dictation** | Download speech models and turn speech into text on this computer. |
 | App preferences | **Updates** | Desktop app updates. The check interval is in **Advanced**. |
 | Server tools | **Runner** | Let your server use this computer's files and commands. See [Runner](#runner). |
-| Server tools | **Billion context** | Install context compression here, or get installation steps for your server. |
 | Server tools | **Remote server** | Connect at startup, allow other addresses, and set check and retry limits. Shown with **Another server**. |
 
 The two choices at the top, **This computer** and **Another server**, only show that side's settings, with a status for each. A click on a choice does not connect, disconnect, start, or stop anything. The window changes servers only when you click **Connect**, **Start**, or **Open**. A remote connection stays while you look at This computer. When Pi Pocket on this computer stops on its own, the app shows a notification.
