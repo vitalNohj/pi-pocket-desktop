@@ -918,8 +918,55 @@ button.danger {
     color: var(--err);
 }
 
+#dictation-models-toggle > span {
+    display: block;
+}
+
+#dictation-models-summary {
+    white-space: nowrap;
+}
+
 .models {
     display: grid;
+    max-height: 370px;
+    margin-right: -10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted) transparent;
+}
+
+.models.has-more {
+    mask-image: linear-gradient(to bottom, black calc(100% - 22px), transparent);
+}
+
+/* Chromium gives scrollbar-width precedence over its arrow-free scrollbar rules. */
+@supports selector(::-webkit-scrollbar) {
+    .models {
+        scrollbar-width: auto;
+        scrollbar-color: auto;
+    }
+}
+
+.models::-webkit-scrollbar {
+    width: 10px;
+}
+
+.models::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: var(--muted);
+    background-clip: padding-box;
+}
+
+.models::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.models::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
 }
 
 .row.model > span:first-child {

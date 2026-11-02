@@ -911,6 +911,7 @@ function modelRow(model: DictationModelState, busy: boolean): HTMLElement {
 
     row.className = "row model";
     row.dataset.chosen = String(model.chosen);
+    row.dataset.downloading = String(model.download !== undefined);
     name.textContent = model.name;
 
     if (model.recommended) {
@@ -983,6 +984,37 @@ function modelRow(model: DictationModelState, busy: boolean): HTMLElement {
     return row;
 }
 
+const modelsSection = element<HTMLDetailsElement>("dictation-models-section");
+const modelsList = element("dictation-models");
+let modelsDownloading = false;
+
+function updateModelsFade(): void {
+    modelsList.classList.toggle("has-more", modelsList.scrollTop + modelsList.clientHeight < modelsList.scrollHeight - 1);
+}
+
+modelsList.addEventListener("scroll", updateModelsFade);
+if (typeof ResizeObserver !== "undefined") new ResizeObserver(updateModelsFade).observe(modelsList);
+
+function revealImportantModel(): void {
+    const list = element("dictation-models");
+    const row = list.querySelector<HTMLElement>("[data-downloading='true']") ?? list.querySelector<HTMLElement>("[data-chosen='true']");
+
+    if (row) {
+        list.scrollTop += row.getBoundingClientRect().top - list.getBoundingClientRect().top;
+    }
+}
+
+element("dictation-models-toggle").addEventListener("click", (event) => {
+    if (modelsSection.open && modelsDownloading) event.preventDefault();
+});
+modelsSection.addEventListener("toggle", () => {
+    if (!modelsSection.open && modelsDownloading) modelsSection.open = true;
+    if (modelsSection.open) {
+        revealImportantModel();
+        updateModelsFade();
+    }
+});
+
 function renderDictation(next: ConfigState): void {
     const dictation = next.dictation;
     const card = element("dictation-card");
@@ -1002,7 +1034,17 @@ function renderDictation(next: ConfigState): void {
         return;
     }
 
+    const chosen = dictation.models.find((model) => model.chosen);
+    const installed = dictation.models.some((model) => model.installed);
+    element("dictation-models-summary").textContent = chosen ? `· ${chosen.name} in use` : installed ? "· none in use" : "· none downloaded";
+    const started = dictation.downloading && !modelsDownloading;
+    modelsDownloading = dictation.downloading;
     list.replaceChildren(...dictation.models.map((model) => modelRow(model, dictation.downloading)));
+    if (modelsSection.open) updateModelsFade();
+    if (started) {
+        modelsSection.open = true;
+        revealImportantModel();
+    }
 }
 
 element("dictation-show-folder").addEventListener("click", () => {
