@@ -1,38 +1,43 @@
 /**
- * billion-context-pi in this computer's Pi Pocket: the app installs the Pi Pocket adapter for it
- * (vitalNohj/billion-context-pi-pocket-adapter) as a drop-in extension, turns it on, keeps it up to date, and removes
- * it. Only for the Pi Pocket the app runs itself: another server shows how to install it there.
- *
- * The files come from the newest commit of the adapter's main branch, each checked against the git hash GitHub lists
- * for it. Pi Pocket itself is not changed: the files go in its drop-in folder (`<data>/extensions`), and the extension
- * is turned on and off through Pi Pocket's own API, signed in with its owner token.
+ * billion-context-pi-pocket in this computer's Pi Pocket: installs, updates, and removes the drop-in extension.
+ * Files come from a checked commit of its main branch. Pi Pocket's owner API controls activation; its config and
+ * conversation state are never written here. Old GUI installations migrate with their identity and state path intact.
  */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
-import { copyFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { copyFile, cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve, sep } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import type { BillionContextState, Settings } from "../shared/types";
 import { downloadChecked } from "./download";
 
-export const ADAPTER = {
-    repo: "vitalNohj/billion-context-pi-pocket-adapter",
+export const INTEGRATION = {
+    repo: "vitalNohj/billion-context-pi-pocket",
     branch: "main",
-    /** The module Pi Pocket loads. */
-    file: "billion-context-pi-pocket-adapter.ts",
-    /** Its folder: billion-context-pi itself and its dependencies, found by this name next to the module. */
-    folder: "billion-context-pi-pocket-adapter",
+    file: "billion-context-pi-pocket.ts",
+    folder: "billion-context-pi-pocket",
+    settings: "billion-context-pi-pocket.json",
 } as const;
 
-export const ADAPTER_PAGE = `https://github.com/${ADAPTER.repo}`;
+export const LEGACY_INTEGRATION = {
+    file: "billion-context-pi-pocket-adapter.ts",
+    folder: "billion-context-pi-pocket-adapter",
+    settings: "billion-context-pi-pocket-adapter.json",
+} as const;
 
-/** Installs (and updates) on a Linux or macOS server, run in its drop-in folder. */
+export const INTEGRATION_PAGE = `https://github.com/${INTEGRATION.repo}`;
+
+/** A remote server is not managed here. Refuse an old installation rather than create a second module beside it. */
 export const REMOTE_COMMAND =
-    `cd ~/.pi-pocket/extensions && rm -rf ${ADAPTER.folder} && ` +
-    `curl -fsSL https://codeload.github.com/${ADAPTER.repo}/tar.gz/${ADAPTER.branch} | ` +
-    `tar -xz --strip-components=1 ${ADAPTER.folder}-${ADAPTER.branch}/${ADAPTER.file} ${ADAPTER.folder}-${ADAPTER.branch}/${ADAPTER.folder}`;
+    `cd ~/.pi-pocket/extensions && ` +
+    `if [ -e ${LEGACY_INTEGRATION.file} ] || [ -e ${LEGACY_INTEGRATION.folder} ] || [ -e ${LEGACY_INTEGRATION.settings} ] || ` +
+    `{ [ -e ${INTEGRATION.folder} ] && [ ! -e ${INTEGRATION.file} ]; }; then ` +
+    `printf '%s\\n' 'An existing installation needs manual migration. Follow the migration instructions at ${INTEGRATION_PAGE} before installing.'; false; ` +
+    `else curl -fsSL https://codeload.github.com/${INTEGRATION.repo}/tar.gz/${INTEGRATION.branch} | ` +
+    `tar -xz --strip-components=1 ${INTEGRATION.folder}-${INTEGRATION.branch}/${INTEGRATION.file} ${INTEGRATION.folder}-${INTEGRATION.branch}/${INTEGRATION.folder}; fi`;
 
-/** In the adapter's folder: which commit the app installed. Its absence means someone else installed the files. */
+/** In the helper folder: which commit the app installed. Its absence means someone else installed the files. */
 const MARKER = ".pi-pocket-gui.json";
 
 export interface TreeEntry {
@@ -43,11 +48,11 @@ export interface TreeEntry {
     size?: number;
 }
 
-/** The files the adapter is made of, out of a commit's tree: the module and everything in its folder. */
-export function adapterFiles(tree: readonly TreeEntry[]): TreeEntry[] {
-    const files = tree.filter((entry) => entry.type === "blob" && (entry.path === ADAPTER.file || entry.path.startsWith(`${ADAPTER.folder}/`)));
+/** Only the new module and its helper files come from the repository; never repository settings or user state. */
+export function integrationFiles(tree: readonly TreeEntry[]): TreeEntry[] {
+    const files = tree.filter((entry) => entry.type === "blob" && (entry.path === INTEGRATION.file || entry.path.startsWith(`${INTEGRATION.folder}/`)));
 
-    if (!files.some((entry) => entry.path === ADAPTER.file) || !files.some((entry) => entry.path === `${ADAPTER.folder}/bundle.json`)) {
+    if (!files.some((entry) => entry.path === INTEGRATION.file) || !files.some((entry) => entry.path === `${INTEGRATION.folder}/bundle.json`)) {
         throw new Error("This extension version is missing required files.");
     }
 
@@ -82,10 +87,40 @@ export interface BillionContextHost {
 }
 
 interface Installed {
-    /** billion-context-pi's version, from the folder's bundle.json. */
+    layout: typeof INTEGRATION | typeof LEGACY_INTEGRATION;
+    /** billion-context-pi's version, from the helper folder's bundle.json. */
     version: string;
-    /** The adapter's commit the app installed; undefined when the files came from elsewhere. */
+    /** The commit the app installed; undefined when the files came from elsewhere. */
     commit?: string;
+}
+
+const LAYOUTS = [INTEGRATION, LEGACY_INTEGRATION] as const;
+const TRANSACTION = `_${INTEGRATION.folder}.update`;
+const SAVED_PATHS: readonly string[] = [INTEGRATION.file, INTEGRATION.folder, INTEGRATION.settings, LEGACY_INTEGRATION.file, LEGACY_INTEGRATION.folder];
+
+interface Transaction {
+    version: 1;
+    previous: "current" | "legacy" | null;
+    wasOn: boolean;
+    present: string[];
+    committed: boolean;
+}
+
+/** Pin the old defaults as well as explicit overrides. Conversations and checkpoints store these identifiers. */
+export function legacySettings(value: unknown): Record<string, unknown> {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+        throw new Error("The extension settings must hold a JSON object. Nothing was installed.");
+    }
+
+    const settings = value as Record<string, unknown>;
+
+    for (const key of ["extensionName", "stateDir", "billionContextPi"]) {
+        if (settings[key] !== undefined && (typeof settings[key] !== "string" || settings[key] === "")) {
+            throw new Error(`The extension setting "${key}" must be a non-empty string. Nothing was installed.`);
+        }
+    }
+
+    return { ...settings, extensionName: settings.extensionName ?? "billion-context-pi", stateDir: settings.stateDir ?? "billion-context-pi" };
 }
 
 interface ExtensionInfo {
@@ -100,37 +135,55 @@ export function setUpBillionContext(host: BillionContextHost) {
     let latest: { commit: string; version?: string } | undefined;
     let checkedAt: number | undefined;
     /** What Pi Pocket said about the extension, the last time it was asked. */
-    let module: ExtensionInfo | undefined;
+    let modules: ExtensionInfo[] = [];
     let timer: NodeJS.Timeout | undefined;
 
     const folder = () => join(host.dataFolder(), "extensions");
+    const transactionFolder = () => join(folder(), TRANSACTION);
+    const presentLayouts = () => LAYOUTS.filter((layout) => existsSync(join(folder(), layout.file)));
+    const moduleInfo = () => {
+        const file = installed()?.layout.file;
+
+        return modules.find((each) => each.file === file);
+    };
 
     const installed = (): Installed | undefined => {
-        const root = join(folder(), ADAPTER.folder);
+        const layout = presentLayouts()[0];
 
-        if (!existsSync(join(folder(), ADAPTER.file))) {
+        if (layout === undefined) {
             return undefined;
         }
 
+        const root = join(folder(), layout.folder);
         let version = "?";
 
         try {
             version = (JSON.parse(readFileSync(join(root, "bundle.json"), "utf8")) as { version?: string }).version ?? "?";
         } catch {
-            // The folder is missing or broken: Pi Pocket shows the adapter's error.
+            // The helper folder is missing or broken: Pi Pocket shows the extension's error.
         }
 
         try {
             const marker = JSON.parse(readFileSync(join(root, MARKER), "utf8")) as { commit?: unknown };
 
-            return typeof marker.commit === "string" ? { version, commit: marker.commit } : { version };
+            return typeof marker.commit === "string" ? { layout, version, commit: marker.commit } : { layout, version };
         } catch {
-            return { version };
+            return { layout, version };
         }
     };
 
-    /** The adapter's folder is there without the app's module: it was installed by hand, maybe by another name. */
-    const foreign = (): boolean => existsSync(join(folder(), ADAPTER.folder)) && !existsSync(join(folder(), ADAPTER.file));
+    /** Either helper folder without its matching module may belong to an installation under another name. */
+    const foreign = (): boolean => LAYOUTS.some((layout) => existsSync(join(folder(), layout.folder)) && !existsSync(join(folder(), layout.file)));
+
+    const checkCopies = (): void => {
+        if (presentLayouts().length > 1) {
+            throw new Error(`Both extension module names exist in ${folder()}. Resolve the duplicate copies in Menu → Extensions before continuing.`);
+        }
+
+        if (foreign()) {
+            throw new Error(`An extension copy already exists in ${folder()}. Remove that copy before installing here.`);
+        }
+    };
 
     const ownerToken = (): string => {
         try {
@@ -173,15 +226,19 @@ export function setUpBillionContext(host: BillionContextHost) {
     };
 
     const remember = (answer: unknown): void => {
-        const modules = (answer as { modules?: ExtensionInfo[] } | undefined)?.modules ?? [];
+        const listed = (answer as { modules?: ExtensionInfo[] } | undefined)?.modules;
 
-        module = modules.find((each) => each.file === ADAPTER.file);
+        if (!Array.isArray(listed)) {
+            throw new Error("Pi Pocket did not return its extension modules.");
+        }
+
+        modules = listed;
     };
 
     /** Turns the extension on or off in Pi Pocket; on, a load error comes back as the request's error. */
-    const setEnabled = async (enabled: boolean): Promise<void> => {
+    const setEnabled = async (enabled: boolean, file = installed()?.layout.file ?? INTEGRATION.file): Promise<void> => {
         try {
-            remember(await api(`/api/extensions/${encodeURIComponent(ADAPTER.file)}`, { enabled }));
+            remember(await api(`/api/extensions/${encodeURIComponent(file)}`, { enabled }));
         } finally {
             await ask().catch(() => {});
         }
@@ -190,7 +247,7 @@ export function setUpBillionContext(host: BillionContextHost) {
     /** Asks Pi Pocket whether the extension is on. */
     const ask = async (): Promise<void> => {
         if (host.local().url === undefined) {
-            module = undefined;
+            modules = [];
 
             return;
         }
@@ -199,7 +256,7 @@ export function setUpBillionContext(host: BillionContextHost) {
     };
 
     const github = async (path: string, accept = "application/vnd.github+json"): Promise<Response> => {
-        const response = await host.fetch(`https://api.github.com/repos/${ADAPTER.repo}${path}`, { accept });
+        const response = await host.fetch(`https://api.github.com/repos/${INTEGRATION.repo}${path}`, { accept });
 
         if (!response.ok) {
             throw new Error(
@@ -212,9 +269,9 @@ export function setUpBillionContext(host: BillionContextHost) {
         return response;
     };
 
-    /** The newest commit on the adapter's branch, and billion-context-pi's version in it. */
+    /** The newest commit on the integration's branch, and billion-context-pi's version in it. */
     const check = async (): Promise<void> => {
-        const commit = (await (await github(`/commits/${ADAPTER.branch}`, "application/vnd.github.sha")).text()).trim();
+        const commit = (await (await github(`/commits/${INTEGRATION.branch}`, "application/vnd.github.sha")).text()).trim();
 
         if (!/^[0-9a-f]{40}$/.test(commit)) {
             throw new Error("GitHub did not return a valid extension version.");
@@ -223,7 +280,7 @@ export function setUpBillionContext(host: BillionContextHost) {
         let version: string | undefined;
 
         try {
-            const bundle = await host.fetch(`https://raw.githubusercontent.com/${ADAPTER.repo}/${commit}/${ADAPTER.folder}/bundle.json`);
+            const bundle = await host.fetch(`https://raw.githubusercontent.com/${INTEGRATION.repo}/${commit}/${INTEGRATION.folder}/bundle.json`);
 
             version = bundle.ok ? ((await bundle.json()) as { version?: string }).version : undefined;
         } catch {
@@ -255,19 +312,18 @@ export function setUpBillionContext(host: BillionContextHost) {
             throw new Error("GitHub did not list all extension files.");
         }
 
-        const files = adapterFiles(tree.tree);
+        const files = integrationFiles(tree.tree);
         const downloads = join(host.home, "downloads");
-        const unpacked = join(host.home, `unpack-${commit}`);
 
-        await rm(unpacked, { recursive: true, force: true });
         await mkdir(downloads, { recursive: true });
-        await mkdir(unpacked, { recursive: true });
+        // Own a fresh directory. A configured stateDir can point at any pre-existing path, even an old unpack path.
+        const unpacked = await mkdtemp(join(host.home, "unpack-"));
 
         try {
             step("Downloading…");
 
             const archive = await downloadChecked({
-                url: `https://codeload.github.com/${ADAPTER.repo}/tar.gz/${commit}`,
+                url: `https://codeload.github.com/${INTEGRATION.repo}/tar.gz/${commit}`,
                 name: `billion-context-${commit}.tar.gz`,
                 folder: downloads,
                 fetch: (url) => host.fetch(url),
@@ -295,83 +351,277 @@ export function setUpBillionContext(host: BillionContextHost) {
                 await copyFile(from, to);
             }
 
-            await writeFile(join(into, ADAPTER.folder, MARKER), `${JSON.stringify({ commit, installedAt: new Date().toISOString() }, null, 4)}\n`);
+            await writeFile(join(into, INTEGRATION.folder, MARKER), `${JSON.stringify({ commit, installedAt: new Date().toISOString() }, null, 4)}\n`);
         } finally {
             await rm(unpacked, { recursive: true, force: true }).catch(() => {});
         }
     };
 
-    /** Installs the newest commit, or replaces the installed one with it: off, files swapped, on again. */
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 800));
+
+    /** A configured state folder must never be inside files this installer replaces or removes. */
+    const protectState = (settings: Record<string, unknown>): void => {
+        const paths = (path: string): string[] => {
+            const absolute = resolve(path);
+            const suffix: string[] = [];
+            let ancestor = absolute;
+
+            // A state folder can be absent while its parent is a link into a managed folder.
+            while (!existsSync(ancestor) && dirname(ancestor) !== ancestor) {
+                suffix.unshift(basename(ancestor));
+                ancestor = dirname(ancestor);
+            }
+
+            const real = resolve(realpathSync(ancestor), ...suffix);
+
+            return [absolute, real].map((each) => host.platform === "win32" ? each.toLowerCase() : each);
+        };
+        const statePaths = paths(resolve(host.dataFolder(), settings.stateDir as string));
+
+        for (const path of [INTEGRATION.folder, LEGACY_INTEGRATION.folder, TRANSACTION]) {
+            const managedPaths = paths(join(folder(), path));
+
+            if (statePaths.some((state) => managedPaths.some((managed) => state === managed || state.startsWith(`${managed}${sep}`)))) {
+                throw new Error(`The configured stateDir is inside ${path}, which the installer replaces or removes. Choose a separate state folder before continuing. Nothing was installed.`);
+            }
+        }
+    };
+
+    const readSettings = (path: string): Record<string, unknown> => {
+        try {
+            return legacySettings(JSON.parse(readFileSync(path, "utf8")));
+        } catch (error) {
+            throw new Error(`${path}: ${(error as Error).message}`);
+        }
+    };
+
+    /** The new settings are authoritative after migration, including after uninstall/reinstall. */
+    const migratedSettings = (was: Installed | undefined): Record<string, unknown> | undefined => {
+        const oldPath = join(folder(), LEGACY_INTEGRATION.settings);
+        const newPath = join(folder(), INTEGRATION.settings);
+
+        if (was?.layout === INTEGRATION || (was === undefined && existsSync(newPath))) {
+            // Match the loader: a present but invalid new file must never fall back to the old one.
+            protectState(existsSync(newPath) ? readSettings(newPath) : existsSync(oldPath) ? readSettings(oldPath) : legacySettings({}));
+
+            return undefined;
+        }
+
+        const settings = existsSync(oldPath) ? readSettings(oldPath) : legacySettings({});
+
+        protectState(settings);
+
+        if (was?.layout !== LEGACY_INTEGRATION && !existsSync(oldPath)) {
+            return undefined;
+        }
+
+        if (existsSync(newPath) && !isDeepStrictEqual(settings, readSettings(newPath))) {
+            throw new Error(`The old and new extension settings conflict in ${folder()}. Reconcile them before updating. Nothing was installed.`);
+        }
+
+        return settings;
+    };
+
+    const saveTransaction = async (transaction: Transaction): Promise<void> => {
+        const temporary = join(transactionFolder(), "transaction.next");
+
+        await writeFile(temporary, `${JSON.stringify(transaction)}\n`, { mode: 0o600 });
+        await rename(temporary, join(transactionFolder(), "transaction.json"));
+    };
+
+    /** Restore an interrupted or failed update before any other action. Backups stay until recovery succeeds. */
+    const recover = async (): Promise<void> => {
+        const root = transactionFolder();
+        const journal = join(root, "transaction.json");
+
+        if (!existsSync(root)) {
+            return;
+        }
+
+        // A user can choose any stateDir, even the reserved transaction folder. Never mistake it for our staging.
+        const settingsPath = installed()?.layout === LEGACY_INTEGRATION || !existsSync(join(folder(), INTEGRATION.settings))
+            ? join(folder(), LEGACY_INTEGRATION.settings)
+            : join(folder(), INTEGRATION.settings);
+
+        protectState(existsSync(settingsPath) ? readSettings(settingsPath) : legacySettings({}));
+
+        if (!existsSync(journal)) {
+            // Downloads and backups can be incomplete, but no installed file changed before the journal was saved.
+            await rm(root, { recursive: true, force: true });
+
+            return;
+        }
+
+        const transaction = JSON.parse(await readFile(journal, "utf8")) as Transaction;
+
+        if (
+            transaction.version !== 1 ||
+            !["current", "legacy", null].includes(transaction.previous) ||
+            typeof transaction.wasOn !== "boolean" ||
+            typeof transaction.committed !== "boolean" ||
+            !Array.isArray(transaction.present) ||
+            transaction.present.some((path) => !SAVED_PATHS.includes(path))
+        ) {
+            throw new Error(`The extension recovery record is invalid. Keep the backups in ${root} and resolve it before continuing.`);
+        }
+
+        if (transaction.committed) {
+            await rm(root, { recursive: true, force: true });
+
+            return;
+        }
+
+        for (const path of transaction.present) {
+            if (!existsSync(join(root, "saved", path))) {
+                throw new Error(`The extension backup is missing ${path}. Keep ${root} and resolve it before continuing.`);
+            }
+        }
+
+        await ask();
+
+        for (const layout of presentLayouts()) {
+            await setEnabled(false, layout.file);
+        }
+
+        // Remove modules first. Restore helpers and settings before a module can be discovered by the watcher.
+        for (const path of SAVED_PATHS) {
+            await rm(join(folder(), path), { recursive: true, force: true });
+        }
+
+        for (const path of [...transaction.present].sort((a, b) => Number(a.endsWith(".ts")) - Number(b.endsWith(".ts")))) {
+            await cp(join(root, "saved", path), join(folder(), path), { recursive: true });
+        }
+
+        await settle();
+
+        if (transaction.previous !== null) {
+            const layout = transaction.previous === "legacy" ? LEGACY_INTEGRATION : INTEGRATION;
+
+            await setEnabled(transaction.wasOn, layout.file);
+        }
+
+        await ask();
+        await rm(root, { recursive: true, force: true });
+    };
+
+    /** Verify first; keep a durable backup until the replacement loads and the original choice is restored. */
     const put = async (step: (text: string) => void): Promise<void> => {
         if (host.local().url === undefined) {
             throw new Error("Start Pi Pocket before installing or turning on the extension.");
         }
 
-        if (foreign()) {
-            throw new Error(`An extension copy already exists in ${folder()}. Remove that copy before installing here.`);
-        }
-
+        checkCopies();
+        migratedSettings(installed()); // Refuse conflicts before downloading or turning anything off.
         step("Looking for the newest version…");
         await check();
 
-        const commit = latest!.commit;
-        const was = installed();
-        const staging = join(folder(), `_${ADAPTER.folder}.new`);
-        const old = join(folder(), `_${ADAPTER.folder}.old`);
+        const staging = join(transactionFolder(), "new");
+        let journalSaved = false;
 
-        await rm(staging, { recursive: true, force: true });
         await mkdir(staging, { recursive: true });
 
         try {
-            await fetchFiles(commit, staging, step);
+            await fetchFiles(latest!.commit, staging, step);
             step("Installing…");
             await ask();
+            checkCopies();
 
-            const wasOn = was !== undefined && module?.enabled === true;
+            const was = installed();
+            const settings = migratedSettings(was);
+            const previousModule = moduleInfo();
 
-            if (wasOn) {
-                await setEnabled(false);
+            if (was !== undefined && previousModule === undefined) {
+                throw new Error(`Pi Pocket did not list ${was.layout.file}. Nothing was installed.`);
             }
 
-            await rm(old, { recursive: true, force: true });
+            const transaction: Transaction = {
+                version: 1,
+                previous: was === undefined ? null : was.layout === LEGACY_INTEGRATION ? "legacy" : "current",
+                wasOn: previousModule?.enabled === true,
+                present: SAVED_PATHS.filter((path) => existsSync(join(folder(), path))),
+                committed: false,
+            };
 
-            if (existsSync(join(folder(), ADAPTER.folder))) {
-                await rename(join(folder(), ADAPTER.folder), old);
+            await mkdir(join(transactionFolder(), "saved"));
+
+            for (const path of transaction.present) {
+                await cp(join(folder(), path), join(transactionFolder(), "saved", path), { recursive: true });
             }
 
-            await rename(join(staging, ADAPTER.folder), join(folder(), ADAPTER.folder));
-            await rename(join(staging, ADAPTER.file), join(folder(), ADAPTER.file));
-            await rm(old, { recursive: true, force: true }).catch(() => {});
-            // Pi Pocket notices a changed module 300 ms after the change: let that pass before turning it on.
-            await new Promise((resolve) => setTimeout(resolve, 800));
+            await saveTransaction(transaction);
+            journalSaved = true;
 
-            // A new install is turned on; an update goes back to how it was.
-            if (was === undefined || wasOn) {
+            if (was !== undefined) {
+                await setEnabled(false, was.layout.file);
+            }
+
+            if (settings !== undefined) {
+                const temporary = join(transactionFolder(), "settings.next");
+
+                await writeFile(temporary, `${JSON.stringify(settings, null, 4)}\n`, { mode: 0o600 });
+                await rename(temporary, join(folder(), INTEGRATION.settings));
+            }
+
+            if (!existsSync(join(folder(), INTEGRATION.file))) {
+                // An uninstalled module can still have an old enabled choice. Disarm that choice with a no-op module
+                // before publishing real code, even when the legacy installation must remain off.
+                await writeFile(join(folder(), INTEGRATION.file), "export default function (_host, web) { web.onDispose(() => {}); }\n", { flag: "wx" });
+                await setEnabled(false, INTEGRATION.file);
+            }
+
+            await rm(join(folder(), INTEGRATION.folder), { recursive: true, force: true });
+            await rename(join(staging, INTEGRATION.folder), join(folder(), INTEGRATION.folder));
+            await rename(join(staging, INTEGRATION.file), join(folder(), INTEGRATION.file));
+            await settle();
+
+            if (was === undefined || transaction.wasOn) {
                 step("Turning it on…");
-                await setEnabled(true);
+                await setEnabled(true, INTEGRATION.file);
             }
-        } finally {
-            await rm(staging, { recursive: true, force: true }).catch(() => {});
+
+            if (was?.layout === LEGACY_INTEGRATION) {
+                await rm(join(folder(), LEGACY_INTEGRATION.file), { force: true });
+                await rm(join(folder(), LEGACY_INTEGRATION.folder), { recursive: true, force: true });
+            }
+
+            transaction.committed = true;
+            await saveTransaction(transaction);
+            await rm(transactionFolder(), { recursive: true, force: true }).catch(() => {});
+        } catch (error) {
+            if (journalSaved) {
+                try {
+                    await recover();
+                } catch (recoveryError) {
+                    throw new Error(`${(error as Error).message} Recovery also failed: ${(recoveryError as Error).message} Backups remain in ${transactionFolder()}.`);
+                }
+            } else {
+                await rm(transactionFolder(), { recursive: true, force: true }).catch(() => {});
+            }
+
+            throw error;
         }
     };
 
-    /** Turns it off in Pi Pocket and removes its files. Its settings file and its saved state stay. */
+    /** Remove either known layout, but keep both settings files and all compression state. */
     const remove = async (): Promise<void> => {
-        if (installed() === undefined) {
+        checkCopies();
+
+        const was = installed();
+
+        if (was === undefined) {
             return;
         }
 
+        migratedSettings(was);
+
         if (host.local().url !== undefined) {
             await ask();
-
-            if (module?.enabled === true) {
-                await setEnabled(false);
-            }
+            await setEnabled(false, was.layout.file);
         }
 
-        await rm(join(folder(), ADAPTER.file), { force: true });
-        await rm(join(folder(), ADAPTER.folder), { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
-        module = undefined;
+        await rm(join(folder(), was.layout.file), { force: true });
+        await rm(join(folder(), was.layout.folder), { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+        modules = [];
     };
 
     /** One action at a time; its steps and its error show in the card. */
@@ -385,6 +635,7 @@ export function setUpBillionContext(host: BillionContextHost) {
         host.changed();
 
         try {
+            await recover();
             await work((text) => {
                 busy = text;
                 host.changed();
@@ -402,7 +653,7 @@ export function setUpBillionContext(host: BillionContextHost) {
     const updateAvailable = (): boolean => {
         const now = installed();
 
-        return now?.commit !== undefined && latest !== undefined && latest.commit !== now.commit;
+        return now?.commit !== undefined && latest !== undefined && (latest.commit !== now.commit || now.layout === LEGACY_INTEGRATION);
     };
 
     /** Looks for a newer commit; installs it when the setting says so and the app installed the one there. */
@@ -412,14 +663,15 @@ export function setUpBillionContext(host: BillionContextHost) {
         }
 
         try {
-            await check();
-            host.changed();
+            await act("Looking for the newest version…", async (step) => {
+                await check();
 
-            if (updateAvailable() && host.settings().billionContext.autoUpdate) {
-                await act("Updating…", put);
-            }
+                if (updateAvailable() && host.settings().billionContext.autoUpdate) {
+                    await put(step);
+                }
+            });
         } catch (error) {
-            console.error("billion-context-pi update:", error);
+            console.error("billion-context-pi-pocket update:", error);
         }
     };
 
@@ -435,6 +687,10 @@ export function setUpBillionContext(host: BillionContextHost) {
         state(): BillionContextState {
             const local = host.local();
             const now = installed();
+            const module = moduleInfo();
+            const error = presentLayouts().length > 1
+                ? "Both extension module names exist. Resolve the duplicate copies in Menu → Extensions before continuing."
+                : module?.error;
 
             return {
                 server: host.settings().server.mode === "remote" ? "remote" : !local.installed ? "absent" : local.url === undefined ? "stopped" : "running",
@@ -442,10 +698,11 @@ export function setUpBillionContext(host: BillionContextHost) {
                     ? {}
                     : {
                           installed: {
+                              file: now.layout.file,
                               version: now.version,
                               ...(now.commit === undefined ? {} : { commit: now.commit }),
                               ...(module === undefined ? {} : { enabled: module.enabled }),
-                              ...(module?.error === undefined ? {} : { error: module.error }),
+                              ...(error === undefined ? {} : { error }),
                           },
                       }),
                 foreign: now === undefined && foreign(),
@@ -455,15 +712,21 @@ export function setUpBillionContext(host: BillionContextHost) {
                 ...(busy === undefined ? {} : { busy }),
                 ...(message === undefined ? {} : { message }),
                 folder: folder(),
-                page: ADAPTER_PAGE,
+                page: INTEGRATION_PAGE,
                 command: REMOTE_COMMAND,
             };
         },
         install: () => act("Installing…", put),
         update: () => act("Updating…", put),
         uninstall: () => act("Removing…", remove),
-        enable: () => act("Turning it on…", () => setEnabled(true)),
-        disable: () => act("Turning it off…", () => setEnabled(false)),
+        enable: () => act("Turning it on…", async () => {
+            checkCopies();
+            await setEnabled(true);
+        }),
+        disable: () => act("Turning it off…", async () => {
+            checkCopies();
+            await setEnabled(false);
+        }),
         check: () =>
             act("Looking for the newest version…", async () => {
                 await check();
@@ -471,17 +734,13 @@ export function setUpBillionContext(host: BillionContextHost) {
             }),
         /** This computer's Pi Pocket is up: see whether the extension is on, and look for a newer one. */
         serverReady: (): void => {
-            void ask()
-                .catch(() => {})
-                .then(() => {
-                    host.changed();
-
-                    return checkAndUpdate();
-                });
+            void act("Checking the extension…", ask)
+                .then(checkAndUpdate)
+                .catch((error) => console.error("billion-context-pi-pocket startup:", error));
             schedule();
         },
         serverDown: (): void => {
-            module = undefined;
+            modules = [];
             clearTimeout(timer);
             host.changed();
         },

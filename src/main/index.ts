@@ -50,7 +50,7 @@ import { loadTheme, sameTheme, saveTheme } from "./theme";
 import { setUpDesktop } from "./desktop";
 import { isNewSessionKey, listenForNewSessionLinks, newSessionMenuItem, offerNewSession } from "./new-session";
 import { setUpDictation } from "./dictation";
-import { ADAPTER, ADAPTER_PAGE, setUpBillionContext } from "./billion-context";
+import { INTEGRATION, INTEGRATION_PAGE, setUpBillionContext } from "./billion-context";
 import { setUpRunner } from "./runner";
 import { askRunnerSession } from "./runner-dialog";
 import { setUpLocalServer } from "./local-server";
@@ -165,7 +165,7 @@ interface Gui {
     local: ReturnType<typeof setUpLocalServer> | undefined;
     /** Offline dictation (src/main/dictation.ts). */
     dictation: ReturnType<typeof setUpDictation> | undefined;
-    /** billion-context-pi in this computer's Pi Pocket (src/main/billion-context.ts). */
+    /** billion-context-pi-pocket in this computer's Pi Pocket (src/main/billion-context.ts). */
     billionContext: ReturnType<typeof setUpBillionContext> | undefined;
     /** This computer as a runner for a server (src/main/runner.ts). */
     runner: ReturnType<typeof setUpRunner> | undefined;
@@ -909,15 +909,15 @@ async function billionContextAction(action: BillionContextAction): Promise<void>
             await extension.disable();
             break;
         case "show-folder":
-            shell.showItemInFolder(join(extension.state().folder, ADAPTER.file));
+            shell.showItemInFolder(join(extension.state().folder, extension.state().installed?.file ?? INTEGRATION.file));
             break;
         case "open-page":
-            void shell.openExternal(ADAPTER_PAGE);
+            void shell.openExternal(INTEGRATION_PAGE);
             break;
         case "uninstall": {
             const { response } = await dialog.showMessageBox(state.window, {
                 type: "warning",
-                message: "Remove billion-context-pi from this computer's Pi Pocket?",
+                message: "Remove billion-context-pi-pocket from this computer's Pi Pocket?",
                 detail: `This turns it off and removes its files from ${extension.state().folder}.\n\nIts settings file and its saved compression state stay. Install puts it back.`,
                 buttons: ["Remove", "Cancel"],
                 defaultId: 1,

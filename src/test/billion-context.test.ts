@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { ADAPTER, adapterFiles, blobSha, REMOTE_COMMAND, type TreeEntry } from "../main/billion-context";
+import { INTEGRATION, INTEGRATION_PAGE, LEGACY_INTEGRATION, integrationFiles, blobSha, REMOTE_COMMAND, type TreeEntry } from "../main/billion-context";
 import { validateSettings } from "../main/settings";
 
 const blob = (path: string, mode = "100644"): TreeEntry => ({ path, mode, type: "blob", sha: "0".repeat(40), size: 1 });
@@ -21,38 +21,47 @@ test("blobSha is git's hash of a file", () => {
     assert.equal(blobSha(Buffer.alloc(0)), "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
 });
 
-test("the adapter's files are its module and its folder, nothing else in the repository", () => {
+test("the integration's files are its new module and helper folder, never settings or legacy files", () => {
     const tree: TreeEntry[] = [
         blob("README.md"),
         blob("package.json"),
         blob("scripts/bundle.mjs"),
-        blob(ADAPTER.file),
-        { path: ADAPTER.folder, mode: "040000", type: "tree", sha: "1".repeat(40) },
-        blob(`${ADAPTER.folder}/bundle.json`),
-        blob(`${ADAPTER.folder}/billion-context-pi-0.1.83/dist/index.js`),
-        blob(`${ADAPTER.folder}-other/x.js`),
+        blob(INTEGRATION.settings),
+        blob(LEGACY_INTEGRATION.file),
+        blob(`${LEGACY_INTEGRATION.folder}/bundle.json`),
+        blob(INTEGRATION.file),
+        { path: INTEGRATION.folder, mode: "040000", type: "tree", sha: "1".repeat(40) },
+        blob(`${INTEGRATION.folder}/bundle.json`),
+        blob(`${INTEGRATION.folder}/billion-context-pi-0.1.83/dist/index.js`),
+        blob(`${INTEGRATION.folder}-other/x.js`),
     ];
 
     assert.deepEqual(
-        adapterFiles(tree).map((entry) => entry.path),
-        [ADAPTER.file, `${ADAPTER.folder}/bundle.json`, `${ADAPTER.folder}/billion-context-pi-0.1.83/dist/index.js`],
+        integrationFiles(tree).map((entry) => entry.path),
+        [INTEGRATION.file, `${INTEGRATION.folder}/bundle.json`, `${INTEGRATION.folder}/billion-context-pi-0.1.83/dist/index.js`],
     );
 });
 
-test("a commit without the adapter, or with links in it, is refused", () => {
-    assert.throws(() => adapterFiles([blob("README.md")]), /missing required files/);
-    assert.throws(() => adapterFiles([blob(ADAPTER.file)]), /missing required files/);
+test("a commit without the integration, or with links in it, is refused", () => {
+    assert.throws(() => integrationFiles([blob("README.md")]), /missing required files/);
+    assert.throws(() => integrationFiles([blob(INTEGRATION.file)]), /missing required files/);
     assert.throws(
-        () => adapterFiles([blob(ADAPTER.file), blob(`${ADAPTER.folder}/bundle.json`), blob(`${ADAPTER.folder}/link`, "120000")]),
+        () => integrationFiles([blob(INTEGRATION.file), blob(`${INTEGRATION.folder}/bundle.json`), blob(`${INTEGRATION.folder}/link`, "120000")]),
         /not a regular file/,
     );
-    assert.throws(() => adapterFiles([blob(ADAPTER.file), blob(`${ADAPTER.folder}/bundle.json`), blob(`${ADAPTER.folder}/../x`)]), /not a regular file/);
+    assert.throws(() => integrationFiles([blob(INTEGRATION.file), blob(`${INTEGRATION.folder}/bundle.json`), blob(`${INTEGRATION.folder}/../x`)]), /not a regular file/);
 });
 
-test("the command for another server unpacks only the adapter's files into the extensions folder", () => {
+test("the remote command uses the renamed repository and refuses legacy installations", () => {
+    assert.equal(INTEGRATION.repo, "vitalNohj/billion-context-pi-pocket");
+    assert.equal(INTEGRATION_PAGE, "https://github.com/vitalNohj/billion-context-pi-pocket");
     assert.match(REMOTE_COMMAND, /^cd ~\/\.pi-pocket\/extensions && /);
-    assert.ok(REMOTE_COMMAND.includes(`codeload.github.com/${ADAPTER.repo}/tar.gz/main`));
-    assert.ok(REMOTE_COMMAND.endsWith(`${ADAPTER.folder}-main/${ADAPTER.file} ${ADAPTER.folder}-main/${ADAPTER.folder}`));
+    assert.ok(REMOTE_COMMAND.includes(`codeload.github.com/${INTEGRATION.repo}/tar.gz/main`));
+    assert.ok(REMOTE_COMMAND.includes(`${INTEGRATION.folder}-main/${INTEGRATION.file} ${INTEGRATION.folder}-main/${INTEGRATION.folder}`));
+
+    for (const path of Object.values(LEGACY_INTEGRATION)) {
+        assert.ok(REMOTE_COMMAND.includes(`[ -e ${path} ]`));
+    }
 });
 
 test("automatic updates are off unless turned on", () => {

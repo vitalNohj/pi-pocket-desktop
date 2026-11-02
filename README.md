@@ -112,17 +112,21 @@ Words show while you speak and are corrected when you pause (**Words as you spea
 
 This is an experimental feature. I have used it every day for over a month, and I want it available to everybody I made this app for. It can still change.
 
-The **Billion context** card, under **Server tools**, installs [billion-context-pi-pocket-adapter](https://github.com/vitalNohj/billion-context-pi-pocket-adapter) (context compression for long conversations) in the Pi Pocket the app runs on this computer, and turns it on. Pi Pocket must be running.
+The **Billion context** card, under **Server tools**, installs [billion-context-pi-pocket](https://github.com/vitalNohj/billion-context-pi-pocket) (context compression for long conversations) in the Pi Pocket the app runs on this computer, and turns it on. Pi Pocket must be running.
 
 <!-- Temporary note: remove when Pi Pocket accepts the desktop bridge. -->
 Ideally, only agents, meaning long-running sessions, would use billion-context, and regular sessions would not. Pi Pocket does not separate agents from sessions yet, and that is a big feature to add, so this app turns the extension on for all sessions, which is how I use it. I hope Pi Pocket adds an "Agents" feature where agents use this extension for their compaction and regular sessions do not. PiP, Pi Pocket's assistant, is an agent that should get billion-context.
 
-- **Install** downloads the newest commit of the adapter's `main` branch from GitHub, checks each file against the git hash the commit lists, and puts `billion-context-pi-pocket-adapter.ts` and its folder in Pi Pocket's `extensions` folder. Then it turns the extension on through Pi Pocket's API.
-- **Update** shows when a newer commit is out, at each start and as often as the app looks for its own updates. It turns the extension off, swaps the files, and turns it on again. **Update automatically** does this without asking (off by default).
-- **Uninstall** turns it off and removes those files. Its settings file (`billion-context-pi-pocket-adapter.json`) and its saved state stay.
+- **Install** downloads the newest commit of the integration's `main` branch from GitHub, checks each file against the git hash the commit lists, and puts `billion-context-pi-pocket.ts` and the `billion-context-pi-pocket/` helper folder in Pi Pocket's `extensions` folder. Then it turns the extension on through Pi Pocket's API.
+- **Update** shows when a newer commit is out, at each start and as often as the app looks for its own updates. It turns the extension off, swaps the files, and restores its previous on/off choice. **Update automatically** does this without asking (off by default).
+- Existing GUI installations of `billion-context-pi-pocket-adapter.ts` and its helper folder remain manageable. **Update** migrates them to the new names. The old module is off before the new module can load. Migration copies settings to `billion-context-pi-pocket.json`, preserving all values and explicitly retaining the old `extensionName` and `stateDir` defaults (`billion-context-pi`) when no overrides exist. The old settings file stays as a backup. Conversation and compression state never move.
+- A failed update restores the previous files, settings, and on/off choice. An interrupted update keeps a recovery record and backups; the next start of the local server or extension action restores them before other work. Do not remove its `_billion-context-pi-pocket.update/` folder during recovery.
+- The GUI refuses migration if both module names exist, either helper folder belongs to a differently named module, or old and new settings conflict. Resolve those copies or settings first; the GUI does not select one or overwrite them. An invalid new settings file never falls back to old settings.
+- A custom `stateDir` must stay outside both helper folders and the installer's transaction folder. The GUI stops an update or uninstall rather than remove state kept there. Move that state safely before continuing; changing only its setting would hide the existing state.
+- **Uninstall** turns the installed module off and removes its module and helper folder. Both settings filenames and all saved compression state stay. Reinstall uses the new settings when present; otherwise it migrates retained old settings.
 - A copy installed by hand under another file name is left alone: the card says so.
 
-With **Another server**, the card shows the command that installs it on that server instead.
+With **Another server**, the card shows the command that installs it on that server instead. It refuses an old installation: follow the integration repository's migration instructions first, keep its stored extension name and state folder, and never enable both modules.
 
 ### Runner
 

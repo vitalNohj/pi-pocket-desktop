@@ -116,7 +116,7 @@ export interface Settings {
         live: boolean;
     };
     billionContext: {
-        /** Install newer versions of the billion-context-pi adapter in this computer's Pi Pocket without asking. */
+        /** Install newer versions of billion-context-pi-pocket in this computer's Pi Pocket without asking. */
         autoUpdate: boolean;
     };
     /** This computer as a runner for a Pi Pocket server (src/main/runner.ts). */
@@ -191,24 +191,25 @@ export interface DictationState {
     downloading: boolean;
 }
 
-/** billion-context-pi in this computer's Pi Pocket (src/main/billion-context.ts). */
+/** billion-context-pi-pocket in this computer's Pi Pocket (src/main/billion-context.ts). */
 export interface BillionContextState {
     /** Where Pi Pocket runs: another server (instructions only), or this computer's, not installed, stopped, or running. */
     server: "remote" | "absent" | "stopped" | "running";
-    /** The adapter in Pi Pocket's drop-in folder. */
+    /** The extension in Pi Pocket's drop-in folder, including its legacy module name. */
     installed?: {
+        file: string;
         /** billion-context-pi's version. */
         version: string;
-        /** The adapter's commit, when the app installed it. */
+        /** The integration's commit, when the app installed it. */
         commit?: string;
         /** On in Pi Pocket; unknown while Pi Pocket is not running. */
         enabled?: boolean;
         /** Pi Pocket could not load it. */
         error?: string;
     };
-    /** The adapter's folder is there, installed outside the app (under another module name). */
+    /** A helper folder is there, installed outside the app (under another module name). */
     foreign: boolean;
-    /** The newest commit on the adapter's main branch, once looked up. */
+    /** The newest commit on the integration's main branch, once looked up. */
     latest?: { commit: string; version?: string };
     checkedAt?: number;
     updateAvailable: boolean;
@@ -218,7 +219,7 @@ export interface BillionContextState {
     message?: string;
     /** Pi Pocket's drop-in folder on this computer. */
     folder: string;
-    /** The adapter's page, and the command that installs it on another server. */
+    /** The integration's page, and the command that installs it on another server. */
     page: string;
     command: string;
 }
