@@ -247,7 +247,7 @@ export type ProbeResult =
 /** Why the config screen is open. */
 export type ConfigReason =
     | { kind: "first-run" }
-    | { kind: "user" }
+    | { kind: "user"; section?: "dictation" }
     | { kind: "not-detected"; probe: ProbeResult }
     | { kind: "load-failed"; url: string; message: string }
     | { kind: "outage"; url: string; message: string }

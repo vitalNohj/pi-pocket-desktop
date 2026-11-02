@@ -61,6 +61,10 @@ export function showConfig(reason: ConfigReason): void {
 
     appState.gui.reason = reason;
     show("config");
+
+    if (reason.kind === "user" && reason.section !== undefined) {
+        appState.gui.config.webContents.send("config:focus", reason.section);
+    }
 }
 
 /** The config page may only be the app's own page: it never navigates or opens windows. */

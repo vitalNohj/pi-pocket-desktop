@@ -34,6 +34,7 @@ The app runs Pi Pocket on this computer for you, or opens one you already run el
 | **See-through background** | The desktop shows through Pi Pocket's background, blurred, as much as you choose. |
 | **Your theme** | The settings screen, the window, and the tray's π follow the theme Pi Pocket shows. |
 | **New session from anywhere** | ⌘N / Ctrl+N, the dock's menu (macOS), the tray menu, or a `pi-pocket://new` link: the window shows with Pi Pocket's New session sheet open. |
+| **Back and Forward** | Mouse Back and Forward, Alt+Left and Alt+Right (Cmd+[ and Cmd+] on a Mac), and macOS swipes move back and forward in Pi Pocket, and between Pi Pocket and GUI Settings. |
 | **Global shortcut** | Show or hide the window from anywhere. |
 | **Launch at login** | Optionally hidden in the tray, so notifications keep coming. |
 | **Updates** | It checks for new releases and installs them (or downloads them, on macOS). |

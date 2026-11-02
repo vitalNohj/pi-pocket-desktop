@@ -5,6 +5,7 @@ import type { Side } from "../../shared/types";
 import { newSessionMenuItem } from "../bridge/new-session";
 import { diagnosticsFile } from "../diagnostics/stall-watchdog";
 import { showWindow } from "../window/views";
+import { navigate } from "../window/navigation";
 import { showConfig } from "../settings-screen/screen";
 import { reloadServer } from "../connection/health";
 import { LINKS } from "./links";
@@ -21,14 +22,14 @@ export function openSettings(): void {
 }
 
 /** The config screen, on `side`, or on the side of the server in use. */
-export function openSettingsOn(side: Side | undefined): void {
+export function openSettingsOn(side: Side | undefined, section?: "dictation"): void {
     if (state.gui !== undefined) {
         state.gui.connectionAttempt++;
         state.gui.viewing = side ?? state.gui.settings.server.mode;
     }
 
     showWindow();
-    showConfig({ kind: "user" });
+    showConfig({ kind: "user", ...(section === undefined ? {} : { section }) });
 }
 
 /** Help → Open diagnostics log: the file the stall watchdog and the page events write (README, Diagnostics). */
@@ -76,6 +77,9 @@ export function buildMenu(): void {
         {
             label: "View",
             submenu: [
+                { label: "Back", accelerator: mac ? "Command+[" : "Alt+Left", registerAccelerator: false, click: () => navigate("back") },
+                { label: "Forward", accelerator: mac ? "Command+]" : "Alt+Right", registerAccelerator: false, click: () => navigate("forward") },
+                { type: "separator" },
                 {
                     label: state.gui?.pageHang.hung === true ? "Reload (page not responding)" : "Reload",
                     accelerator: "CommandOrControl+R",
