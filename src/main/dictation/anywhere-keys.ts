@@ -1,8 +1,8 @@
 /**
- * Dictate anywhere's key: which key it is, and what each press and release means. Pure, so the tests cover it without
- * a keyboard hook (src/main/dictation/anywhere.ts feeds it uiohook's key events).
+ * The dictation key: which key it is, and what each press and release means. Pure, so the tests cover it without a
+ * keyboard hook (src/main/dictation/anywhere.ts feeds it uiohook's key events, or the app window's own).
  */
-import type { AnywhereKey, Settings } from "../../shared/types";
+import type { Settings, TriggerKeyName } from "../../shared/types";
 
 /** uiohook's key codes (uiohook-napi's UiohookKey), for the keys used here. */
 export const KEY = {
@@ -22,7 +22,7 @@ export const KEY = {
 } as const;
 
 /** The key a setting names: "auto" is Right Option on macOS (it types nothing alone there) and Right Ctrl elsewhere. */
-export function triggerKey(key: AnywhereKey, platform: string): number {
+export function triggerKey(key: "auto" | TriggerKeyName, platform: string): number {
     if (key === "auto") {
         return platform === "darwin" ? KEY.AltRight : KEY.CtrlRight;
     }
@@ -31,7 +31,7 @@ export function triggerKey(key: AnywhereKey, platform: string): number {
 }
 
 /** The key's name as this computer's keyboard prints it. */
-export function keyLabel(key: AnywhereKey, platform: string): string {
+export function keyLabel(key: "auto" | TriggerKeyName, platform: string): string {
     const mac = platform === "darwin";
     const code = triggerKey(key, platform);
 
@@ -61,7 +61,31 @@ export function needsMask(code: number, platform: string): boolean {
     return platform !== "darwin" && (code === KEY.AltRight || code === KEY.MetaRight);
 }
 
-export type TriggerMode = Settings["anywhere"]["mode"];
+/** The keys used here as the window names them (Electron's `input.code`, the DOM's KeyboardEvent.code). */
+export const DOM_CODES: Record<number, string> = {
+    [KEY.Escape]: "Escape",
+    [KEY.V]: "KeyV",
+    [KEY.Ctrl]: "ControlLeft",
+    [KEY.CtrlRight]: "ControlRight",
+    [KEY.Alt]: "AltLeft",
+    [KEY.AltRight]: "AltRight",
+    [KEY.Shift]: "ShiftLeft",
+    [KEY.ShiftRight]: "ShiftRight",
+    [KEY.Meta]: "MetaLeft",
+    [KEY.MetaRight]: "MetaRight",
+    [KEY.F13]: "F13",
+    [KEY.F14]: "F14",
+    [KEY.F15]: "F15",
+};
+
+/** A key of the app's window as uiohook's code, for the same Trigger. Keys not named here are 0: some other key. */
+export function domKey(code: string): number {
+    const found = Object.entries(DOM_CODES).find(([, name]) => name === code);
+
+    return found === undefined ? 0 : Number(found[0]);
+}
+
+export type TriggerMode = Settings["dictation"]["keyMode"];
 
 /** What a key event means for the recording. */
 export type TriggerAction = "start" | "stop" | "cancel" | "none";
@@ -102,6 +126,15 @@ export class Trigger {
     reset(): void {
         this.#recording = false;
         this.#pressedAt = undefined;
+    }
+
+    /**
+     * The press that `down` called a stop starts a recording after all: what it would have stopped had already ended
+     * (the mic in Pi Pocket's page, turned off there). Letting go then means what it means after a start.
+     */
+    resume(at: number): void {
+        this.#recording = true;
+        this.#pressedAt = this.held ? at : undefined;
     }
 
     down(code: number, at: number): TriggerAction {

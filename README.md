@@ -111,13 +111,19 @@ Words show while you speak and are corrected when you pause (**Words as you spea
 
 **Custom words** (one per line) are names and terms the model should spell your way, such as `Pi Pocket` or `Kubernetes`. Write them with the capitals you want. Only the Parakeet models take them (they switch to beam search, which costs little); Whisper, Moonshine, and SenseVoice in sherpa-onnx have no prompt to pass words to.
 
+### Dictation key
+
+One key turns dictation on, set in **GUI Settings → Dictation**: Right Option on macOS and Right Ctrl elsewhere, or Right Alt, Right ⌘/Windows, Right Shift, F13 to F15, or none. Only the key pressed alone counts: with another key (Right Ctrl + C, Right Alt + E for €) it does what it always does.
+
+- **In Pi Pocket's window** it turns on the mic of the session in front (PiP's while PiP is open), so the button shows it listening and the words go into the message box. It needs no permission there. Pi Pocket's own Alt+V still works.
+- **Hold or tap:** hold the key while you talk and let go, or tap it once to start and again to stop. Both work by default; a press under 0.3 seconds is a tap.
+
 ### Dictate anywhere
 
-Dictation in any app, not only Pi Pocket: turn on **Dictate anywhere** in **GUI Settings → Dictation**, then press a key wherever you type. A small pill at the bottom of the screen shows that it listens (its dot grows with your voice), the tray's π turns red, and the words are pasted where your cursor is when you stop. The clipboard gets back what it held a moment later.
+The dictation key in every app, not only Pi Pocket: turn on **Dictate anywhere** in **GUI Settings → Dictation**, then press the key wherever you type. A small pill at the bottom of the screen shows that it listens (its dot grows with your voice), the tray's π turns red, and the words are pasted where your cursor is when you stop. The clipboard gets back what it held a moment later.
 
-- **Key:** Right Option on macOS and Right Ctrl elsewhere, or Right Alt, Right ⌘/Windows, Right Shift, F13 to F15. Only the key pressed alone counts: with another key (Right Alt + E for €) it does what it always does.
-- **Hold or tap:** hold the key while you talk and let go, or tap it once to start and again to stop. Both work by default; a press under 0.3 seconds is a tap. **Esc** drops a recording.
-- **Words go** where the cursor is, or only to the clipboard. The tray menu's **Dictate** starts and stops it too.
+- **Where it goes:** with Pi Pocket's window in front, the key still turns on the session's mic; in any other app, it pastes. In Pi Pocket with no message box showing (a sheet open), it pastes too. A recording ends where it started, even if you switch apps meanwhile. GUI Settings ignores the key.
+- **Esc** drops a recording. **Words go** where the cursor is, or only to the clipboard. The tray menu's **Dictate** starts and stops it too.
 - **macOS** asks once for Accessibility (to see the key and press ⌘V) and the microphone. The app is not signed, so macOS may ask again after an update.
 - **Windows** keeps apps run as administrator apart: to dictate into those, run Pi Pocket as administrator too. On many keyboards Right Alt is AltGr; pick another key if you type with it.
 - **Linux** works on X11. Wayland lets no app hear other apps' keys or type into them: there use the tray's **Dictate**, and the words are copied for you to paste.

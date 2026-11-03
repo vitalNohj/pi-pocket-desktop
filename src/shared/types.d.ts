@@ -116,14 +116,18 @@ export interface Settings {
         live: boolean;
         /** Names and terms to prefer, one per entry. Only models that take them use them (Parakeet). */
         words: string[];
+        /**
+         * The dictation key: in Pi Pocket's window it turns the mic on; with Dictate anywhere, it dictates in other apps
+         * too. "auto": Right Option on macOS, Right Ctrl elsewhere.
+         */
+        key: DictationKey;
+        /** Hold the key while you talk, tap it to start and stop, or both (a short press taps). */
+        keyMode: "both" | "hold" | "toggle";
     };
     /** Dictate anywhere: a key starts dictation in any app, and the words go where the cursor is (src/main/dictation/anywhere.ts). */
     anywhere: {
+        /** The dictation key works in every app, not only in Pi Pocket's window. */
         enabled: boolean;
-        /** "auto": Right Option on macOS, Right Ctrl elsewhere. */
-        key: AnywhereKey;
-        /** Hold the key while you talk, tap it to start and stop, or both (a short press taps). */
-        mode: "both" | "hold" | "toggle";
         /** Paste the words where the cursor is, or only copy them. */
         output: "paste" | "copy";
         /** A short sound when dictation starts and stops. */
@@ -191,8 +195,11 @@ export interface DictationModelState {
     download?: { step: string; percent: number };
 }
 
-/** The key that starts Dictate anywhere, by its uiohook name. */
-export type AnywhereKey = "auto" | "AltRight" | "CtrlRight" | "MetaRight" | "ShiftRight" | "F13" | "F14" | "F15";
+/** A key that can start dictation, by its uiohook name. */
+export type TriggerKeyName = "AltRight" | "CtrlRight" | "MetaRight" | "ShiftRight" | "F13" | "F14" | "F15";
+
+/** The dictation key: "auto" picks one for this computer, "off" has none. */
+export type DictationKey = "auto" | "off" | TriggerKeyName;
 
 /** Dictate anywhere's state, for the settings (src/main/dictation/anywhere.ts). */
 export interface AnywhereState {
@@ -482,6 +489,8 @@ export interface HostHello {
     visible: boolean;
     /** Offline dictation can run here: the page's mic button uses it (src/main/dictation/dictation.ts). */
     dictation: boolean;
+    /** The dictation key (KeyboardEvent.code), which the preload keeps from Pi Pocket's own shortcuts; null: none. */
+    dictationKey: string | null;
 }
 
 /** What the config page can ask of the main process. */

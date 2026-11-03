@@ -12,6 +12,8 @@ import { setUpDesktop } from "../bridge/desktop";
 import { offerNewSession } from "../bridge/new-session";
 import { setUpDictation } from "../dictation/dictation";
 import { setUpAnywhere } from "../dictation/anywhere";
+import { setUpDictationKey } from "../dictation/dictation-key";
+import { setUpPageMic } from "../dictation/page-mic";
 import { setUpBillionContext } from "../billion-context/billion-context";
 import { setUpRunner } from "../runner/runner";
 import { askRunnerSession } from "../runner/runner-dialog";
@@ -157,6 +159,7 @@ export async function start(): Promise<void> {
         local: undefined,
         dictation: undefined,
         anywhere: undefined,
+        dictationKey: undefined,
         billionContext: undefined,
         runner: undefined,
         signingIn: false,
@@ -353,6 +356,7 @@ export async function start(): Promise<void> {
         updateItem: () => appState.gui?.updates?.trayItem() ?? appState.gui?.local?.trayItem(),
         theme: () => appState.gui!.theme,
         dictation: () => appState.gui?.dictation?.state().supported === true,
+        dictationKey: () => appState.gui?.dictationKey?.pageKey(),
         dictateItem: () => {
             const anywhere = appState.gui?.anywhere;
 
@@ -512,7 +516,27 @@ export async function start(): Promise<void> {
         needModel: () => {
             openSettingsOn(undefined, "dictation");
         },
+        key: (type, code) => appState.gui?.dictationKey?.fromHook(type, code),
+        keyHeld: () => appState.gui?.dictationKey?.held() === true,
+        ended: () => appState.gui?.dictationKey?.ended(),
     });
+
+    const pageMic = setUpPageMic(() => (server.webContents.isDestroyed() ? undefined : server.webContents));
+
+    appState.gui.dictationKey = setUpDictationKey({
+        platform: process.platform,
+        settings: () => appState.gui!.settings,
+        pageInFront: () => window.isFocused() && appState.gui?.showing === "server" && appState.gui.loadedUrl !== undefined && !appState.gui.unverified,
+        settingsInFront: () => window.isFocused() && appState.gui?.showing === "config",
+        pageMic,
+        anywhere: () => appState.gui?.anywhere,
+    });
+
+    // The window hears the dictation key itself, so it works with no keyboard hook.
+    for (const contents of [server.webContents, config.webContents]) {
+        contents.on("before-input-event", (_event, input) => appState.gui?.dictationKey?.fromWindow(input));
+    }
+    window.on("blur", () => appState.gui?.dictationKey?.windowBlurred());
 
     registerIpc();
     applyDesktopSettings(undefined);

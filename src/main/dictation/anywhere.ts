@@ -1,7 +1,8 @@
 /**
  * Dictate anywhere: a key starts dictation in any app, and the words go where the cursor is.
  *
- * - The key: uiohook-napi (a keyboard hook) hears it in every app. anywhere-keys.ts says what each press means.
+ * - The key: uiohook-napi (a keyboard hook) hears it in every app and hands it to the dictation key
+ *   (src/main/dictation/dictation-key.ts), which says what each press means and where it dictates.
  * - The microphone: a small window, the "recording" pill (src/renderer/anywhere), reads it. It never takes focus, so the
  *   app you type in keeps it, and it sends the audio here.
  * - The words: offline dictation (src/main/dictation/dictation.ts) recognises them, then they are pasted: put on the
@@ -25,7 +26,7 @@ import {
 import type { AnywhereState, Settings, ThemeColors } from "../../shared/types";
 import { APP_ORIGIN, serveAppPages } from "../settings-screen/config-protocol";
 import { preloadPath } from "../core/paths";
-import { KEY, keptType, keyLabel, needsMask, pasteText, Trigger, triggerKey } from "./anywhere-keys";
+import { KEY, keptType, keyLabel, pasteText } from "./anywhere-keys";
 import type { Listening, PageMessage } from "./dictation";
 
 /** uiohook-napi, as used here. Loaded only once Dictate anywhere is turned on. */
@@ -62,6 +63,12 @@ export interface AnywhereHost {
     recording: (on: boolean) => void;
     /** No speech model yet: open the settings at Dictation. */
     needModel: () => void;
+    /** A key the hook heard, in any app, for the dictation key. */
+    key: (type: "down" | "up", code: number) => void;
+    /** The dictation key is held down now. */
+    keyHeld: () => boolean;
+    /** A recording ended some other way than the key (the tray, an error, the time limit). */
+    ended: () => void;
 }
 
 const PARTITION = "gui-anywhere";
@@ -104,7 +111,6 @@ export function setUpAnywhere(host: AnywhereHost) {
     const copyOnly = waylandOnly(host.platform, process.env);
     let hook: Hook | undefined;
     let hookRunning = false;
-    let trigger: Trigger | undefined;
     let problem: string | undefined;
     let status: AnywhereState["status"] = "off";
     let pill: BrowserWindow | undefined;
@@ -280,7 +286,7 @@ export function setUpAnywhere(host: AnywhereHost) {
                     : error === "no-microphone"
                       ? "No microphone was found."
                       : error;
-            trigger?.reset();
+            host.ended();
             take.listening.stop(true);
 
             return;
@@ -306,7 +312,7 @@ export function setUpAnywhere(host: AnywhereHost) {
         const dictation = host.dictation();
 
         if (dictation === undefined || !dictation.ready()) {
-            trigger?.reset();
+            host.ended();
             notify("Dictate anywhere needs a speech model", "Download one in GUI Settings → Dictation.");
             host.needModel();
 
@@ -318,7 +324,7 @@ export function setUpAnywhere(host: AnywhereHost) {
             const allowed = await systemPreferences.askForMediaAccess("microphone").catch(() => false);
 
             if (!allowed) {
-                trigger?.reset();
+                host.ended();
                 notify("Pi Pocket may not use the microphone", "Allow it in System Settings → Privacy & Security → Microphone.");
 
                 return;
@@ -334,7 +340,7 @@ export function setUpAnywhere(host: AnywhereHost) {
         });
 
         if (listening === undefined) {
-            trigger?.reset();
+            host.ended();
 
             return;
         }
@@ -366,13 +372,17 @@ export function setUpAnywhere(host: AnywhereHost) {
             return;
         }
 
-        const settings = host.settings().anywhere;
-        const label = keyLabel(settings.key, host.platform);
+        const { key, keyMode } = host.settings().dictation;
+        const byKey = key !== "off" && host.keyHeld();
 
         toPill({
             type: "record",
-            title: settings.mode === "toggle" || trigger === undefined ? `Listening · ${trigger === undefined ? "Dictate again" : label} to stop` : `Listening · let go of ${label}`,
-            sound: settings.sound,
+            title: !byKey
+                ? `Listening · ${key === "off" ? "Dictate again" : keyLabel(key, host.platform)} to stop`
+                : keyMode === "toggle"
+                  ? `Listening · ${keyLabel(key, host.platform)} to stop`
+                  : `Listening · let go of ${keyLabel(key, host.platform)}`,
+            sound: host.settings().anywhere.sound,
             ...theme(),
         });
     };
@@ -386,7 +396,7 @@ export function setUpAnywhere(host: AnywhereHost) {
         take.stopping = true;
         take.dropped = drop;
         clearTimeout(take.timer);
-        trigger?.reset();
+        host.ended();
         if (pillLoaded) {
             toPill({ type: "stop" });
         }
@@ -439,7 +449,7 @@ export function setUpAnywhere(host: AnywhereHost) {
 
         take = undefined;
         clearTimeout(done.timer);
-        trigger?.reset();
+        host.ended();
 
         // The dictation ended before the microphone closed (an error, the model unloaded): close it.
         if (!done.micClosed) {
@@ -518,7 +528,7 @@ export function setUpAnywhere(host: AnywhereHost) {
 
     /** The trigger key is let go (or a moment passed): a held Alt or ⌘ would change the paste into another shortcut. */
     const keyReleased = async (): Promise<void> => {
-        for (let waited = 0; trigger?.held === true && waited < 3000; waited += 30) {
+        for (let waited = 0; host.keyHeld() && waited < 3000; waited += 30) {
             await new Promise((resolve) => setTimeout(resolve, 30));
         }
     };
@@ -558,48 +568,8 @@ export function setUpAnywhere(host: AnywhereHost) {
 
     // ——— The key ———
 
-    const onKeyDown = (event: { keycode: number }): void => {
-        if (trigger === undefined) {
-            return;
-        }
-
-        const action = trigger.down(event.keycode, Date.now());
-
-        // Alt or the Windows key, let go alone, would open a menu: a Ctrl tap while it is held turns it into a combination.
-        if (action === "start" && needsMask(trigger.key, host.platform)) {
-            hook?.keyTap(KEY.Ctrl);
-        }
-
-        act(action);
-    };
-
-    const onKeyUp = (event: { keycode: number }): void => {
-        if (trigger !== undefined) {
-            act(trigger.up(event.keycode, Date.now()));
-        }
-    };
-
-    const act = (action: ReturnType<Trigger["down"]>): void => {
-        switch (action) {
-            case "start":
-                // The tray started this recording: the key stops it.
-                if (take !== undefined) {
-                    trigger?.reset();
-                    stop(false);
-                } else {
-                    void start();
-                }
-                break;
-            case "stop":
-                stop(false);
-                break;
-            case "cancel":
-                stop(true);
-                break;
-            case "none":
-                break;
-        }
-    };
+    const onKeyDown = (event: { keycode: number }): void => host.key("down", event.keycode);
+    const onKeyUp = (event: { keycode: number }): void => host.key("up", event.keycode);
 
     const loadHook = (): Hook => {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -620,7 +590,6 @@ export function setUpAnywhere(host: AnywhereHost) {
         }
 
         hookRunning = false;
-        trigger = undefined;
     };
 
     let accessibilityTimer: NodeJS.Timeout | undefined;
@@ -628,6 +597,7 @@ export function setUpAnywhere(host: AnywhereHost) {
     /** Starts or stops watching the key, as the settings say. */
     const apply = (): void => {
         const settings = host.settings().anywhere;
+        const { key } = host.settings().dictation;
 
         clearInterval(accessibilityTimer);
         stopHook();
@@ -639,6 +609,13 @@ export function setUpAnywhere(host: AnywhereHost) {
             pill?.destroy();
             pill = undefined;
             pillReady = undefined;
+
+            return;
+        }
+
+        if (key === "off") {
+            problem = "Choose a dictation key above: it is the key that starts Dictate anywhere.";
+            setStatus("error");
 
             return;
         }
@@ -668,7 +645,6 @@ export function setUpAnywhere(host: AnywhereHost) {
         try {
             const loaded = loadHook();
 
-            trigger = new Trigger(triggerKey(settings.key, host.platform), settings.mode);
             loaded.on("keydown", onKeyDown);
             loaded.on("keyup", onKeyUp);
             loaded.start();
@@ -688,7 +664,8 @@ export function setUpAnywhere(host: AnywhereHost) {
         }
     };
 
-    let applied = JSON.stringify(host.settings().anywhere);
+    const applying = (): string => JSON.stringify([host.settings().anywhere, host.settings().dictation.key]);
+    let applied = applying();
 
     apply();
 
@@ -698,14 +675,14 @@ export function setUpAnywhere(host: AnywhereHost) {
         },
         /** The settings were saved: watch another key, or stop, when Dictate anywhere's settings changed. */
         settingsChanged(): void {
-            const next = JSON.stringify(host.settings().anywhere);
+            const next = applying();
 
             if (next !== applied) {
                 applied = next;
                 apply();
             }
         },
-        /** The tray's Dictate item: starts a recording, or stops the one running. */
+        /** The tray's Dictate item: starts a recording, or stops the one running (the key's too). */
         toggle(): void {
             if (take === undefined) {
                 void start();
@@ -714,6 +691,20 @@ export function setUpAnywhere(host: AnywhereHost) {
             }
         },
         recording: (): boolean => take !== undefined,
+        /** Dictate anywhere can record now (it is on, and not Wayland's tray-only kind). */
+        usable: (): boolean => host.settings().anywhere.enabled && status !== "off",
+        /** The keyboard hook runs: it hears the key in every app, the app's own window too. */
+        hooked: (): boolean => hookRunning,
+        /** Starts a recording (the key pressed outside Pi Pocket's window). */
+        start: (): void => void start(),
+        /** Ends the recording: its words are pasted, or with `drop`, thrown away. */
+        stop: (drop: boolean): void => stop(drop),
+        /** Presses a key in whatever app has the focus. */
+        tap: (code: number): void => {
+            if (hookRunning) {
+                hook?.keyTap(code);
+            }
+        },
         quit(): void {
             clearInterval(accessibilityTimer);
             stop(true);

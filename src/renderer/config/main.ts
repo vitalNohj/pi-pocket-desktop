@@ -1180,7 +1180,7 @@ function renderAnywhere(next: ConfigState): void {
         ? { auto: "Automatic (Right Option)", AltRight: "Right Option", CtrlRight: "Right Control", MetaRight: "Right Command" }
         : { auto: "Automatic (Right Ctrl)", AltRight: "Right Alt", CtrlRight: "Right Ctrl", MetaRight: next.platform === "win32" ? "Right Windows" : "Right Super" };
 
-    for (const option of element("anywhere-key").querySelectorAll<HTMLOptionElement>("option")) {
+    for (const option of element("dictation-key").querySelectorAll<HTMLOptionElement>("option")) {
         option.textContent = names[option.value] ?? option.textContent;
     }
 
@@ -1198,12 +1198,14 @@ function renderAnywhere(next: ConfigState): void {
                 ? "On: press the key in any app"
                 : "On, but no speech model is downloaded yet";
 
-    const key = settings.key === "auto" ? "" : settings.key;
+    const key = next.settings.dictation.key;
 
-    element("anywhere-key-note").textContent =
-        !mac && key === "AltRight"
-            ? "On many keyboards Right Alt is AltGr, which types characters such as @ or €: those still work, but pick another key if you use them often."
-            : "Pressed alone. With another key it works as usual.";
+    element("dictation-key-note").textContent =
+        key === "off"
+            ? "No key: use the mic button, or Alt+V in Pi Pocket."
+            : !mac && key === "AltRight"
+              ? "On many keyboards Right Alt is AltGr, which types characters such as @ or €: those still work, but pick another key if you use them often."
+              : "Pressed alone, it turns on the mic of the session in front. With another key it works as usual.";
     element("anywhere-output-note").textContent = anywhere.copyOnly
         ? "On Wayland the words are always copied: paste them yourself."
         : "Pasting puts back what you had copied.";

@@ -65,6 +65,8 @@ export interface DesktopHost {
     themeChanged: (theme: ThemeColors) => void;
     /** Offline dictation has an engine for this computer. */
     dictation: () => boolean;
+    /** The dictation key as the page names it (KeyboardEvent.code); undefined: none. */
+    dictationKey: () => string | undefined;
     /** A right-click the page left alone, as its preload saw it (src/main/window/themed-menu.ts reads it). */
     pageRightClick: (click: unknown) => void;
     /** The tray's Dictate item (Dictate anywhere is on), with what a click does; undefined when it is off. */
@@ -365,7 +367,7 @@ export function setUpDesktop(host: DesktopHost): {
         // Only the server view's top frame on the server's origin gets the bridge: never a frame, another window, or a
         // sign-in page in front of the server.
         const hello: HostHello | null = fromServerPage(event)
-            ? { visible: visible(), dictation: host.dictation() }
+            ? { visible: visible(), dictation: host.dictation(), dictationKey: host.dictationKey() ?? null }
             : null;
 
         event.returnValue = hello;

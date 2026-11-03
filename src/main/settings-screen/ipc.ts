@@ -90,6 +90,12 @@ export function registerIpc(): void {
         saveSettings(state.configPath, state.settings);
         applyDesktopSettings(before);
         state.dictation?.settingsChanged();
+        state.dictationKey?.settingsChanged();
+
+        if (!state.server.webContents.isDestroyed()) {
+            state.server.webContents.send("host:dictation-key", state.dictationKey?.pageKey() ?? null);
+        }
+
         state.anywhere?.settingsChanged();
         state.updates?.reschedule();
         state.local?.rescheduleUpdates();

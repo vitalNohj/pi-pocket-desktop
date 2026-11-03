@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { join } from "node:path";
 import { test } from "node:test";
-import { HOLD_MS, KEY, keptType, keyLabel, needsMask, pasteText, Trigger, triggerKey } from "../main/dictation/anywhere-keys";
+import { domKey, HOLD_MS, KEY, keptType, keyLabel, needsMask, pasteText, Trigger, triggerKey } from "../main/dictation/anywhere-keys";
 import { bpeVocab, customWords, modelById, MODELS } from "../main/dictation/dictation-catalog";
 import { defaultSettings, validateSettings } from "../main/core/settings";
 
@@ -121,20 +121,22 @@ test("settings: Dictate anywhere is off by default, and its values are checked",
     const defaults = defaultSettings();
 
     assert.equal(defaults.anywhere.enabled, false);
-    assert.equal(defaults.anywhere.key, "auto");
+    assert.equal(defaults.dictation.key, "auto");
+    assert.equal(defaults.dictation.keyMode, "both");
     assert.deepEqual(defaults.dictation.words, []);
 
-    const good = validateSettings({ anywhere: { enabled: true, key: "F13", mode: "hold", output: "copy", sound: false }, dictation: { words: [" Pi Pocket ", "", "Pi Pocket", "Tribble"] } });
+    const good = validateSettings({ anywhere: { enabled: true, output: "copy", sound: false }, dictation: { key: "F13", keyMode: "hold", words: [" Pi Pocket ", "", "Pi Pocket", "Tribble"] } });
 
     assert.deepEqual(good.problems, []);
-    assert.equal(good.settings.anywhere.key, "F13");
+    assert.equal(good.settings.dictation.key, "F13");
+    assert.equal(validateSettings({ dictation: { key: "off" } }).settings.dictation.key, "off");
     assert.deepEqual(good.settings.dictation.words, ["Pi Pocket", "Tribble"]);
 
-    const bad = validateSettings({ anywhere: { key: "Space", mode: "sometimes" }, dictation: { words: "Pi" } });
+    const bad = validateSettings({ anywhere: { output: "type" }, dictation: { key: "Space", keyMode: "sometimes", words: "Pi" } });
 
     assert.deepEqual(
         bad.problems.map((problem) => problem.path).sort(),
-        ["anywhere.key", "anywhere.mode", "dictation.words"],
+        ["anywhere.output", "dictation.key", "dictation.keyMode", "dictation.words"],
     );
 });
 
@@ -150,4 +152,22 @@ test("the clipboard keeps content types, not X11's protocol targets or portal ha
     assert.ok(!keptType(raw("MULTIPLE")));
     assert.ok(!keptType(raw("SAVE_TARGETS")));
     assert.ok(!keptType(raw("application/vnd.portal.files")));
+});
+
+test("the window's own key codes map to the hook's", () => {
+    assert.equal(domKey("AltRight"), KEY.AltRight);
+    assert.equal(domKey("ControlRight"), KEY.CtrlRight);
+    assert.equal(domKey("Escape"), KEY.Escape);
+    assert.equal(domKey("KeyE"), 0);
+});
+
+test("resume: a press that would stop starts after all, and letting go then stops", () => {
+    const trigger = new Trigger(K, "both");
+
+    trigger.down(K, 0);
+    trigger.up(K, 100);
+    assert.equal(trigger.down(K, 1000), "stop");
+    trigger.resume(1000);
+    assert.ok(trigger.recording);
+    assert.equal(trigger.up(K, 1000 + HOLD_MS + 1), "stop");
 });
