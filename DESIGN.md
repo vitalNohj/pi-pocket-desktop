@@ -99,7 +99,7 @@ Built in a worktree from `upstream/main` (`/home/nohj/pi-pocket-desktop-bridge`)
 when everything is finished, explaining that it is for this GUI or any other wrapper app.
 
 - `GET /api/pocket/info` (no sign-in): `{ name: "pi-pocket", bridge: 1 }`. No version.
-- **Host bridge**, generic and versioned: the wrapper's preload exposes `window.pocketHost`:
+- **App bridge**, generic and versioned: the wrapper's preload exposes `window.pocketHost`:
 
   ```js
   window.pocketHost = {

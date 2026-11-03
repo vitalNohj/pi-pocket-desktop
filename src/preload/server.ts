@@ -1,13 +1,13 @@
 /// <reference lib="dom" />
 /**
- * The server page's preload: `window.pocketHost`, the bridge Pi Pocket's web app uses (docs/embedders.md there).
+ * The server page's preload: `window.pocketHost`, the app bridge Pi Pocket's web app uses (docs/embedders.md there).
  * The main process says first whether this frame may have it: only the main window's top frame, on the configured
  * server's origin. Anywhere else (a sign-in page in front of the server, another window) the page gets nothing.
  */
 import { contextBridge, ipcRenderer } from "electron";
 import type { HostEvent, HostHello, ThemeToken } from "../shared/types";
 
-/** The bridge version this app speaks. */
+/** The app bridge version this app speaks. */
 const API_VERSION = 1;
 
 const hello = ipcRenderer.sendSync("host:hello") as HostHello | null;

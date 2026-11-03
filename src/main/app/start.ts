@@ -88,7 +88,7 @@ export async function start(): Promise<void> {
     const server = new WebContentsView({
         webPreferences: {
             session: serverSession,
-            // window.pocketHost, the host bridge; the main process decides at its start whether the page gets it.
+            // window.pocketHost, the app bridge; the main process decides at its start whether the page gets it.
             preload: preloadPath("server"),
             additionalArguments: ["--pocket-gui-navigation"],
             contextIsolation: true,
