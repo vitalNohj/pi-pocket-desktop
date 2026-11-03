@@ -106,7 +106,7 @@ when everything is finished, explaining that it is for this GUI or any other wra
       kind: "pi-pocket-gui",
       apiVersion: 1,
       capabilities: ["menu", "badge", "notify", "visibility", "pinned"], // "dictation" reserved
-      menuTitle(), // the heading of this app's group in the menu: "Pi Pocket GUI"
+      menuTitle(), // the heading of this app's group in the menu: "Pi Pocket Desktop"
       menuItems(), // [{ id, label, group }]
       invoke(id), // e.g. "server-settings"
       setBadge(count),
@@ -118,7 +118,7 @@ when everything is finished, explaining that it is for this GUI or any other wra
   ```
 
   Pi Pocket uses only the capabilities it finds, and ignores what it does not know.
-- The page shows the wrapper's menu items in a group under the wrapper's own title (`menuTitle()`: a "Pi Pocket GUI" group with **GUI Settings…**).
+- The page shows the wrapper's menu items in a group under the wrapper's own title (`menuTitle()`: a "Pi Pocket Desktop" group with **GUI Settings…**).
 - The server sends push decisions to desktop clients over the live connection.
 - The page reports visibility from the wrapper.
 - A server without the bridge still works in the GUI, with a one-time notice: "This server doesn't support desktop
