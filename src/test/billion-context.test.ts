@@ -42,6 +42,18 @@ test("the integration's files are its new module and helper folder, never settin
     );
 });
 
+test("the pinned helper layout is accepted without a bundled runtime", () => {
+    const paths = ["runtime-lock.json", "tool-contract.json", "runtime.mjs", "bridge.ts", "index.js"]
+        .map((name) => `${INTEGRATION.folder}/${name}`);
+    const tree = [blob(INTEGRATION.file), ...paths.map((path) => blob(path))];
+
+    assert.deepEqual(integrationFiles(tree).map((entry) => entry.path), [INTEGRATION.file, ...paths]);
+    for (const path of paths) {
+        assert.throws(() => integrationFiles(tree.filter((entry) => entry.path !== path)), /missing required files/);
+    }
+    assert.throws(() => integrationFiles([...tree, blob(`${INTEGRATION.folder}/link`, "120000")]), /not a regular file/);
+});
+
 test("a commit without the integration, or with links in it, is refused", () => {
     assert.throws(() => integrationFiles([blob("README.md")]), /missing required files/);
     assert.throws(() => integrationFiles([blob(INTEGRATION.file)]), /missing required files/);

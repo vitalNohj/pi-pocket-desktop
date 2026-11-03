@@ -1220,11 +1220,11 @@ function renderBillionContext(next: ConfigState): void {
               ? "First, install Pi Pocket under This computer on Home."
               : extension.server === "stopped"
                 ? "Start Pi Pocket before installing or turning on the extension."
-                : "Download from GitHub and turn it on (about 1 MB; 4 MB on disk).";
+                : "Download the extension, turn it on, and install its pinned runtime.";
     } else {
         const state = installed.error !== undefined ? "failed to load" : installed.enabled === true ? "on" : installed.enabled === false ? "off" : "";
 
-        status = `Version ${installed.version}${state === "" ? "" : ` · ${state}`}`;
+        status = `Supported BCP ${installed.version}${state === "" ? "" : ` · ${state}`}`;
         detail = installed.error ?? (
             installed.commit === undefined
                 ? "Installed outside the app. Update it manually."
@@ -1235,6 +1235,9 @@ function renderBillionContext(next: ConfigState): void {
                     : `Up to date.${checked}`
         );
 
+        if (installed.enabled === false) {
+            detail = `${detail} The pinned runtime might not be installed. Enable the extension to install it.`.trim();
+        }
         if (!running) {
             detail = `${detail} Start Pi Pocket to turn it on or off.`.trim();
         }

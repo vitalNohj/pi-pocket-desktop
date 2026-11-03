@@ -52,7 +52,10 @@ export interface TreeEntry {
 export function integrationFiles(tree: readonly TreeEntry[]): TreeEntry[] {
     const files = tree.filter((entry) => entry.type === "blob" && (entry.path === INTEGRATION.file || entry.path.startsWith(`${INTEGRATION.folder}/`)));
 
-    if (!files.some((entry) => entry.path === INTEGRATION.file) || !files.some((entry) => entry.path === `${INTEGRATION.folder}/bundle.json`)) {
+    const has = (name: string) => files.some((entry) => entry.path === `${INTEGRATION.folder}/${name}`);
+    const newLayout = ["runtime-lock.json", "tool-contract.json", "runtime.mjs", "bridge.ts", "index.js"].every(has);
+
+    if (!files.some((entry) => entry.path === INTEGRATION.file) || (!newLayout && !has("bundle.json"))) {
         throw new Error("This extension version is missing required files.");
     }
 
@@ -86,9 +89,16 @@ export interface BillionContextHost {
     changed: () => void;
 }
 
+/** A lock identifies a stable numeric BCP version, not whether its runtime is installed. */
+function lockedVersion(value: unknown): string | undefined {
+    const current = (value as { current?: unknown } | null)?.current;
+
+    return typeof current === "string" && /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(current) ? current : undefined;
+}
+
 interface Installed {
     layout: typeof INTEGRATION | typeof LEGACY_INTEGRATION;
-    /** billion-context-pi's version, from the helper folder's bundle.json. */
+    /** The BCP version supported by this integration, not its runtime installation status. */
     version: string;
     /** The commit the app installed; undefined when the files came from elsewhere. */
     commit?: string;
@@ -121,6 +131,12 @@ export function legacySettings(value: unknown): Record<string, unknown> {
     }
 
     return { ...settings, extensionName: settings.extensionName ?? "billion-context-pi", stateDir: settings.stateDir ?? "billion-context-pi" };
+}
+
+class ApiError extends Error {
+    constructor(message: string, readonly status: number) {
+        super(message);
+    }
 }
 
 interface ExtensionInfo {
@@ -160,7 +176,14 @@ export function setUpBillionContext(host: BillionContextHost) {
         try {
             version = (JSON.parse(readFileSync(join(root, "bundle.json"), "utf8")) as { version?: string }).version ?? "?";
         } catch {
-            // The helper folder is missing or broken: Pi Pocket shows the extension's error.
+            // Older bundle metadata can be absent.
+        }
+        if (version === "?") {
+            try {
+                version = lockedVersion(JSON.parse(readFileSync(join(root, "runtime-lock.json"), "utf8"))) ?? "?";
+            } catch {
+                // The version is only shown.
+            }
         }
 
         try {
@@ -219,7 +242,7 @@ export function setUpBillionContext(host: BillionContextHost) {
         const answer = (await response.json().catch(() => undefined)) as { error?: string } | undefined;
 
         if (!response.ok) {
-            throw new Error(answer?.error ?? `Pi Pocket answered HTTP ${String(response.status)}.`);
+            throw new ApiError(answer?.error ?? `Pi Pocket answered HTTP ${String(response.status)}.`, response.status);
         }
 
         return answer;
@@ -236,11 +259,35 @@ export function setUpBillionContext(host: BillionContextHost) {
     };
 
     /** Turns the extension on or off in Pi Pocket; on, a load error comes back as the request's error. */
-    const setEnabled = async (enabled: boolean, file = installed()?.layout.file ?? INTEGRATION.file): Promise<void> => {
+    const setEnabled = async (enabled: boolean, file: string = installed()?.layout.file ?? INTEGRATION.file): Promise<void> => {
         try {
             remember(await api(`/api/extensions/${encodeURIComponent(file)}`, { enabled }));
         } finally {
             await ask().catch(() => {});
+        }
+    };
+
+    /** Install only the pins reviewed and shipped with the extension. Older bundles have no install route. */
+    const installRuntime = async (): Promise<void> => {
+        let answer: unknown;
+
+        try {
+            const status = await api("/api/x/billion-context-pi-pocket/status") as { runtime?: { state?: unknown } } | undefined;
+            const action = status?.runtime?.state === "error" ? "repair" : "install";
+
+            answer = await api(`/api/x/billion-context-pi-pocket/runtime/${action}`, {});
+        } catch (error) {
+            const root = join(folder(), installed()?.layout.folder ?? INTEGRATION.folder);
+
+            if (error instanceof ApiError && error.status === 404 &&
+                existsSync(join(root, "bundle.json")) && !existsSync(join(root, "runtime-lock.json"))) {
+                return;
+            }
+            throw error;
+        }
+
+        if ((answer as { runtime?: { installed?: unknown } } | undefined)?.runtime?.installed !== true) {
+            throw new Error("The extension did not confirm that its runtime was installed.");
         }
     };
 
@@ -284,7 +331,16 @@ export function setUpBillionContext(host: BillionContextHost) {
 
             version = bundle.ok ? ((await bundle.json()) as { version?: string }).version : undefined;
         } catch {
-            // The version is only shown.
+            // Try the pinned layout below.
+        }
+        if (version === undefined) {
+            try {
+                const lock = await host.fetch(`https://raw.githubusercontent.com/${INTEGRATION.repo}/${commit}/${INTEGRATION.folder}/runtime-lock.json`);
+
+                version = lock.ok ? lockedVersion(await lock.json()) : undefined;
+            } catch {
+                // The version is only shown.
+            }
         }
 
         latest = { commit, ...(version === undefined ? {} : { version }) };
@@ -577,6 +633,8 @@ export function setUpBillionContext(host: BillionContextHost) {
             if (was === undefined || transaction.wasOn) {
                 step("Turning it on…");
                 await setEnabled(true, INTEGRATION.file);
+                step("Installing runtime…");
+                await installRuntime();
             }
 
             if (was?.layout === LEGACY_INTEGRATION) {
@@ -719,9 +777,29 @@ export function setUpBillionContext(host: BillionContextHost) {
         install: () => act("Installing…", put),
         update: () => act("Updating…", put),
         uninstall: () => act("Removing…", remove),
-        enable: () => act("Turning it on…", async () => {
+        enable: () => act("Turning it on…", async (step) => {
             checkCopies();
-            await setEnabled(true);
+            await ask();
+            const previous = moduleInfo();
+
+            if (previous === undefined) {
+                throw new Error("Pi Pocket did not list the extension. Nothing was changed.");
+            }
+
+            try {
+                await setEnabled(true);
+                step("Installing runtime…");
+                await installRuntime();
+            } catch (error) {
+                if (!previous.enabled) {
+                    try {
+                        await setEnabled(false, previous.file);
+                    } catch (restoreError) {
+                        throw new Error(`${(error as Error).message} Restoring the disabled choice also failed: ${(restoreError as Error).message}`);
+                    }
+                }
+                throw error;
+            }
         }),
         disable: () => act("Turning it off…", async () => {
             checkCopies();
