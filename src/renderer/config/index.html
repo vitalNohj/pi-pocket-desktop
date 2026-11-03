@@ -205,7 +205,19 @@
                         <div id="dictation-models" class="models"></div>
                     </details>
                     <label class="row"><span><strong>Words as you speak</strong><small>Show text before you pause. Uses more CPU.</small></span><input type="checkbox" data-key="dictation.live" /></label>
+                    <label class="row stack"><span><strong>Custom words</strong><small id="dictation-words-note">Names and terms to spell your way, one per line, written as you want them. Parakeet models use them; Whisper, Moonshine, and SenseVoice cannot.</small></span><textarea data-key="dictation.words" rows="3" spellcheck="false" placeholder="Pi Pocket&#10;Kubernetes&#10;vitalNohj"></textarea></label>
                     <div class="row"><span><strong>Model folder</strong><small id="dictation-folder"></small></span><button type="button" class="secondary" id="dictation-show-folder">Show folder</button></div>
+                </div>
+                <h3 class="group-heading" id="anywhere-heading">Dictate anywhere</h3>
+                <div class="card rows" id="anywhere-card">
+                    <p class="row-note" id="anywhere-note">Press a key in any app to dictate. The words go where your cursor is.</p>
+                    <p class="row-note error" id="anywhere-message" role="alert" hidden></p>
+                    <label class="row"><span><strong>Dictate anywhere</strong><small id="anywhere-status">Off</small></span><input type="checkbox" data-key="anywhere.enabled" /></label>
+                    <label class="row"><span><strong>Key</strong><small id="anywhere-key-note">Pressed alone. With another key it works as usual.</small></span><select data-key="anywhere.key" id="anywhere-key"><option value="auto">Automatic</option><option value="AltRight">Right Alt</option><option value="CtrlRight">Right Ctrl</option><option value="MetaRight">Right Windows</option><option value="ShiftRight">Right Shift</option><option value="F13">F13</option><option value="F14">F14</option><option value="F15">F15</option></select></label>
+                    <label class="row"><span><strong>How the key works</strong><small>Hold it while you talk, or tap it to start and again to stop.</small></span><select data-key="anywhere.mode"><option value="both">Hold or tap</option><option value="hold">Hold to talk</option><option value="toggle">Tap to start and stop</option></select></label>
+                    <label class="row"><span><strong>Words go</strong><small id="anywhere-output-note">Pasting puts back what you had copied.</small></span><select data-key="anywhere.output"><option value="paste">Where the cursor is</option><option value="copy">To the clipboard only</option></select></label>
+                    <label class="row"><span><strong>Sound</strong><small>A short tone when recording starts and stops.</small></span><input type="checkbox" data-key="anywhere.sound" /></label>
+                    <p class="row-note" id="anywhere-tip" hidden></p>
                 </div>
             </section>
 

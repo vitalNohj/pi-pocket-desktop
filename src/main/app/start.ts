@@ -11,6 +11,7 @@ import { loadTheme, sameTheme, saveTheme } from "../window/theme";
 import { setUpDesktop } from "../bridge/desktop";
 import { offerNewSession } from "../bridge/new-session";
 import { setUpDictation } from "../dictation/dictation";
+import { setUpAnywhere } from "../dictation/anywhere";
 import { setUpBillionContext } from "../billion-context/billion-context";
 import { setUpRunner } from "../runner/runner";
 import { askRunnerSession } from "../runner/runner-dialog";
@@ -155,6 +156,7 @@ export async function start(): Promise<void> {
         toldNoBridge: false,
         local: undefined,
         dictation: undefined,
+        anywhere: undefined,
         billionContext: undefined,
         runner: undefined,
         signingIn: false,
@@ -351,6 +353,15 @@ export async function start(): Promise<void> {
         updateItem: () => appState.gui?.updates?.trayItem() ?? appState.gui?.local?.trayItem(),
         theme: () => appState.gui!.theme,
         dictation: () => appState.gui?.dictation?.state().supported === true,
+        dictateItem: () => {
+            const anywhere = appState.gui?.anywhere;
+
+            if (anywhere === undefined || !appState.gui!.settings.anywhere.enabled) {
+                return undefined;
+            }
+
+            return { label: anywhere.recording() ? "Stop dictating" : "Dictate", click: () => anywhere.toggle() };
+        },
         themeChanged: (next) => {
             const state = appState.gui!;
 
@@ -479,8 +490,28 @@ export async function start(): Promise<void> {
         diagnose("app quits");
         stopDiagnostics();
         globalShortcut.unregisterAll();
+        appState.gui?.anywhere?.quit();
         appState.gui?.dictation?.quit();
         appState.gui?.billionContext?.quit();
+    });
+
+    appState.gui.anywhere = setUpAnywhere({
+        platform: process.platform,
+        renderer: RENDERER,
+        assets: ASSETS,
+        settings: () => appState.gui!.settings,
+        theme: () => appState.gui!.theme,
+        dictation: () => appState.gui?.dictation,
+        changed: () => {
+            pushConfigState();
+            appState.gui?.desktop?.refreshTray();
+        },
+        recording: (on) => {
+            appState.gui?.desktop?.setRecording(on);
+        },
+        needModel: () => {
+            openSettingsOn(undefined, "dictation");
+        },
     });
 
     registerIpc();

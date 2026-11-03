@@ -90,6 +90,7 @@ export function registerIpc(): void {
         saveSettings(state.configPath, state.settings);
         applyDesktopSettings(before);
         state.dictation?.settingsChanged();
+        state.anywhere?.settingsChanged();
         state.updates?.reschedule();
         state.local?.rescheduleUpdates();
         state.billionContext?.reschedule();

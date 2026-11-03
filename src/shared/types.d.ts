@@ -114,6 +114,20 @@ export interface Settings {
         model: string;
         /** Show the words while a phrase is spoken (recognises it more than once: more CPU). */
         live: boolean;
+        /** Names and terms to prefer, one per entry. Only models that take them use them (Parakeet). */
+        words: string[];
+    };
+    /** Dictate anywhere: a key starts dictation in any app, and the words go where the cursor is (src/main/dictation/anywhere.ts). */
+    anywhere: {
+        enabled: boolean;
+        /** "auto": Right Option on macOS, Right Ctrl elsewhere. */
+        key: AnywhereKey;
+        /** Hold the key while you talk, tap it to start and stop, or both (a short press taps). */
+        mode: "both" | "hold" | "toggle";
+        /** Paste the words where the cursor is, or only copy them. */
+        output: "paste" | "copy";
+        /** A short sound when dictation starts and stops. */
+        sound: boolean;
     };
     billionContext: {
         /** Install newer versions of billion-context-pi-pocket in this computer's Pi Pocket without asking. */
@@ -175,6 +189,19 @@ export interface DictationModelState {
     chosen: boolean;
     /** While it downloads. */
     download?: { step: string; percent: number };
+}
+
+/** The key that starts Dictate anywhere, by its uiohook name. */
+export type AnywhereKey = "auto" | "AltRight" | "CtrlRight" | "MetaRight" | "ShiftRight" | "F13" | "F14" | "F15";
+
+/** Dictate anywhere's state, for the settings (src/main/dictation/anywhere.ts). */
+export interface AnywhereState {
+    /** "off", listening for the key, recording, or recognising the last words. */
+    status: "off" | "ready" | "recording" | "working" | "error";
+    /** Why it cannot run, or what to do (such as a permission to give). */
+    message?: string;
+    /** The words go on the clipboard only: this desktop does not let apps type into others (Wayland). */
+    copyOnly: boolean;
 }
 
 /** Offline dictation (src/main/dictation/dictation.ts). */
@@ -366,6 +393,7 @@ export interface ConfigState {
     appVersion: string;
     local: LocalState;
     dictation: DictationState;
+    anywhere: AnywhereState;
     billionContext: BillionContextState;
     runner: RunnerState;
 }

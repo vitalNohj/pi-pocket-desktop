@@ -5,6 +5,7 @@ import type { setUpAppearance } from "../window/appearance";
 import type { setUpTitleBar } from "../window/titlebar";
 import type { setUpDesktop } from "../bridge/desktop";
 import type { setUpDictation } from "../dictation/dictation";
+import type { setUpAnywhere } from "../dictation/anywhere";
 import type { setUpBillionContext } from "../billion-context/billion-context";
 import type { setUpRunner } from "../runner/runner";
 import type { setUpLocalServer } from "../local-server/local-server";
@@ -73,6 +74,8 @@ export interface Gui {
     local: ReturnType<typeof setUpLocalServer> | undefined;
     /** Offline dictation (src/main/dictation/dictation.ts). */
     dictation: ReturnType<typeof setUpDictation> | undefined;
+    /** Dictate anywhere (src/main/dictation/anywhere.ts). */
+    anywhere: ReturnType<typeof setUpAnywhere> | undefined;
     /** billion-context-pi-pocket in this computer's Pi Pocket (src/main/billion-context/billion-context.ts). */
     billionContext: ReturnType<typeof setUpBillionContext> | undefined;
     /** This computer as a runner for a server (src/main/runner/runner.ts). */

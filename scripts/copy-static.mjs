@@ -14,3 +14,12 @@ for (const file of ["index.html", "style.css"]) {
 
 cpSync(join(root, "assets", "fonts"), join(out, "fonts"), { recursive: true });
 cpSync(join(root, "assets", "icon.svg"), join(out, "icon.svg"));
+
+// Dictate anywhere's pill (src/main/dictation/anywhere.ts). It takes its font from the config page's folder.
+const pill = join(root, "dist", "renderer", "anywhere");
+
+mkdirSync(pill, { recursive: true });
+
+for (const file of ["index.html", "style.css"]) {
+    cpSync(join(root, "src", "renderer", "anywhere", file), join(pill, file));
+}

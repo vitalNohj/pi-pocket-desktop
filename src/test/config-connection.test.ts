@@ -48,6 +48,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
         update: { method: "source", status: "idle" },
         local: { status: "absent", log: [], restartNeeded: false, update: { status: "idle" }, defaults: { folder: "/home/test", data: "/home/test/.pi-pocket" }, home: "/test/server" },
         dictation: { supported: true, status: "idle", engine: { installed: false, size: 11e6 }, folder: "/test/dictation", models: [], downloading: false },
+        anywhere: { status: "off", copyOnly: false },
         billionContext: { server: "absent", foreign: false, updateAvailable: false, folder: "/home/test/.pi-pocket/extensions", page: "https://github.com/x/y", command: "cd" },
         runner: { status: "unlinked", enabled: true, available: false, log: [] },
         ...initial,

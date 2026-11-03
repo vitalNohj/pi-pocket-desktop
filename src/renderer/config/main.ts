@@ -633,6 +633,7 @@ function render(next: ConfigState): void {
     element("settings-shortcut").textContent = `Open GUI Settings from the tray menu, with a right-click on the page, or with ${next.platform === "darwin" ? "⌘ + comma" : "Ctrl + comma"}.`;
     renderLocal(next);
     renderDictation(next);
+    renderAnywhere(next);
     renderBillionContext(next);
     renderRunner(next);
     element("app-version").textContent = next.appVersion;
@@ -1168,6 +1169,54 @@ function renderDictation(next: ConfigState): void {
     }
 }
 
+/** Dictate anywhere's card: its status, and the notes for this computer's keyboard and desktop. */
+function renderAnywhere(next: ConfigState): void {
+    const anywhere = next.anywhere;
+    const settings = next.settings.anywhere;
+    const mac = next.platform === "darwin";
+    const ready = next.dictation.models.some((model) => model.chosen && model.installed);
+    const message = element("anywhere-message");
+    const names: Record<string, string> = mac
+        ? { auto: "Automatic (Right Option)", AltRight: "Right Option", CtrlRight: "Right Control", MetaRight: "Right Command" }
+        : { auto: "Automatic (Right Ctrl)", AltRight: "Right Alt", CtrlRight: "Right Ctrl", MetaRight: next.platform === "win32" ? "Right Windows" : "Right Super" };
+
+    for (const option of element("anywhere-key").querySelectorAll<HTMLOptionElement>("option")) {
+        option.textContent = names[option.value] ?? option.textContent;
+    }
+
+    message.hidden = anywhere.message === undefined;
+    message.textContent = anywhere.message ?? "";
+    element("anywhere-status").textContent = !settings.enabled
+        ? "Off"
+        : anywhere.status === "recording"
+          ? "Recording now"
+          : anywhere.status === "working"
+            ? "Recognising"
+            : anywhere.status === "error"
+              ? "Cannot run: see above"
+              : ready
+                ? "On: press the key in any app"
+                : "On, but no speech model is downloaded yet";
+
+    const key = settings.key === "auto" ? "" : settings.key;
+
+    element("anywhere-key-note").textContent =
+        !mac && key === "AltRight"
+            ? "On many keyboards Right Alt is AltGr, which types characters such as @ or €: those still work, but pick another key if you use them often."
+            : "Pressed alone. With another key it works as usual.";
+    element("anywhere-output-note").textContent = anywhere.copyOnly
+        ? "On Wayland the words are always copied: paste them yourself."
+        : "Pasting puts back what you had copied.";
+
+    const tip = element("anywhere-tip");
+
+    tip.hidden = !(next.platform === "win32" || mac);
+    tip.textContent =
+        next.platform === "win32"
+            ? "Tip: Windows keeps apps run as administrator apart. To dictate into those, run Pi Pocket as administrator too."
+            : "macOS asks once to let Pi Pocket use Accessibility (to see the key and paste) and the microphone.";
+}
+
 element("dictation-show-folder").addEventListener("click", () => {
     void gui.showDictationFolder();
 });
@@ -1417,7 +1466,7 @@ function renderGlance(next: ConfigState): void {
         !dictation.supported
             ? "Not available on this computer."
             : model !== undefined
-              ? `${model.name}. Audio stays on this computer.`
+              ? `${model.name}. Audio stays on this computer.${next.settings.anywhere.enabled ? " Dictate anywhere is on." : ""}`
               : "Download a speech model to talk to Pi offline.",
     );
 }

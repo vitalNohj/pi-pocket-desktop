@@ -39,7 +39,8 @@ export function defaultSettings(): Settings {
         updates: { check: true, intervalHours: 6 },
         local: { folder: "", port: 8787, access: "local", data: "", keepUpdated: true },
         appearance: { translucent: false, opacity: 82, macMaterial: "under-window", windowsMaterial: "acrylic", trayMenu: "windows" },
-        dictation: { model: "", live: true },
+        dictation: { model: "", live: true, words: [] },
+        anywhere: { enabled: false, key: "auto", mode: "both", output: "paste", sound: true },
         billionContext: { autoUpdate: false },
         runner: { enabled: true, confirmSessions: true, allowHttp: false },
     };
@@ -107,6 +108,21 @@ const origins: Check<string[]> = (value) => {
     return pass([...new Set(result)]);
 };
 
+/** Custom words: a list of short entries, blank ones dropped, each kept once. */
+const words: Check<string[]> = (value) => {
+    if (!Array.isArray(value) || value.some((each) => typeof each !== "string")) {
+        return fail("must be a list of words");
+    }
+
+    const result = [...new Set((value as string[]).map((each) => each.trim()).filter((each) => each !== ""))];
+
+    if (result.length > 200 || result.some((each) => each.length > 64)) {
+        return fail("must be at most 200 entries of at most 64 characters");
+    }
+
+    return pass(result);
+};
+
 const hotkey: Check<string> = (value) =>
     typeof value === "string" && /^[\w+]+$/.test(value) && value.length <= 64
         ? pass(value)
@@ -169,6 +185,14 @@ const schema: { [S in keyof Settings]: { [K in keyof Settings[S]]: Check<Setting
     dictation: {
         model: (value) => (value === "" || (typeof value === "string" && modelById(value) !== undefined) ? pass(value) : fail("must be a speech model's id")),
         live: bool,
+        words,
+    },
+    anywhere: {
+        enabled: bool,
+        key: oneOf("auto", "AltRight", "CtrlRight", "MetaRight", "ShiftRight", "F13", "F14", "F15"),
+        mode: oneOf("both", "hold", "toggle"),
+        output: oneOf("paste", "copy"),
+        sound: bool,
     },
     billionContext: { autoUpdate: bool },
     runner: { enabled: bool, confirmSessions: bool, allowHttp: bool },
