@@ -1,20 +1,18 @@
-/* The config screen, in Pi Pocket's default look: Tokyo Night, Geist, JetBrains Mono, soft tiles on hairlines. */
+/*
+ * GUI Settings: Home (where Pi Pocket runs, its state, and the way into it) and Settings (every section on one page),
+ * with a sidebar. Colors are Pi Pocket's own theme tokens, which the app sets from the theme the server's page shows.
+ * Type: Geist and Geist Mono. Spacing on a 4 px grid; controls 44 px tall.
+ */
 @font-face {
     font-family: "Geist";
     src: url("fonts/Geist.woff2") format("woff2");
     font-weight: 100 900;
 }
 
-/* Gelasio stands in for Georgia, the serif of Pi Pocket's π mark, where Georgia is missing (Linux). */
 @font-face {
-    font-family: "Gelasio";
-    src: url("fonts/Gelasio.woff2") format("woff2");
-}
-
-@font-face {
-    font-family: "JetBrains Mono";
-    src: url("fonts/JetBrainsMono.woff2") format("woff2");
-    font-weight: 100 800;
+    font-family: "Geist Mono";
+    src: url("fonts/GeistMono.woff2") format("woff2");
+    font-weight: 100 900;
 }
 
 :root {
@@ -35,14 +33,24 @@
     --err: #f7768e;
     --code-bg: #13141c;
 
-    --card-2: color-mix(in srgb, var(--body) 8%, var(--bg));
+    --raised: color-mix(in srgb, var(--body) 7%, var(--bg));
+    --control: color-mix(in srgb, var(--body) 12%, var(--bg));
     --hover: color-mix(in srgb, var(--body) 7%, transparent);
-    --hair: color-mix(in srgb, var(--body) 10%, transparent);
-    --hair-2: color-mix(in srgb, var(--body) 17%, transparent);
-    --radius: 12px;
-    --radius-sm: 8px;
+    --hair: color-mix(in srgb, var(--body) 11%, transparent);
+    --hair-2: color-mix(in srgb, var(--body) 22%, transparent);
+
+    --radius-lg: 8px;
+    --radius-xl: 12px;
+    --radius-2xl: 16px;
+    --control-height: 44px;
+    --sidebar: 256px;
+    --content: 880px;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --quick: 200ms;
     --sans: "Geist", system-ui, sans-serif;
-    --mono: "JetBrains Mono", ui-monospace, monospace;
+    --mono: "Geist Mono", ui-monospace, monospace;
+    /* The window's controls sit over the top edge (src/main/window/titlebar.ts): content starts below them. */
+    --top: max(24px, calc(env(titlebar-area-height, 0px) + 12px));
     color-scheme: dark;
 }
 
@@ -59,7 +67,7 @@ html:not([data-ready]) body {
     visibility: hidden;
 }
 
-/* The hidden attribute wins over a display set below (.fields, .card). */
+/* The hidden attribute wins over a display set below. */
 [hidden] {
     display: none !important;
 }
@@ -68,7 +76,8 @@ html,
 body {
     margin: 0;
     color: var(--body);
-    font: 15px/1.5 var(--sans);
+    font: 16px/24px var(--sans);
+    -webkit-font-smoothing: antialiased;
 }
 
 html {
@@ -79,6 +88,75 @@ html {
 :root[data-translucent="on"] {
     --page-ground: color-mix(in srgb, var(--desk) max(0%, calc(var(--opacity) - 35%)), transparent);
     --ground: color-mix(in srgb, var(--bg) var(--opacity), transparent);
+    --raised: color-mix(in srgb, var(--body) 7%, var(--ground));
+}
+
+.sprite {
+    display: none;
+}
+
+svg.i {
+    width: 24px;
+    height: 24px;
+    flex: none;
+    fill: currentcolor;
+}
+
+svg.i.sm {
+    width: 16px;
+    height: 16px;
+}
+
+.sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+h1,
+h2,
+h3,
+h4 {
+    margin: 0;
+    color: var(--text);
+    font-weight: 600;
+    text-wrap: balance;
+}
+
+p {
+    margin: 0;
+    text-wrap: pretty;
+}
+
+code,
+.mono {
+    font-family: var(--mono);
+}
+
+code {
+    font-size: 0.9em;
+    color: var(--text);
+}
+
+.muted {
+    color: var(--muted);
+}
+
+.small,
+.caption {
+    font-size: 14px;
+    line-height: 20px;
+}
+
+.caption {
+    color: var(--muted);
+}
+
+.error {
+    color: var(--err);
 }
 
 /* This view becomes an app-owned footer while an unverified page is open. Server CSS cannot hide its way back. */
@@ -98,6 +176,8 @@ body.recovering {
 
 .recovery-bar button {
     flex: none;
+    min-height: 36px;
+    padding-block: 4px;
 }
 
 .recovery-bar span {
@@ -106,218 +186,574 @@ body.recovering {
     white-space: nowrap;
 }
 
-.page {
-    max-width: 1320px;
-    margin: 0 auto;
-    /* The window's controls sit over the top edge (src/main/window/titlebar.ts): the page starts below them. */
-    padding: calc(max(32px, env(titlebar-area-height, 0px) + 12px)) 24px 48px;
+/* ——— Frame: the sidebar, and the view beside it ——— */
+
+.app {
     display: grid;
-    gap: 16px;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 100vh;
 }
 
-/* One column on narrow windows; from 1000 px the connection on the left and the settings on the right. */
-.columns {
-    display: grid;
-    gap: 16px;
-    align-items: start;
-}
-
-.column {
-    display: grid;
-    gap: 12px;
-}
-
-.column,
-.settings,
-.card {
-    min-width: 0;
-}
-
-/* The connection can be taller than the window. Let it scroll with the other cards. */
-[id] {
-    scroll-margin-top: 24px;
-}
-
-@media (min-width: 1000px) {
-    .columns {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    }
-}
-
-/* The address form: its parts apart, so the field's focus ring never touches the buttons under it. */
-#connect-form {
-    display: grid;
-    gap: 14px;
-}
-
-h1,
-h2,
-h3 {
-    color: var(--text);
-    margin: 0;
-    font-weight: 600;
-}
-
-h1 {
-    font-size: 22px;
-}
-
-h2,
-h3 {
-    font-size: 16px;
-}
-
-.section-title {
-    font-size: 14px;
-    color: var(--muted);
-}
-
-.settings > .section-title:not(:first-child) {
-    margin-top: 12px;
-}
-
-p {
-    margin: 0;
-}
-
-code {
-    font-family: var(--mono);
-    font-size: 0.9em;
-    color: var(--text);
-}
-
-.muted {
-    color: var(--muted);
-}
-
-.small {
-    font-size: 13px;
-}
-
-.error {
-    color: var(--err);
-}
-
-.brand {
+.side {
+    position: sticky;
+    top: 0;
+    z-index: 3;
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 14px;
+    gap: 4px;
+    padding: var(--top) 16px 8px;
+    background: color-mix(in srgb, var(--page-ground, var(--desk)) 85%, transparent);
+    backdrop-filter: blur(16px);
+    overflow-x: auto;
+    scrollbar-width: none;
 }
 
-.brand > div {
-    flex: 1;
-    min-width: 160px;
+.side .brand,
+.nav-label,
+.side-foot,
+.side kbd {
+    display: none;
 }
 
-.settings-nav {
+.nav-group {
+    display: contents;
+}
+
+.nav-item {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--hair);
-}
-
-.settings-nav a {
-    padding: 7px 12px;
-    border-radius: var(--radius-sm);
-    color: var(--text);
+    flex: none;
+    align-items: center;
+    gap: 12px;
+    min-height: var(--control-height);
+    padding: 8px 12px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
+    color: var(--muted);
     font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+    white-space: nowrap;
     text-decoration: none;
+    transition: background-color var(--quick) var(--ease), color var(--quick) var(--ease);
 }
 
-.settings-nav a:hover {
+.nav-item:hover {
+    background: var(--hover);
+    color: var(--text);
+}
+
+.nav-item[aria-current="page"] {
+    background: var(--ground, var(--bg));
+    border-color: var(--hair);
+    color: var(--text);
+}
+
+/* Home's status: a dot by the word Home, and words for screen readers. */
+.dot {
+    width: 8px;
+    height: 8px;
+    margin-left: auto;
+    border-radius: 999px;
+    background: var(--muted);
+}
+
+/* Back to Pi Pocket: only while Pi Pocket is loaded on the side shown. First in the sidebar; Esc works too. */
+.back {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 12px;
+    min-height: var(--control-height);
+    padding: 8px 12px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-lg);
+    background: transparent;
+    color: var(--text);
+    font: 500 14px/20px var(--sans);
+    cursor: pointer;
+}
+
+.back:hover {
     background: var(--hover);
 }
 
-/* Pi Pocket's π, as its rail draws it: a serif glyph in the theme's brand color. */
-.logo {
-    display: grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 10px;
-    background: var(--card);
-    border: 1px solid var(--hair);
-    font: 30px/1 Georgia, "Gelasio", serif;
-    color: var(--brand);
+.back svg {
+    color: var(--accent);
+    transition: transform var(--quick) var(--ease);
 }
 
-.card {
-    container-type: inline-size;
-    background: var(--ground, var(--bg));
-    border: 1px solid var(--hair);
-    border-radius: var(--radius);
-    padding: 18px 20px;
-    display: grid;
-    gap: 12px;
+.back:hover svg {
+    transform: translateX(-2px);
 }
 
-.connection {
-    border-color: var(--hair-2);
-    box-shadow: 0 8px 28px rgb(0 0 0 / 28%);
-}
-
-:root[data-mode="light"] .connection {
-    box-shadow: 0 6px 22px rgb(40 40 70 / 12%);
-}
-
-.card-description {
+.back kbd {
+    margin-left: auto;
+    padding: 0 4px;
+    border: 1px solid var(--hair-2);
+    border-radius: 4px;
+    font: 12px/16px var(--mono);
     color: var(--muted);
-    font-size: 13px;
-    font-weight: 400;
-    line-height: 1.5;
 }
 
-.card-head {
+@media (min-width: 900px) {
+    .app {
+        grid-template-columns: var(--sidebar) minmax(0, 1fr);
+    }
+
+    .side {
+        height: 100vh;
+        flex-direction: column;
+        align-items: stretch;
+        padding: calc(var(--top) + 12px) 16px 24px;
+        background: transparent;
+        backdrop-filter: none;
+        overflow: auto;
+    }
+
+    .side .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 12px 24px;
+    }
+
+    .side .brand h1 {
+        font-size: 16px;
+        line-height: 24px;
+        font-weight: 500;
+    }
+
+    .side .brand > span:last-child {
+        display: grid;
+    }
+
+    .back {
+        margin-bottom: 24px;
+    }
+
+    .side kbd {
+        display: inline;
+    }
+
+    .nav-group {
+        display: grid;
+        gap: 2px;
+    }
+
+    .nav-group + .nav-group {
+        margin-top: 24px;
+    }
+
+    .nav-label {
+        display: block;
+        padding: 0 12px 8px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 600;
+    }
+
+    .side-foot {
+        display: grid;
+        margin-top: auto;
+        padding: 16px 12px 0;
+    }
+}
+
+/* Pi Pocket's π, in the theme's brand color. */
+.logo {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--hair);
+    border-radius: var(--radius-xl);
+    background: var(--ground, var(--bg));
+    color: var(--brand);
+    font: 24px/32px var(--sans);
+}
+
+main {
+    min-width: 0;
+    padding: 24px 16px 64px;
+    container-type: inline-size;
+}
+
+@media (min-width: 900px) {
+    main {
+        padding: calc(var(--top) + 40px) 40px 80px;
+    }
+}
+
+.view {
+    max-width: var(--content);
+    margin: 0 auto;
+    display: grid;
+    /* One track that never grows past the column: a long address or log line wraps or scrolls in its own box. */
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    animation: enter 400ms var(--ease);
+}
+
+#problems {
+    max-width: var(--content);
+    margin: 0 auto 24px;
+}
+
+@keyframes enter {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+}
+
+/* ——— Home ——— */
+
+.hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px 0 8px;
+}
+
+.eyebrow {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
+    overflow-wrap: anywhere;
 }
 
-.pill {
-    font-size: 13px;
-    font-weight: 600;
-    padding: 3px 10px;
-    border-radius: 999px;
-    border: 1px solid currentcolor;
-    white-space: nowrap;
+/* The heading's words: a gradient on the text only, from the theme's text to its muted color. */
+.hero-text {
+    max-width: 680px;
+    font-size: 36px;
+    line-height: 40px;
+    background: linear-gradient(90deg, var(--text), color-mix(in srgb, var(--text) 55%, var(--muted)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
 }
 
-.pill[data-state="detected"],
-.pill[data-state="connected"] {
-    color: var(--ok);
+@container (max-width: 520px) {
+    .hero-text {
+        font-size: 30px;
+        line-height: 36px;
+    }
 }
 
-.pill[data-state="not-detected"] {
-    color: var(--err);
-}
-
-.pill[data-state="checking"] {
+.hero-sub {
+    max-width: 680px;
     color: var(--muted);
 }
 
-.pill[data-state="other"] {
-    color: var(--warn);
+.hero .actions {
+    padding-top: 4px;
+}
+
+.panel {
+    padding: 24px;
+    gap: 16px;
 }
 
 .banner {
-    border-radius: var(--radius);
+    border-radius: var(--radius-xl);
     padding: 12px 16px;
     border: 1px solid color-mix(in srgb, var(--err) 50%, transparent);
-    background: color-mix(in srgb, var(--err) 10%, var(--bg));
+    background: color-mix(in srgb, var(--err) 10%, var(--ground, var(--bg)));
     color: var(--text);
 }
 
 .banner[data-tone="info"] {
     border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-    background: color-mix(in srgb, var(--accent) 9%, var(--bg));
+    background: color-mix(in srgb, var(--accent) 9%, var(--ground, var(--bg)));
+}
+
+.group-heading {
+    padding: 8px 0 12px;
+    font-size: 20px;
+    line-height: 28px;
+}
+
+/* Where Pi Pocket runs: two big choices. A click only shows that side. */
+.where {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+}
+
+@container (min-width: 600px) {
+    .where {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.where label {
+    position: relative;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 16px 24px;
+    border: 1px solid var(--hair);
+    border-radius: var(--radius-2xl);
+    background: var(--ground, var(--bg));
+    cursor: pointer;
+    transition: background-color var(--quick) var(--ease), border-color var(--quick) var(--ease);
+}
+
+.where label:hover {
+    background: var(--raised);
+}
+
+.where input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.where svg {
+    color: var(--muted);
+}
+
+.where label:has(input:checked) {
+    border-color: var(--accent);
+}
+
+.where label:has(input:checked) svg {
+    color: var(--accent);
+}
+
+.where label:has(input:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.where .choice {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+/* The name and its status: the pill goes under the name where the choice is narrow. */
+.where .choice-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.where strong {
+    color: var(--text);
+    font-weight: 500;
+}
+
+.where small {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 20px;
+}
+
+/* An error's first lines; the card shows all of it. */
+.where .choice-error {
+    color: var(--err);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+
+/* At a glance: Runner, Updates, Dictation. A click opens that section of Settings. */
+.tiles {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+}
+
+@container (min-width: 600px) {
+    .tiles {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.tile {
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    padding: 16px 24px 24px;
+    border: 1px solid var(--hair);
+    border-radius: var(--radius-2xl);
+    background: var(--ground, var(--bg));
+    color: inherit;
+    text-align: left;
+    font: inherit;
+    font-weight: 400;
+    white-space: normal;
+    cursor: pointer;
+    transition: background-color var(--quick) var(--ease), transform var(--quick) var(--ease);
+}
+
+.tile:hover {
+    background: var(--raised);
+}
+
+.tile:active {
+    transform: scale(0.98);
+}
+
+.tile .tile-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--muted);
+}
+
+.tile strong {
+    color: var(--text);
+    font-weight: 500;
+}
+
+.tile small {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 20px;
+}
+
+.tile .pill:empty {
+    visibility: hidden;
+}
+
+/* ——— Settings ——— */
+
+.settings {
+    gap: 48px;
+}
+
+.section {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    scroll-margin-top: calc(var(--top) + 72px);
+}
+
+@media (min-width: 900px) {
+    .section {
+        scroll-margin-top: calc(var(--top) + 24px);
+    }
+}
+
+.section-head {
+    display: grid;
+    gap: 8px;
+}
+
+.section-head h2 {
+    font-size: 24px;
+    line-height: 32px;
+}
+
+.section-head p {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 20px;
+}
+
+.section .group-heading {
+    padding: 8px 0 0;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 500;
+}
+
+.foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+}
+
+.config-location {
+    overflow-wrap: anywhere;
+}
+
+/* ——— Parts ——— */
+
+.card {
+    container-type: inline-size;
+    min-width: 0;
+    display: grid;
+    border: 1px solid var(--hair);
+    border-radius: var(--radius-2xl);
+    background: var(--ground, var(--bg));
+}
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    border: 1px solid var(--hair-2);
+    border-radius: 999px;
+    color: var(--text);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.pill::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--muted);
+}
+
+.pill[data-state="detected"]::before,
+.pill[data-state="connected"]::before,
+.dot[data-state="detected"],
+.dot[data-state="connected"] {
+    background: var(--ok);
+}
+
+.pill[data-state="not-detected"]::before,
+.dot[data-state="not-detected"] {
+    background: var(--err);
+}
+
+.pill[data-state="other"]::before,
+.dot[data-state="other"] {
+    background: var(--warn);
+}
+
+.pill[data-state="checking"]::before {
+    background: var(--muted);
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+/* The address form: its parts apart, so the field's focus ring never touches the buttons under it. */
+#connect-form {
+    display: grid;
+    gap: 16px;
+}
+
+/* Check on the left, Connect on the right. */
+#connect {
+    margin-left: auto;
 }
 
 .mode {
     display: flex;
+    flex-wrap: wrap;
     gap: 16px;
     font-size: 14px;
 }
@@ -325,21 +761,32 @@ code {
 .mode label {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    min-height: 32px;
     cursor: pointer;
+}
+
+.mode input {
+    accent-color: var(--accent);
 }
 
 .fields {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
 .field {
     display: grid;
-    gap: 6px;
-    font-size: 13px;
+    gap: 8px;
+    font-size: 14px;
+    line-height: 20px;
     color: var(--muted);
+}
+
+.field > span:first-child {
+    color: var(--text);
+    font-weight: 500;
 }
 
 .field.wide,
@@ -348,7 +795,7 @@ code {
 }
 
 .field.port {
-    width: 96px;
+    width: 104px;
 }
 
 .field.runner-code {
@@ -357,21 +804,22 @@ code {
 
 .runner-link-form {
     display: grid;
-    gap: 10px;
+    gap: 12px;
 }
 
 input[type="text"],
 input[type="number"],
 select,
 textarea {
-    font: 15px var(--mono);
-    color: var(--text);
-    background: var(--card);
-    border: 1px solid var(--hair-2);
-    border-radius: var(--radius-sm);
-    padding: 9px 11px;
     min-width: 0;
     width: 100%;
+    min-height: var(--control-height);
+    padding: 8px 12px;
+    border: 1px solid var(--hair-2);
+    border-radius: var(--radius-lg);
+    background: var(--code-bg);
+    color: var(--text);
+    font: 16px/24px var(--mono);
 }
 
 select {
@@ -382,7 +830,8 @@ select {
 
 textarea {
     resize: vertical;
-    font-size: 13px;
+    font-size: 14px;
+    line-height: 20px;
 }
 
 input:focus-visible,
@@ -392,52 +841,52 @@ button:focus-visible,
 summary:focus-visible,
 a:focus-visible {
     outline: 2px solid var(--accent);
-    outline-offset: 1px;
+    outline-offset: 2px;
 }
 
 input.short,
 select.short {
-    width: 130px;
+    width: 136px;
     flex: none;
 }
 
 /* Room for a whole shortcut, such as CommandOrControl+Shift+P. */
 input[type="text"].short {
-    width: min(290px, 45vw);
-    font-size: 13px;
+    width: min(300px, 45vw);
+    font-size: 14px;
 }
 
 .row select {
     width: auto;
-    max-width: 260px;
-}
-
-.actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-/* Check on the left, Connect on the right. */
-#connect {
-    margin-left: auto;
+    max-width: 340px;
 }
 
 button {
-    font: 600 14px var(--sans);
-    border-radius: var(--radius-sm);
-    padding: 9px 16px;
-    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: var(--control-height);
+    padding: 8px 16px;
     border: 1px solid transparent;
-    color: var(--text);
+    border-radius: var(--radius-lg);
     background: transparent;
+    color: var(--text);
+    font: 600 16px/24px var(--sans);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color var(--quick) var(--ease), transform var(--quick) var(--ease), opacity var(--quick) var(--ease);
+}
+
+button:active:not(:disabled) {
+    transform: scale(0.98);
 }
 
 button.small {
-    min-height: 32px;
-    padding: 4px 10px;
-    font-size: 13px;
+    min-height: 36px;
+    padding: 4px 12px;
+    font-size: 14px;
+    line-height: 20px;
 }
 
 button.primary {
@@ -450,7 +899,7 @@ button.primary:hover {
 }
 
 button.secondary {
-    background: var(--card-2);
+    background: var(--raised);
     border-color: var(--hair-2);
 }
 
@@ -463,16 +912,20 @@ button.ghost {
     border-color: var(--hair);
 }
 
+button.danger {
+    color: var(--err);
+}
+
 button:disabled {
-    opacity: 0.55;
-    cursor: default;
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .steps {
     margin: 0;
     padding-left: 20px;
     display: grid;
-    gap: 10px;
+    gap: 12px;
 }
 
 .steps li {
@@ -485,19 +938,18 @@ button:disabled {
 }
 
 .steps li > * + * {
-    margin-top: 6px;
+    margin-top: 8px;
 }
 
 .command {
-    /* The code block's ground, as in Pi Pocket. */
     display: flex;
-    margin-top: 6px;
+    margin-top: 8px;
     align-items: center;
-    gap: 10px;
-    background: var(--code-bg);
+    gap: 12px;
+    padding: 8px 8px 8px 16px;
     border: 1px solid var(--hair);
-    border-radius: var(--radius-sm);
-    padding: 8px 10px;
+    border-radius: var(--radius-xl);
+    background: var(--code-bg);
     overflow-x: auto;
 }
 
@@ -513,24 +965,20 @@ button:disabled {
     flex: none;
 }
 
-.settings {
-    display: grid;
-    gap: 12px;
-}
-
+/* Collapsible cards and sections (Get the server, Billion context, Advanced, logs). */
 details.card {
     padding: 0;
-    gap: 0;
 }
 
 summary {
-    padding: 16px 20px;
-    cursor: pointer;
-    list-style: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-radius: var(--radius);
+    min-height: var(--control-height);
+    padding: 16px 24px;
+    border-radius: var(--radius-2xl);
+    list-style: none;
+    cursor: pointer;
 }
 
 summary::-webkit-details-marker {
@@ -539,9 +987,19 @@ summary::-webkit-details-marker {
 
 summary > span,
 summary > h3 {
-    min-width: 0;
     display: grid;
-    gap: 3px;
+    gap: 4px;
+    min-width: 0;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 500;
+}
+
+.card-description {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 400;
 }
 
 /* A card title with a pill beside it (Experimental). */
@@ -553,8 +1011,7 @@ summary > h3 {
 }
 
 .title-row .pill {
-    font-size: 11px;
-    padding: 1px 8px;
+    padding: 2px 8px;
 }
 
 summary::after {
@@ -568,30 +1025,45 @@ summary::after {
     color: var(--muted);
     font-size: 20px;
     line-height: 1;
-    transition: transform 120ms ease;
+    transition: transform var(--quick) var(--ease);
 }
 
 details[open] > summary::after {
     transform: rotate(90deg);
 }
 
+/* Setting rows: a name and its description on the left, its control on the right. */
 .rows {
     display: grid;
-    padding: 0 20px 12px;
+    padding: 0 24px 8px;
+}
+
+.card.rows {
+    padding: 4px 24px;
 }
 
 .row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
-    padding: 10px 0;
+    gap: 24px;
+    min-height: 44px;
+    padding: 16px 0;
     border-top: 1px solid var(--hair);
+}
+
+.card.rows > .row:first-child,
+.card.rows > .row-group:first-child,
+.card.rows > .row-note:first-child,
+.card.rows > .row:first-child + .row[hidden] + .row,
+.row-group + .row {
+    border-top: 0;
 }
 
 .row.stack {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
 }
 
 .row > span,
@@ -602,210 +1074,128 @@ details[open] > summary::after {
 }
 
 .row small,
-.row-note,
-.config-location {
+.row-note {
     overflow-wrap: anywhere;
 }
 
 .row-group {
     margin: 0;
-    padding: 14px 0 7px;
+    padding: 16px 0 4px;
     border-top: 1px solid var(--hair);
     color: var(--muted);
     font-size: 12px;
+    line-height: 16px;
     font-weight: 600;
-}
-
-.row-group + .row {
-    border-top: 0;
 }
 
 .row strong {
     color: var(--text);
+    font-size: 14px;
+    line-height: 20px;
     font-weight: 500;
 }
 
 .row small {
     color: var(--muted);
-    font-size: 13px;
-}
-
-input[type="checkbox"] {
-    appearance: none;
-    flex: none;
-    width: 40px;
-    height: 22px;
-    border-radius: 999px;
-    background: var(--card-2);
-    border: 1px solid var(--hair-2);
-    position: relative;
-    cursor: pointer;
-    transition: background 120ms ease;
-}
-
-input[type="checkbox"]::after {
-    content: "";
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--muted);
-    transition: transform 120ms ease, background 120ms ease;
-}
-
-input[type="checkbox"]:checked {
-    background: color-mix(in srgb, var(--accent) 35%, var(--bg));
-    border-color: var(--accent);
-}
-
-input[type="checkbox"]:checked::after {
-    transform: translateX(18px);
-    background: var(--accent);
-}
-
-.problems {
-    border-color: color-mix(in srgb, var(--warn) 45%, transparent);
-}
-
-.problems ul {
-    margin: 0;
-    padding-left: 18px;
-    font-size: 13px;
-}
-
-.footer {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 8px 10px;
-}
-
-.footer .config-location {
-    grid-column: 1 / -1;
-    grid-row: 2;
-}
-
-.footer button {
-    grid-column: 2;
-    grid-row: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    * {
-        transition: none !important;
-    }
-}
-
-.row .buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: flex-end;
-    flex-shrink: 0;
-}
-
-.row > .range {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: none;
-}
-
-input[type="range"] {
-    width: 170px;
-    accent-color: var(--accent);
-}
-
-.range output {
-    font: 13px var(--mono);
-    color: var(--text);
-    min-width: 4ch;
-    text-align: right;
+    font-size: 14px;
+    line-height: 20px;
 }
 
 .row.off {
     opacity: 0.5;
 }
 
-/* The strip at the top edge, under the window's controls, drags the window (src/main/window/titlebar.ts). */
-:root::after {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: env(titlebar-area-height, 0px);
-    app-region: drag;
-    z-index: 10;
+.row-note {
+    margin: 0;
+    padding: 12px 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 20px;
 }
 
-/* Where Pi Pocket runs: two big choices above the cards. */
-.where {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+.row-note.error {
+    color: var(--err);
 }
 
-.where label {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    padding: 12px 14px;
-    border: 1px solid var(--hair);
-    border-radius: var(--radius);
-    background: var(--ground, var(--bg));
+.row-note a {
+    color: var(--accent);
+}
+
+/* A switch: the checkbox, drawn as Pi Pocket draws a toggle. */
+input[type="checkbox"] {
+    appearance: none;
+    position: relative;
+    flex: none;
+    width: 40px;
+    height: 24px;
+    margin: 0;
+    border: 1px solid var(--hair-2);
+    border-radius: 999px;
+    background: var(--control);
     cursor: pointer;
+    transition: background-color var(--quick) var(--ease), border-color var(--quick) var(--ease);
 }
 
-.where label:has(input:checked) {
-    border-color: var(--accent);
-    box-shadow: inset 0 0 0 1px var(--accent);
+input[type="checkbox"]::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: transform var(--quick) var(--ease), background-color var(--quick) var(--ease);
 }
 
-.where input {
-    margin-top: 3px;
-    accent-color: var(--accent);
+input[type="checkbox"]:checked {
+    background: var(--accent-fill);
+    border-color: var(--accent-fill);
 }
 
-.where .choice {
-    display: grid;
-    gap: 2px;
-    min-width: 0;
+input[type="checkbox"]:checked::after {
+    transform: translateX(16px);
+    background: var(--accent-ink);
 }
 
-/* The name and its status: the pill goes under the name where the choice is narrow. */
-.where .choice-head {
+input[type="checkbox"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.row .buttons {
     display: flex;
     flex-wrap: wrap;
+    flex-shrink: 0;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.row .buttons button,
+.row > button {
+    min-height: 36px;
+    padding: 4px 12px;
+    font-size: 14px;
+    line-height: 20px;
+}
+
+.row > .range {
+    display: flex;
+    flex: none;
     align-items: center;
-    gap: 4px 8px;
+    gap: 12px;
 }
 
-.where .pill {
-    font-size: 11px;
-    padding: 1px 7px;
+input[type="range"] {
+    width: 180px;
+    accent-color: var(--accent-fill);
 }
 
-.where small {
-    color: var(--muted);
-    font-size: 13px;
-}
-
-/* An error's first lines; the card shows all of it. */
-.where .choice-error {
-    color: var(--err);
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow: hidden;
-    overflow-wrap: anywhere;
-}
-
-.local-rows {
-    padding: 0;
+.range output {
+    min-width: 4ch;
+    color: var(--text);
+    font: 14px/20px var(--mono);
+    text-align: right;
 }
 
 .path-field {
@@ -818,8 +1208,13 @@ input[type="range"] {
     min-width: 0;
 }
 
+.path-field button {
+    flex: none;
+}
+
 .progress {
     height: 6px;
+    max-width: 480px;
     border-radius: 999px;
     background: var(--hair);
     overflow: hidden;
@@ -827,8 +1222,8 @@ input[type="range"] {
 
 .progress > div {
     height: 100%;
-    background: var(--accent);
-    transition: width 0.2s;
+    background: var(--accent-fill);
+    transition: width var(--quick);
 }
 
 .progress.indeterminate > div {
@@ -846,26 +1241,26 @@ input[type="range"] {
     }
 }
 
-.card-note {
-    margin: 0 0 10px;
-    color: var(--muted);
-    font-size: 13px;
-}
-
 details.advanced {
     border-top: 1px solid var(--hair);
 }
 
 details.advanced > summary {
-    gap: 6px;
+    gap: 8px;
     padding: 12px 0;
-    font-size: 13px;
     color: var(--text);
+    font-size: 14px;
+}
+
+details.advanced > summary span {
+    font-size: 14px;
+    line-height: 20px;
 }
 
 details.advanced > summary small {
     color: var(--muted);
     font-size: 12px;
+    line-height: 16px;
     font-weight: 400;
 }
 
@@ -878,46 +1273,43 @@ details.advanced > summary::after {
 }
 
 details.log summary {
-    padding-inline: 0;
     justify-content: flex-start;
-    gap: 6px;
+    gap: 8px;
+    min-height: 36px;
     padding: 4px 0;
-    font-size: 13px;
     color: var(--muted);
+    font-size: 14px;
 }
 
 details.log pre {
     max-height: 220px;
     overflow: auto;
-    margin: 6px 0;
-    padding: 10px 12px;
-    border-radius: 8px;
+    margin: 8px 0;
+    padding: 12px;
+    border-radius: var(--radius-lg);
     background: var(--code-bg);
-    font-size: 12px;
+    font: 12px/16px var(--mono);
     white-space: pre-wrap;
     word-break: break-all;
-}
-
-button.danger {
-    color: var(--err);
 }
 
 #local-uninstall-row {
     margin-top: 12px;
 }
 
-/* Dictation: the speech models, each with its download, use, and remove. */
-.row-note {
+.problems {
+    padding: 16px 24px;
+    gap: 8px;
+    border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+}
+
+.problems ul {
     margin: 0;
-    padding: 4px 0 12px;
-    color: var(--muted);
-    font-size: 13px;
+    padding-left: 20px;
+    font-size: 14px;
 }
 
-.row-note.error {
-    color: var(--err);
-}
-
+/* Dictation: the speech models, each with its download, use, and remove. */
 #dictation-models-toggle > span {
     display: block;
 }
@@ -970,17 +1362,19 @@ button.danger {
 }
 
 .row.model > span:first-child {
-    min-width: 0;
     flex: 1;
+    min-width: 0;
 }
 
+/* Tags on a model: "Recommended", "In use". Upright, as everywhere here. */
 .row.model em {
-    margin-left: 6px;
-    padding: 1px 7px;
-    border-radius: 999px;
+    margin-left: 8px;
+    padding: 2px 8px;
     border: 1px solid var(--hair);
+    border-radius: 999px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
+    line-height: 16px;
     font-style: normal;
     font-weight: 500;
     vertical-align: 1px;
@@ -991,14 +1385,14 @@ button.danger {
     color: var(--accent);
 }
 
+.field em {
+    font-style: normal;
+}
+
 .model-progress {
     display: grid;
     gap: 4px;
-    margin-top: 6px;
-}
-
-.row-note a {
-    color: var(--accent);
+    margin-top: 8px;
 }
 
 .rows .steps {
@@ -1022,15 +1416,15 @@ button.danger {
 }
 
 .security-note {
-    padding: 10px 12px;
-    margin: 0 0 12px;
+    margin: 4px 0 12px;
+    padding: 12px;
     border-left: 2px solid var(--warn);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
     background: var(--hover);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
-/* A card must adapt to its own width, including when it is half of a wide window. */
-@container (max-width: 480px) {
+/* A card adapts to its own width. */
+@container (max-width: 520px) {
     .row:has(> select),
     .row:has(> .range),
     .row:has(> .buttons),
@@ -1062,32 +1456,41 @@ button.danger {
         flex: 1;
         min-width: 0;
     }
-}
 
-@media (max-width: 600px) {
-    .page {
-        padding-inline: 16px;
-    }
-
-    .card,
+    .card.rows,
+    .rows,
     summary {
         padding-inline: 16px;
     }
 
-    .rows {
-        padding-inline: 16px;
-    }
-
-    .local-rows,
-    .rows.nested {
+    .rows.nested,
+    details.advanced > summary,
+    details.log summary {
         padding-inline: 0;
     }
 
-    .where label {
-        padding: 12px;
+    .panel {
+        padding: 16px;
     }
+}
 
-    .settings-nav a {
-        padding-inline: 10px;
+/* The strip at the top edge, under the window's controls, drags the window (src/main/window/titlebar.ts). */
+:root::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(titlebar-area-height, 0px);
+    app-region: drag;
+    z-index: 10;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+        transition: none !important;
     }
 }

@@ -113,7 +113,7 @@ Words show while you speak and are corrected when you pause (**Words as you spea
 
 This is an experimental feature. I have used it every day for over a month, and I want it available to everybody I made this app for. It can still change.
 
-The **Billion context** card, in the **Connection** column under the server it installs to, installs [billion-context-pi-pocket](https://github.com/vitalNohj/billion-context-pi-pocket) (context compression for long conversations) in the Pi Pocket the app runs on this computer, and turns it on. Pi Pocket must be running. When the app is connected to a remote server (**Another server**), the card says so and shows the steps to install the extension on that server itself (Linux or macOS) instead.
+**Billion context**, in **Settings → Server → Extensions**, installs [billion-context-pi-pocket](https://github.com/vitalNohj/billion-context-pi-pocket) (context compression for long conversations) in the Pi Pocket the app runs on this computer, and turns it on. Pi Pocket must be running. When the app is connected to a remote server (**Another server**), the card says so and shows the steps to install the extension on that server itself (Linux or macOS) instead.
 
 <!-- Temporary note: remove when Pi Pocket accepts the desktop bridge. -->
 Ideally, only agents, meaning long-running sessions, would use billion-context, and regular sessions would not. Pi Pocket does not separate agents from sessions (a session with a schedule or trigger is an agent), and that is a big feature to add, so this app turns the extension on for all sessions, which is how I use it.
@@ -133,7 +133,7 @@ With **Another server**, the card shows the command that installs it on that ser
 
 ### Runner
 
-Use the **Runner** card under **Server tools**, or the **Runner** link at the top of GUI Settings. A runner lets your server use this computer's files and commands. The agent, models, API keys, and history stay on the server. No SSH or open port is needed.
+Use **Runner** in the GUI Settings sidebar, or the Runner tile on Home. A runner lets your server use this computer's files and commands. The agent, models, API keys, and history stay on the server. No SSH or open port is needed.
 
 The app has the same runner as `pi-pocket runner` built in, and links the same way: the server cannot tell them apart.
 
@@ -158,31 +158,31 @@ The server must support runners. For now, use [vitalNohj/pi-pocket](https://gith
 
 Open **GUI Settings…** from the File menu, tray menu, Pi Pocket menu, or a right-click on the page. You can also press Ctrl+, (⌘, on macOS). This shortcut works even if the server page fails.
 
-The top links go to **Appearance**, **Updates**, **Notifications**, and **Runner**, and open that card. Connection comes first, with the server and the Billion context card. App preferences follow, then server tools. Most cards start closed. Each card has a short description. Ports, timeouts, limits, and update intervals are in closed **Advanced** sections.
+GUI Settings has a sidebar with two parts, **Home** and **Settings**. **Back to Pi Pocket** is at its top (or press Esc) whenever there is a Pi Pocket to go back to. Opened from a menu, GUI Settings starts on Home. When a server fails or is missing, the app shows Home with the reason.
 
-| Section | Card | What it controls |
-|---|---|---|
-| Connection | **Pi Pocket on this computer** | Install and run the server here. Choose a session folder and who can connect. Server updates are separate from app updates. |
-| Connection | **Another server** | Enter a full address or a host and port. Check it, then connect. |
-| Connection | **Get the server** | Set up Pi Pocket on another computer. Shown with **Another server**. |
-| Connection | **Billion context** | Install context compression here, or get installation steps for your server. |
-| App preferences | **Window** | Startup, tray, title bar, links, and the global shortcut. |
-| App preferences | **Appearance** | Background transparency, opacity, and system effects. |
-| App preferences | **Notifications** | Desktop alerts, sound, and approval buttons. |
-| App preferences | **Dictation** | Download speech models and turn speech into text on this computer. |
-| App preferences | **Updates** | Desktop app updates. The check interval is in **Advanced**. |
-| Server tools | **Runner** | Let your server use this computer's files and commands. See [Runner](#runner). |
-| Server tools | **Remote server** | Connect at startup, allow other addresses, and set check and retry limits. Shown with **Another server**. |
+**Home** shows where Pi Pocket runs and the way into it: the server's status and address, with **Start**, **Connect**, or **Back to Pi Pocket**. Below are the two choices, **This computer** and **Another server**, and tiles for **Runner**, **Updates**, and **Dictation** that open their section.
 
-The two choices at the top, **This computer** and **Another server**, only show that side's settings, with a status for each. A click on a choice does not connect, disconnect, start, or stop anything. The window changes servers only when you click **Connect**, **Start**, or **Open**. A remote connection stays while you look at This computer. When Pi Pocket on this computer stops on its own, the app shows a notification.
+**Settings** is one scrolling page. The sidebar marks the section you read and jumps to any of them. Each part has a short description. Ports, timeouts, limits, and update intervals are in closed **Advanced** sections.
+
+| Section | What it controls |
+|---|---|
+| **Window** | Startup, tray, title bar, links, and the global shortcut. |
+| **Appearance** | Background transparency, opacity, and system effects. |
+| **Notifications** | Desktop alerts, sound, and approval buttons. |
+| **Dictation** | Download speech models and turn speech into text on this computer. |
+| **Updates** | Desktop app updates. The check interval is in **Advanced**. |
+| **Runner** | Let your server use this computer's files and commands. See [Runner](#runner). |
+| **Server** | **This computer**: session folder, who can connect, and server updates. **Another server**: connect at startup, other allowed addresses, and check and retry limits. **Extensions**: Billion context. |
+
+The two choices on Home, **This computer** and **Another server**, only show that side, with a status for each. A click on a choice does not connect, disconnect, start, or stop anything. The window changes servers only when you click **Connect**, **Start**, or **Open**. A remote connection stays while you look at This computer. When Pi Pocket on this computer stops on its own, the app shows a notification.
 
 Use the server address you open in a browser, not a model API address. A failed check keeps your saved address and any working connection. The status shows **Connected** when Pi Pocket is open. To change servers, enter and check the new address before you connect.
 
 If a sign-in page hides Pi Pocket, choose **Open webpage anyway**. This is available only for HTML pages. A **GUI Settings** button stays visible until Pi Pocket is detected. HTTP errors and other responses return to settings.
 
-<img src="docs/images/settings.png" alt="The settings screen: the connection on the left, the Window settings on the right" width="100%" />
+<img src="docs/images/settings.png" alt="GUI Settings: the sidebar with Home and Settings, and Home showing where Pi Pocket runs" width="100%" />
 
-In **Remote server**, **Other allowed addresses** can include a sign-in page, such as Cloudflare Access. Enter one address per line, without a path. By default, **Advanced** uses a 10-second server check interval, 3 failed checks before reconnecting, a 30-second maximum retry delay, and a 4-second check timeout. The app keeps trying after a connection fails.
+In **Server → Another server**, **Other allowed addresses** can include a sign-in page, such as Cloudflare Access. Enter one address per line, without a path. By default, **Advanced** uses a 10-second server check interval, 3 failed checks before reconnecting, a 30-second maximum retry delay, and a 4-second check timeout. The app keeps trying after a connection fails.
 
 The settings are also a JSON file you can edit by hand. A value that is not valid falls back to its default, and the settings screen lists it.
 
@@ -208,7 +208,7 @@ The app writes a diagnostics log. It records page hangs and crashes, failed load
 
 ### Updates
 
-The **Updates** card manages the desktop app, not the server. The app checks at startup and every 6 hours by default. Choose **Check now** to check manually. Change the interval in **Updates → Advanced**. Server updates are under **Connection → Pi Pocket on this computer → Server updates**.
+**Settings → Updates** manages the desktop app, not the server. The app checks at startup and every 6 hours by default. Choose **Check now** to check manually. Change the interval in **Updates → Advanced**. Server updates are under **Settings → Server → This computer → Server updates**.
 
 - **Windows and the AppImage** download it and install it when the app restarts. The app asks first.
 - **macOS:** until the app is signed by Apple, macOS will not let it replace itself. It downloads the new disk image to Downloads, checked against GitHub's checksum, then quits and opens it (macOS cannot replace an app that is running): drag the app into Applications over the old one, then open it again. Your settings and sign-in stay.

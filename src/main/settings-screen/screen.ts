@@ -62,8 +62,9 @@ export function showConfig(reason: ConfigReason): void {
     appState.gui.reason = reason;
     show("config");
 
-    if (reason.kind === "user" && reason.section !== undefined) {
-        appState.gui.config.webContents.send("config:focus", reason.section);
+    // Opened from a menu: Home, or the section asked for (Dictation, when the microphone needs a model).
+    if (reason.kind === "user") {
+        appState.gui.config.webContents.send("config:focus", reason.section ?? "home");
     }
 }
 

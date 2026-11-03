@@ -1,4 +1,4 @@
-/** GUI Settings: connection, app preferences, then server tools. */
+/** GUI Settings: Home (where Pi Pocket runs, and the way into it) and Settings (every section), with a sidebar. */
 import type { BillionContextAction, ChoiceStatus, ConfigReason, ConfigState, DictationModelState, GuiConfigApi, LocalAction, LocalState, ProbeResult, RunnerState, Settings, Side } from "../../shared/types";
 
 declare global {
@@ -9,14 +9,94 @@ declare global {
 
 const gui = window.gui;
 
-for (const link of document.querySelectorAll<HTMLAnchorElement>(".settings-nav a")) {
+// ——— Home and Settings ———
+
+type View = "home" | "settings";
+
+/** The sections of Settings, in page order; Home is its own view. */
+const SECTIONS = ["window", "appearance", "notifications", "dictation", "updates", "runner", "server"] as const;
+let view: View = "home";
+let current = "home";
+
+function markCurrent(go: string): void {
+    current = go;
+
+    for (const item of document.querySelectorAll<HTMLAnchorElement>(".nav-item")) {
+        if (item.dataset.go === go) {
+            item.setAttribute("aria-current", "page");
+        } else {
+            item.removeAttribute("aria-current");
+        }
+    }
+}
+
+/** Shows Home, or Settings at a section (its top when none). */
+function showView(next: View, section?: string): void {
+    view = next;
+    element("view-home").hidden = next !== "home";
+    element("settings-form").hidden = next !== "settings";
+
+    if (next === "home") {
+        markCurrent("home");
+        window.scrollTo(0, 0);
+
+        return;
+    }
+
+    const target = section === undefined ? undefined : document.getElementById(`sec-${section}`);
+
+    markCurrent(section ?? SECTIONS[0]);
+
+    if (target === undefined || target === null) {
+        window.scrollTo(0, 0);
+    } else {
+        target.scrollIntoView({ block: "start" });
+    }
+}
+
+function go(where: string): void {
+    if (where === "home") {
+        showView("home");
+    } else {
+        showView("settings", where);
+    }
+}
+
+for (const link of document.querySelectorAll<HTMLElement>("[data-go]")) {
     link.addEventListener("click", (event) => {
         event.preventDefault();
-        const card = document.getElementById(link.hash.slice(1));
-
-        if (card instanceof HTMLDetailsElement) card.open = true;
-        card?.scrollIntoView({ behavior: "smooth", block: "start" });
+        go(link.dataset.go ?? "home");
     });
+}
+
+/** In Settings, the sidebar marks the section being read. */
+function followScroll(): void {
+    if (view !== "settings") {
+        return;
+    }
+
+    let reading: string = SECTIONS[0];
+
+    for (const section of SECTIONS) {
+        const top = document.getElementById(`sec-${section}`)?.getBoundingClientRect().top ?? Infinity;
+
+        if (top <= 160) {
+            reading = section;
+        }
+    }
+
+    // At the bottom, the last section is the one read, even when it is too short to reach the top.
+    if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) {
+        reading = SECTIONS[SECTIONS.length - 1]!;
+    }
+
+    if (reading !== current) {
+        markCurrent(reading);
+    }
+}
+
+if (typeof window.addEventListener === "function") {
+    window.addEventListener("scroll", followScroll, { passive: true });
 }
 
 function element<T extends HTMLElement>(id: string): T {
@@ -283,6 +363,7 @@ function reasonBanner(reason: ConfigReason): { text: string; tone: "error" | "in
 }
 
 let countdown: number | undefined;
+let lastReason: string | undefined;
 
 /** The Updates card: where the app's own update stands, and the button for its next step. */
 function renderUpdate(next: ConfigState): void {
@@ -373,6 +454,18 @@ const LOCAL_LABELS: Record<LocalState["status"], { pill: string; state: string }
     failed: { pill: "Stopped", state: "not-detected" },
 };
 
+/** Home's heading for each state of this computer's Pi Pocket. */
+const LOCAL_TITLES: Record<LocalState["status"], string> = {
+    absent: "Run Pi Pocket on this computer",
+    installing: "Setting up Pi Pocket on this computer",
+    stopped: "Pi Pocket is installed and ready to start",
+    starting: "Starting Pi Pocket…",
+    running: "Pi Pocket is running on this computer",
+    external: "Pi Pocket already runs on this computer",
+    stopping: "Stopping Pi Pocket…",
+    failed: "Pi Pocket stopped",
+};
+
 /** A choice's status pill, and its error line (clipped; the card has the whole text). */
 function renderChoice(side: Side, choice: ChoiceStatus): void {
     const pill = element(`choice-${side}`);
@@ -398,11 +491,15 @@ function renderLocal(next: ConfigState): void {
     renderChoice("local", next.choices.local);
     renderChoice("remote", next.choices.remote);
 
+    // Home shows the side chosen; Settings → Server keeps the settings of both.
     element("local-card").hidden = !isLocal;
     element("remote-card").hidden = isLocal;
     element("get-card").hidden = isLocal;
-    // Only for a server elsewhere: this computer's Pi Pocket is started and watched by the app itself.
-    element("remote-settings-card").hidden = isLocal;
+    element("remote-back-row").hidden = isLocal || !next.canReturn;
+    element("remote-address").textContent = next.connectedUrl ?? "";
+    element("connection-title").textContent = next.connectedUrl === undefined ? "Connect to your Pi Pocket server" : "Connected to your Pi Pocket server";
+    element("local-address").textContent = local.status === "running" || local.status === "external" ? local.url ?? "" : "";
+    element("local-title").textContent = LOCAL_TITLES[local.status];
 
     const label = LOCAL_LABELS[local.status];
     const pill = element("local-status");
@@ -499,9 +596,11 @@ for (const button of document.querySelectorAll<HTMLButtonElement>("[data-local]"
     });
 }
 
-element("local-show").addEventListener("click", () => {
-    void gui.back();
-});
+for (const id of ["local-show", "remote-back"]) {
+    element(id).addEventListener("click", () => {
+        void gui.back();
+    });
+}
 
 for (const radio of document.querySelectorAll<HTMLInputElement>('input[name="where"]')) {
     radio.addEventListener("change", () => {
@@ -554,6 +653,18 @@ function render(next: ConfigState): void {
     }
 
     back.hidden = !next.canReturn;
+    renderGlance(next);
+
+    // A new reason the app shows this screen for (a failure, the first run, this computer's server): Home says it.
+    const why = JSON.stringify(next.reason);
+
+    if (why !== lastReason) {
+        lastReason = why;
+
+        if (next.reason.kind !== "user" && view !== "home") {
+            showView("home");
+        }
+    }
 
     const failing = next.reason.kind === "load-failed" || next.reason.kind === "outage" || next.reason.kind === "crashed" || next.reason.kind === "not-detected";
 
@@ -1062,11 +1173,8 @@ element("dictation-show-folder").addEventListener("click", () => {
 });
 
 gui.onFocus((section) => {
-    if (section === "dictation") {
-        const card = element<HTMLDetailsElement>("dictation-card");
-
-        card.open = true;
-        card.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (section === "home" || (SECTIONS as readonly string[]).includes(section)) {
+        go(section);
     }
 });
 
@@ -1109,7 +1217,7 @@ function renderBillionContext(next: ConfigState): void {
         detail = extension.foreign
             ? "Installed under another name. Manage it in Menu → Extensions, or remove that copy before installing here."
             : extension.server === "absent"
-              ? "First, install Pi Pocket under This computer in Connection."
+              ? "First, install Pi Pocket under This computer on Home."
               : extension.server === "stopped"
                 ? "Start Pi Pocket before installing or turning on the extension."
                 : "Download from GitHub and turn it on (about 1 MB; 4 MB on disk).";
@@ -1247,6 +1355,81 @@ element("runner-restart").addEventListener("click", () => {
 element("runner-unlink").addEventListener("click", () => {
     gui.runner("unlink").catch(() => {});
 });
+
+// ——— Home at a glance ———
+
+function tile(id: string, pill: { text: string; state: string }, text: string, title?: string): void {
+    const badge = element(`tile-${id}-pill`);
+
+    badge.textContent = pill.text;
+    badge.dataset.state = pill.state;
+    element(`tile-${id}-text`).textContent = text;
+
+    if (title !== undefined) {
+        element(`tile-${id}-title`).textContent = title;
+    }
+}
+
+/** The status by Home in the sidebar, and the Runner, Updates, and Dictation tiles: each opens its section. */
+function renderGlance(next: ConfigState): void {
+    const choice = next.choices[next.viewing];
+    const dot = element("nav-status");
+
+    dot.dataset.state = choice.state;
+    element("nav-status-text").textContent = choice.label;
+
+    const runner = next.runner;
+
+    tile(
+        "runner",
+        {
+            text: runner.link === undefined ? "Not linked" : RUNNER_STATUS[runner.status] ?? "",
+            state: runner.status === "connected" ? "connected" : runner.status === "failed" || runner.status === "ended" ? "not-detected" : runner.link === undefined ? "checking" : "other",
+        },
+        runner.link === undefined ? "Let your server use this computer's files and commands." : `Linked as “${runner.link.name}” to ${runner.link.server}.`,
+    );
+
+    const update = next.update;
+    const waiting = update.status === "available" || update.status === "ready";
+
+    tile(
+        "updates",
+        {
+            text: waiting ? update.version ?? "New" : update.status === "error" ? "Failed" : update.status === "checking" || update.status === "downloading" ? "Checking" : next.appVersion,
+            state: waiting ? "other" : update.status === "error" ? "not-detected" : update.status === "current" ? "connected" : "checking",
+        },
+        update.status === "ready"
+            ? "Restart the app to finish the update."
+            : update.status === "available"
+              ? "A new version of the desktop app is available."
+              : update.status === "error"
+                ? "The last update check failed."
+                : "The desktop app is up to date.",
+        update.status === "ready" ? "Update ready" : update.status === "available" ? "Update available" : "Updates",
+    );
+
+    const dictation = next.dictation;
+    const model = dictation.models.find((each) => each.chosen);
+
+    tile(
+        "dictation",
+        { text: !dictation.supported ? "Unavailable" : model !== undefined ? "On" : "Off", state: model !== undefined ? "connected" : "checking" },
+        !dictation.supported
+            ? "Not available on this computer."
+            : model !== undefined
+              ? `${model.name}. Audio stays on this computer.`
+              : "Download a speech model to talk to Pi offline.",
+    );
+}
+
+// Esc: back to Pi Pocket, as the sidebar's button.
+if (typeof document.addEventListener === "function") {
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !back.hidden && !event.defaultPrevented && !(event.target instanceof HTMLSelectElement)) {
+            void gui.back();
+        }
+    });
+}
 
 // ——— Start ———
 

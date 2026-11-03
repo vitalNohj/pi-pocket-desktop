@@ -43,7 +43,7 @@ test("without a link it is unlinked, and with one but no runtime it says what to
         const state = runner.state();
 
         assert.equal(state.status, "failed");
-        assert.match(state.message ?? "", /Install or update Pi Pocket under This computer in Connection/);
+        assert.match(state.message ?? "", /Install or update Pi Pocket under This computer on Home/);
         assert.deepEqual(state.link, { server: "https://pocket.example", id: "a", name: "Mac" });
         assert.equal(JSON.stringify(state).includes("secret"), false, "the key never leaves the file");
     } finally {
