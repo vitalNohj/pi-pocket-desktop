@@ -40,6 +40,8 @@ const LATEST = `https://api.github.com/repos/${REPO}/releases/latest`;
 const RELEASES = `https://github.com/${REPO}/releases`;
 /** The first check waits a little after start, so it never slows the window down. */
 const FIRST_CHECK_MS = 15_000;
+/** Opening Settings again this soon after a check does not check again: GitHub limits unsigned requests per hour. */
+const SETTINGS_RECHECK_MS = 60_000;
 /** How long the check before an action may take: the person waits for it, so it fails rather than hangs. */
 const RECHECK_MS = 10_000;
 
@@ -82,8 +84,8 @@ export function setUpUpdates(host: UpdateHost): {
      * never acts on a release that a newer one replaced since the last check. A call while one runs does nothing more.
      */
     act: () => Promise<void>;
-    /** The settings changed: the timer follows them. */
-    reschedule: () => void;
+    /** The person opened Settings: check, unless a check ended within the last minute. */
+    settingsOpened: () => void;
     /** A line for the tray menu, when there is something to do. */
     trayItem: () => { label: string; click: () => void } | undefined;
 } {
@@ -102,7 +104,6 @@ export function setUpUpdates(host: UpdateHost): {
     let acting = false;
     /** install: a late result of a check that an action gave up on must not install or ask to restart. */
     const generations = new CheckGenerations();
-    let timer: NodeJS.Timeout | undefined;
     let told: string | undefined;
     // Loaded only where it installs: elsewhere it is never needed, and on macOS it would find no update it can use.
     let updater: typeof import("electron-updater").autoUpdater | undefined;
@@ -321,10 +322,6 @@ export function setUpUpdates(host: UpdateHost): {
             return;
         }
 
-        if (!manual && !host.settings().updates.check) {
-            return;
-        }
-
         if (method === "source") {
             set({ status: "current", message: "Run from source: git pull updates it.", checkedAt: Date.now() });
 
@@ -515,17 +512,13 @@ export function setUpUpdates(host: UpdateHost): {
         }
     });
 
-    const reschedule = (): void => {
-        if (timer !== undefined) {
-            clearInterval(timer);
-            timer = undefined;
+    // No timer: it checks once after the start, and each time the person opens Settings.
+    const settingsOpened = (): void => {
+        if (state.checkedAt !== undefined && Date.now() - state.checkedAt < SETTINGS_RECHECK_MS) {
+            return;
         }
 
-        const settings = host.settings().updates;
-
-        if (settings.check && method !== "source") {
-            timer = setInterval(() => void check(false), settings.intervalHours * 3_600_000);
-        }
+        void check(false);
     };
 
     void teamSigned().then((signed) => {
@@ -536,15 +529,14 @@ export function setUpUpdates(host: UpdateHost): {
         });
         state = { ...state, method };
         host.changed();
-        reschedule();
-        setTimeout(() => void check(false), FIRST_CHECK_MS);
+        setTimeout(() => void check(false), FIRST_CHECK_MS).unref();
     });
 
     return {
         state: () => state,
         check,
         act,
-        reschedule,
+        settingsOpened,
         trayItem: () => {
             if (state.version === undefined || (state.status !== "available" && state.status !== "ready")) {
                 return undefined;

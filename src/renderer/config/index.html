@@ -210,14 +210,9 @@
             </section>
 
             <section class="section" id="sec-updates" aria-labelledby="h-updates">
-                <div class="section-head"><h2 id="h-updates">Updates</h2><p>Keep the desktop app up to date. Server updates are under Server.</p></div>
+                <div class="section-head"><h2 id="h-updates">Updates</h2><p>Keep the desktop app up to date. It checks when it starts and each time you open Settings. Server updates are under Server.</p></div>
                 <div class="card rows" id="updates-card">
-                    <label class="row"><span><strong>Check for app updates</strong><small>Server updates are separate. See Pi Pocket on this computer, or update your remote server.</small></span><input type="checkbox" data-key="updates.check" /></label>
                     <div class="row"><span><strong id="update-status">Not checked yet</strong><small id="update-detail"></small></span><span class="buttons"><button type="button" id="update-action" hidden></button><button type="button" id="update-check" class="secondary">Check now</button></span></div>
-                    <details class="advanced">
-                        <summary><span>Advanced<small>Update check interval</small></span></summary>
-                        <div class="rows nested"><label class="row"><span><strong>Check every</strong><small>Hours between app update checks.</small></span><input type="number" data-key="updates.intervalHours" class="short" min="1" max="720" /></label></div>
-                    </details>
                 </div>
             </section>
 

@@ -30,6 +30,12 @@ export function openSettingsOn(side: Side | undefined, section?: "dictation"): v
 
     showWindow();
     showConfig({ kind: "user", ...(section === undefined ? {} : { section }) });
+
+    // No timed update checks: opening Settings looks for updates of the app, this computer's Pi Pocket, and the
+    // extension, so what it shows is current.
+    state.gui?.updates?.settingsOpened();
+    state.gui?.local?.settingsOpened();
+    state.gui?.billionContext?.settingsOpened();
 }
 
 /** Help → Open diagnostics log: the file the stall watchdog and the page events write (README, Diagnostics). */

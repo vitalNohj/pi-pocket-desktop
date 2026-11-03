@@ -127,7 +127,6 @@ function fixture(t: TestContext) {
     const integration = setUpBillionContext(host);
 
     t.after(() => {
-        integration.quit();
         rmSync(home, { recursive: true, force: true });
     });
 

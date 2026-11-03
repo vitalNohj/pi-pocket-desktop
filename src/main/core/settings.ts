@@ -36,7 +36,6 @@ export function defaultSettings(): Settings {
             allowFromNotification: "whenFullyShown",
             maxCallLength: 120,
         },
-        updates: { check: true, intervalHours: 6 },
         local: { folder: "", port: 8787, access: "local", data: "", keepUpdated: true },
         appearance: { translucent: false, opacity: 82, macMaterial: "under-window", windowsMaterial: "acrylic", trayMenu: "windows" },
         dictation: { model: "", live: true },
@@ -151,7 +150,6 @@ const schema: { [S in keyof Settings]: { [K in keyof Settings[S]]: Check<Setting
         allowFromNotification: oneOf("whenFullyShown", "always", "never"),
         maxCallLength: int(20, 2000),
     },
-    updates: { check: bool, intervalHours: int(1, 24 * 30) },
     local: {
         folder: path,
         port: int(1024, 65535),
@@ -197,7 +195,9 @@ export function validateSettings(input: unknown): { settings: Settings; problems
     }
 
     for (const [section, value] of Object.entries(input)) {
-        if (section === "$schema" || section === "version") {
+        // `updates` held the timed update check's switch and interval: the app now checks at start and when Settings
+        // opens, so an older file's values are dropped quietly.
+        if (section === "$schema" || section === "version" || section === "updates") {
             continue;
         }
 
