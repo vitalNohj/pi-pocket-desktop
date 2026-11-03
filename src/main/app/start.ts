@@ -480,7 +480,6 @@ export async function start(): Promise<void> {
         stopDiagnostics();
         globalShortcut.unregisterAll();
         appState.gui?.dictation?.quit();
-        appState.gui?.billionContext?.quit();
     });
 
     registerIpc();

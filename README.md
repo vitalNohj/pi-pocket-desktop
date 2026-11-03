@@ -64,7 +64,7 @@ Pick **This computer** in Settings and click **Install Pi Pocket**. The app down
 
 - **It runs while the app runs,** also with the window closed to the tray. Quitting the app stops it; running sessions pick up at the next start. With **Launch at login** and **Start hidden**, this computer is an always-on Pi Pocket for your phone.
 - **Who can connect:** this computer only, the local network, your Tailscale network, or anywhere through a Cloudflare link. **Folder for new sessions** sets the starting folder. **Advanced** holds the server port and data folder (`~/.pi-pocket` by default), plus **Uninstall**. The server log is below it.
-- **Kept up to date:** the app looks for a newer Pi Pocket and Node.js at start and every few hours, and installs them beside the ones in use. They take over when Pi Pocket restarts: **Restart** in Settings, the tray's **Restart Pi Pocket to update**, or the next start of the app. If a new version does not start, the one before runs again. Pi Pocket's own Settings → Updates works too.
+- **Kept up to date:** the app looks for a newer Pi Pocket and Node.js at start and each time you open Settings, and installs them beside the ones in use. They take over when Pi Pocket restarts: **Restart** in Settings, the tray's **Restart Pi Pocket to update**, or the next start of the app. If a new version does not start, the one before runs again. Pi Pocket's own Settings → Updates works too.
 - **Pi Pocket already running** on that port (started in a terminal) is found and offered instead.
 - **It sees your tools:** Pi Pocket gets the same environment as your terminal (your shell's `PATH`), so the agent finds `git`, `node`, and the rest.
 
@@ -121,7 +121,7 @@ Ideally, only agents, meaning long-running sessions, would use billion-context, 
 I'd like to explore a Pi Pocket feature that adds "Agents". Agents would use this extension for their compaction, and regular sessions would not. Any agent, like PiP, could be used to orchestrate sessions. PiP, Pi Pocket's assistant, is a session that should get billion-context, for example, in my opinion. This note is meant for the Pi Pocket development team.
 
 - **Install** downloads the newest commit of the integration's `main` branch from GitHub, checks each file against the git hash the commit lists, and puts `billion-context-pi-pocket.ts` and the `billion-context-pi-pocket/` helper folder in Pi Pocket's `extensions` folder. Then it turns the extension on through Pi Pocket's API and asks the extension to install its pinned runtime.
-- **Update** shows when a newer commit is out, at each start and as often as the app looks for its own updates. It turns the extension off, swaps the files, and restores its previous on/off choice. If it was on, the app asks the extension to install its pinned runtime. If it was off, the app does not enable it or install the runtime. **Update automatically** does this without asking (off by default).
+- **Update** shows when a newer commit is out, at each start and each time you open Settings. It turns the extension off, swaps the files, and restores its previous on/off choice. If it was on, the app asks the extension to install its pinned runtime. If it was off, the app does not enable it or install the runtime. **Update automatically** does this without asking (off by default).
 - Existing GUI installations of `billion-context-pi-pocket-adapter.ts` and its helper folder remain manageable. **Update** migrates them to the new names. The old module is off before the new module can load. Migration copies settings to `billion-context-pi-pocket.json`, preserving all values and explicitly retaining the old `extensionName` and `stateDir` defaults (`billion-context-pi`) when no overrides exist. The old settings file stays as a backup. Conversation and compression state never move.
 - A failed update restores the previous files, settings, and on/off choice. An interrupted update keeps a recovery record and backups; the next start of the local server or extension action restores them before other work. Do not remove its `_billion-context-pi-pocket.update/` folder during recovery.
 - The GUI refuses migration if both module names exist, either helper folder belongs to a differently named module, or old and new settings conflict. Resolve those copies or settings first; the GUI does not select one or overwrite them. An invalid new settings file never falls back to old settings.
@@ -163,7 +163,7 @@ GUI Settings has a sidebar with two parts, **Home** and **Settings**. **Back to 
 
 **Home** shows where Pi Pocket runs and the way into it: the server's status and address, with **Start**, **Connect**, or **Back to Pi Pocket**. Below are the two choices, **This computer** and **Another server**, and tiles for **Runner**, **Updates**, and **Dictation** that open their section.
 
-**Settings** is one scrolling page. The sidebar marks the section you read and jumps to any of them. Each part has a short description. Ports, timeouts, limits, and update intervals are in closed **Advanced** sections.
+**Settings** is one scrolling page. The sidebar marks the section you read and jumps to any of them. Each part has a short description. Ports, timeouts, and limits are in closed **Advanced** sections.
 
 | Section | What it controls |
 |---|---|
@@ -171,7 +171,7 @@ GUI Settings has a sidebar with two parts, **Home** and **Settings**. **Back to 
 | **Appearance** | Background transparency, opacity, and system effects. |
 | **Notifications** | Desktop alerts, sound, and approval buttons. |
 | **Dictation** | Download speech models and turn speech into text on this computer. |
-| **Updates** | Desktop app updates. The check interval is in **Advanced**. |
+| **Updates** | Desktop app updates, checked at startup and each time Settings opens. |
 | **Runner** | Let your server use this computer's files and commands. See [Runner](#runner). |
 | **Server** | **This computer**: session folder, who can connect, and server updates. **Another server**: connect at startup, other allowed addresses, and check and retry limits. **Extensions**: Billion context. |
 
@@ -209,7 +209,7 @@ The app writes a diagnostics log. It records page hangs and crashes, failed load
 
 ### Updates
 
-**Settings → Updates** manages the desktop app, not the server. The app checks at startup and every 6 hours by default. Choose **Check now** to check manually. Change the interval in **Updates → Advanced**. Server updates are under **Settings → Server → This computer → Server updates**.
+**Settings → Updates** manages the desktop app, not the server. The app checks at startup and each time you open Settings, so what Settings shows is current. There is no timed check. Choose **Check now** to check again. Server updates are under **Settings → Server → This computer → Server updates**.
 
 - **Windows and the AppImage** download it and install it when the app restarts. The app asks first.
 - **macOS:** until the app is signed by Apple, macOS will not let it replace itself. It downloads the new disk image to Downloads, checked against GitHub's checksum, then quits and opens it (macOS cannot replace an app that is running): drag the app into Applications over the old one, then open it again. Your settings and sign-in stay.

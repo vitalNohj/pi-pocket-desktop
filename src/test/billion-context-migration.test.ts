@@ -154,7 +154,6 @@ function fixture(t: TestContext, layout: "bundled" | "pinned" = "bundled") {
     const integration = setUpBillionContext(host);
 
     t.after(() => {
-        integration.quit();
         rmSync(home, { recursive: true, force: true });
     });
 

@@ -152,7 +152,6 @@ export function setUpBillionContext(host: BillionContextHost) {
     let checkedAt: number | undefined;
     /** What Pi Pocket said about the extension, the last time it was asked. */
     let modules: ExtensionInfo[] = [];
-    let timer: NodeJS.Timeout | undefined;
 
     const folder = () => join(host.dataFolder(), "extensions");
     const transactionFolder = () => join(folder(), TRANSACTION);
@@ -733,14 +732,6 @@ export function setUpBillionContext(host: BillionContextHost) {
         }
     };
 
-    const schedule = (): void => {
-        clearTimeout(timer);
-        timer = setTimeout(() => {
-            void checkAndUpdate().finally(schedule);
-        }, host.settings().updates.intervalHours * 3_600_000);
-        timer.unref();
-    };
-
     return {
         state(): BillionContextState {
             const local = host.local();
@@ -815,20 +806,14 @@ export function setUpBillionContext(host: BillionContextHost) {
             void act("Checking the extension…", ask)
                 .then(checkAndUpdate)
                 .catch((error) => console.error("billion-context-pi-pocket startup:", error));
-            schedule();
         },
         serverDown: (): void => {
             modules = [];
-            clearTimeout(timer);
             host.changed();
         },
-        reschedule: (): void => {
-            if (timer !== undefined && host.local().url !== undefined) {
-                schedule();
-            }
-        },
-        quit: (): void => {
-            clearTimeout(timer);
+        /** The person opened Settings: look for a newer version (it does nothing while the server is down). */
+        settingsOpened: (): void => {
+            void checkAndUpdate();
         },
     };
 }
