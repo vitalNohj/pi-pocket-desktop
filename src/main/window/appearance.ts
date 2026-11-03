@@ -1,7 +1,8 @@
 /**
  * A see-through, blurred window. Each desktop does it its own way:
  *
- * - macOS: vibrancy, the system's blur under the window. It turns on and off at any time.
+ * - macOS: vibrancy, the system's blur under the window. It turns on and off at any time, but only in a window made
+ *   with vibrancy (`windowOptions`).
  * - Windows 11 (22H2 and newer): a backdrop material, acrylic or mica. It turns on and off at any time.
  * - Linux: a window is see-through only when it is made so, so turning it on takes a restart. The compositor blurs
  *   it with its own settings (Hyprland's `decoration:blur`, KWin's Blur effect); GNOME shows it see-through only.
@@ -10,7 +11,7 @@
  * that let its grounds through. That CSS reads Pi Pocket's theme tokens (docs/extensions/reference/theme-surface.md
  * there): when a release renames them, the page only stays solid.
  */
-import type { BaseWindow, WebContents, WebContentsView } from "electron";
+import type { BaseWindow, BaseWindowConstructorOptions, WebContents, WebContentsView } from "electron";
 import type { Settings, TranslucencySupport } from "../../shared/types";
 
 const CLEAR = "#00000000";
@@ -34,6 +35,31 @@ export function translucencySupport(platform: string, systemVersion: string, atS
             return atStart ? { kind: "live", blur: "compositor" } : { kind: "restart" };
         default:
             return { kind: "unsupported", message: "This system cannot show a see-through window." };
+    }
+}
+
+/**
+ * What the window needs when it is made, so that it can turn see-through later.
+ *
+ * - macOS: Electron makes the window's compositor see-through only when the window is made with vibrancy (or
+ *   `transparent`); `setVibrancy` later adds the blur but leaves the compositor opaque. An opaque compositor redraws a
+ *   changed area without clearing it first, so over the see-through views each redraw adds a coat to the last: hovered
+ *   buttons stay lit, and a part that moves leaves its old place behind (electron/electron#42335, #46352). So the
+ *   window is always made with vibrancy; the settings take it off at once while the window is still hidden, and the
+ *   views paint it solid then.
+ * - Linux: only a window made `transparent` can be see-through, so the setting takes a restart.
+ */
+export function windowOptions(
+    platform: string,
+    appearance: Settings["appearance"],
+): Pick<BaseWindowConstructorOptions, "vibrancy" | "transparent"> {
+    switch (platform) {
+        case "darwin":
+            return { vibrancy: appearance.macMaterial };
+        case "linux":
+            return appearance.translucent ? { transparent: true } : {};
+        default:
+            return {};
     }
 }
 
