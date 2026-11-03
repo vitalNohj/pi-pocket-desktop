@@ -395,7 +395,7 @@ export interface PinnedSession {
     url: string;
 }
 
-/** A notification the server sent this app's page (docs/desktop.md in Pi Pocket). */
+/** A notification the server sent this app's page (docs/embedders.md in Pi Pocket). */
 export interface HostNotification {
     title: string;
     body: string;

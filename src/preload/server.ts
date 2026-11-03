@@ -1,13 +1,13 @@
 /// <reference lib="dom" />
 /**
- * The server page's preload: `window.pocketHost`, the host bridge Pi Pocket's web app uses (docs/desktop.md there).
+ * The server page's preload: `window.pocketHost`, the app bridge Pi Pocket's web app uses (docs/embedders.md there).
  * The main process says first whether this frame may have it: only the main window's top frame, on the configured
  * server's origin. Anywhere else (a sign-in page in front of the server, another window) the page gets nothing.
  */
 import { contextBridge, ipcRenderer } from "electron";
 import type { HostEvent, HostHello, ThemeToken } from "../shared/types";
 
-/** The bridge version this app speaks. */
+/** The app bridge version this app speaks. */
 const API_VERSION = 1;
 
 const hello = ipcRenderer.sendSync("host:hello") as HostHello | null;
@@ -33,6 +33,9 @@ if (hello !== null && typeof hello === "object") {
         apiVersion: API_VERSION,
         capabilities: ["menu", "badge", "notify", "visibility", "pinned", "open", "newSession", "saveFile"],
         saveFile: (input: unknown) => ipcRenderer.invoke("host:save-file", input),
+        // The heading of this app's group in Pi Pocket's menu (Pi Pocket's docs/embedders.md). An older Pi Pocket
+        // does not ask for it, and shows its own heading.
+        menuTitle: () => "Pi Pocket Desktop",
         menuItems: () => [{ id: "server-settings", label: "GUI Settings…", hint: "This desktop app's settings" }],
         invoke: (id: unknown) => {
             if (typeof id !== "string") {

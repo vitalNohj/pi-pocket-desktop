@@ -28,8 +28,8 @@ import {
 
 const REGISTRY = "https://registry.npmjs.org/pi-pocket/latest";
 /**
- * Where Pi Pocket comes from. For now the fork's branch, which has the desktop bridge; npm's official release later,
- * once it has the bridge (set this to "npm": that path is kept as it is).
+ * Where Pi Pocket comes from. For now the fork's branch, which has the app bridge; npm's official release later,
+ * once it has the app bridge (set this to "npm": that path is kept as it is).
  */
 const SOURCE: "fork" | "npm" = "fork";
 const FORK = { repo: "vitalNohj/pi-pocket", branch: "live-0.28" };

@@ -53,7 +53,7 @@ export interface Gui {
     retryAttempt: number;
     health: { timer: NodeJS.Timeout; failures: number } | undefined;
     quitting: boolean;
-    /** The host bridge's main-process side (src/main/bridge/desktop.ts). */
+    /** The app bridge's main-process side (src/main/bridge/desktop.ts). */
     desktop: ReturnType<typeof setUpDesktop> | undefined;
     /** The app's own updates (src/main/updates/updates.ts). */
     updates: ReturnType<typeof setUpUpdates> | undefined;

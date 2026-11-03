@@ -2,7 +2,7 @@
 
 Everything in them is made up: the people, folders, sessions, and the model's answers.
 
-1. Start a Pi Pocket with demo data (a checkout of Pi Pocket with the desktop bridge, for its test helpers):
+1. Start a Pi Pocket with demo data (a checkout of Pi Pocket with the app bridge, for its test helpers):
 
    ```bash
    mkdir -p /tmp/pp-demo/home
