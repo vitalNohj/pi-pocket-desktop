@@ -54,7 +54,7 @@ test("without a link it is unlinked, and with one but no runtime it says what to
 /** A stand-in launcher: links, saves confirmation choices, and records its arguments and stdin. */
 function fakeRuntime(
     home: string,
-    options: { script?: string; confirmError?: string; legacyError?: string } = {},
+    options: { script?: string; confirmError?: string; legacyError?: string; foldersWarning?: string } = {},
 ): { node: string; launcher: string; bin: string } {
     const launcher = join(home, "fake-launcher.mjs");
 
@@ -77,7 +77,11 @@ if (args[1] === "link") {
         if (!folders.includes(args[3])) { console.error("No allowed folder matches"); process.exit(1); }
         link.settings = { ...link.settings, folders: folders.filter(folder => folder !== args[3]) };
         writeFileSync(file, JSON.stringify(link));
-    } else { console.log(JSON.stringify(link.settings?.folders ?? [])); }
+    } else {
+        const warning = ${JSON.stringify(options.foldersWarning ?? "")};
+        if (warning) { console.error(warning); }
+        console.log(JSON.stringify(link.settings?.folders ?? []));
+    }
 } else if (args[1] === "settings" && args[2] === "confirm") {
     const error = ${JSON.stringify(options.confirmError ?? "")};
     if (error) { console.error(error); process.exit(1); }
@@ -461,11 +465,14 @@ test("folder lists contain only strings, including long lists, and invalid outpu
     }
 });
 
-test("the card reads and removes folders with the same runtime and config, without restarting", async () => {
+test("the card preserves folder JSON, reads and removes with the same runtime, and does not restart", async () => {
     const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const runtime = fakeRuntime(home);
+    const runtime = fakeRuntime(home, { foldersWarning: "A warning on stderr is not part of the folder JSON." });
     const runner = setUpRunner(host(home, { runtime: () => runtime }));
-    const folders = Array.from({ length: 400 }, (_, i) => `/Users/me/projects/folder-${String(i)}`);
+    const folders = [
+        "/work/project?token=abc cache", "/work/project?token=abc", "/work/project&token=abc", "/work/雪😀", "/work/ends with a space ",
+        ...Array.from({ length: 400 }, (_, i) => `/Users/me/projects/folder-${String(i)}`),
+    ];
     const file = join(home, "runner.json");
 
     try {

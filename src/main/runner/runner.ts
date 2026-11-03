@@ -133,22 +133,30 @@ export function setUpRunner(host: RunnerHost) {
                 stdio: ["ignore", "pipe", "pipe"],
                 windowsHide: true,
             });
+            const folderJson = args[0] === "folders" && args[1] === "--json";
+            let stdout = "";
             let output = "";
-            const keep = (chunk: Buffer) => {
-                const text = `${output}${chunk.toString("utf8")}`;
-
-                // Folder lists are data: truncating one would turn a valid, long list into invalid JSON.
-                output = args[0] === "folders" && args[1] === "--json" ? text : text.slice(-8000);
+            const keep = (chunk: string) => {
+                output = `${output}${chunk}`.slice(-8000);
             };
 
-            proc.stdout.on("data", keep);
+            proc.stdout.setEncoding("utf8");
+            proc.stderr.setEncoding("utf8");
+            proc.stdout.on("data", (chunk: string) => {
+                // Machine-readable folder paths must not be truncated, redacted, or mixed with stderr.
+                if (folderJson) {
+                    stdout += chunk;
+                }
+
+                keep(chunk);
+            });
             proc.stderr.on("data", keep);
             proc.on("error", fail);
             proc.on("close", (code) => {
                 const text = output.split("\n").map(plain).filter(Boolean).join("\n");
 
                 if (code === 0) {
-                    done(text);
+                    done(folderJson ? stdout : text);
                 } else {
                     fail(new Error(text.replace(/^pi-pocket runner: /gm, "") || `The runner stopped with code ${String(code)}.`));
                 }
