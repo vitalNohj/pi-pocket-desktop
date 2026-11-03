@@ -94,16 +94,20 @@ export const NOTCH_SHAPE = "superellipse(-5)";
  * "right" on Windows and Linux) and data-under-controls="bar" on the bar under them. Their size is the overlay's
  * (env(titlebar-area-*)). A page without those marks, a window without a bar under the controls (it starts below
  * them), or a Chromium without corner-shape keeps its corner as it was.
+ *
+ * The notch's size is measured from the window's edge, so it fits only a window that starts at that edge. When another
+ * window there starts below the controls (data-under-controls="push": the folded sidebar, its rail), the window with
+ * the bar starts beside it, past the buttons themselves: it keeps its corner, or the notch would cut into its title.
  */
 export const NOTCH_CSS = `@supports (corner-shape: notch) {
-    :root[data-tiling="on"][data-window-controls="right"] .layout > :has([data-under-controls="bar"]) {
+    :root[data-tiling="on"][data-window-controls="right"]:not(:has([data-under-controls="push"])) .layout > :has([data-under-controls="bar"]) {
         border-top-right-radius:
             calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) - var(--gap-out, 8px) + ${NOTCH_GAP}px)
             calc(env(titlebar-area-y, 0px) + env(titlebar-area-height, 0px) - var(--gap-out, 8px) + ${NOTCH_GAP}px);
         corner-top-right-shape: ${NOTCH_SHAPE};
     }
 
-    :root[data-tiling="on"][data-window-controls="left"] .layout > :has([data-under-controls="bar"]) {
+    :root[data-tiling="on"][data-window-controls="left"]:not(:has([data-under-controls="push"])) .layout > :has([data-under-controls="bar"]) {
         border-top-left-radius:
             calc(env(titlebar-area-x, 0px) - var(--gap-out, 8px) + ${NOTCH_GAP}px)
             calc(env(titlebar-area-y, 0px) + env(titlebar-area-height, 0px) - var(--gap-out, 8px) + ${NOTCH_GAP}px);
