@@ -221,6 +221,20 @@ export function registerIpc(): void {
         }
     });
 
+    handle("config:runner-folders", (_event, remove: unknown) => {
+        const runner = appState.gui!.runner!;
+
+        if (remove === undefined) {
+            return runner.refreshFolders();
+        }
+
+        if (typeof remove !== "string" || remove.length === 0) {
+            throw new Error("Not a folder");
+        }
+
+        return runner.removeFolder(remove);
+    });
+
     handle("config:runner", async (_event, action) => {
         const runner = appState.gui!.runner!;
 

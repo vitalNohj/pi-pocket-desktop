@@ -36,6 +36,8 @@ export function openSettingsOn(side: Side | undefined, section?: "dictation"): v
     state.gui?.updates?.settingsOpened();
     state.gui?.local?.settingsOpened();
     state.gui?.billionContext?.settingsOpened();
+    // The runner's allowed folders can change from a terminal (`pi-pocket runner folders remove`): show them as they are.
+    void state.gui?.runner?.refreshFolders().catch(() => {});
 }
 
 /** Help → Open diagnostics log: the file the stall watchdog and the page events write (README, Diagnostics). */
