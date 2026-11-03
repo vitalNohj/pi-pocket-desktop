@@ -144,9 +144,62 @@ in any shared session. The owner can turn it off at any time. Ownership never mo
 | **Phase 2 reaches end to end:** the runner, the protocol, and a thin server side, so one session runs its tools on another computer. | Proves the design on the real hook before the rest is built. Linking, the owner rule, and the panels follow. |
 | **Upstream gets one issue and PR once remote sessions work end to end,** as with the desktop bridge. | Nothing half-done upstream. Built on the fork's branch and tested on the live instance until then. |
 | **The engine is Earendil's `@earendil-works/pi-env`** (MIT, same version line as Pi Durable): its `RemoteExecutionEnv` on the server, its Rust daemon on the computer. `pi-pocket runner` connects out over the WebSocket and relays pi-env frames to a local daemon. No own file or command protocol. | pi-env already does exactly this, for Linux, macOS, Windows, and Android, with results checked to match `NodeExecutionEnv`, and Earendil maintains it. Our part shrinks to the link, keys, and policy. |
-| **Short drops are survived; a server restart is like today.** | See below. |
+| **Short drops are survived; a server restart is like today.** | See below. Replaced on 2026-11-04 by [Offline is offline](#offline-is-offline-decided-2026-11-04). |
 
-### Drops (decided 2026-11-01)
+## Decisions (2026-11-04)
+
+These replace what was built before them where the two differ. Each was said back and confirmed before it was written
+here.
+
+### Offline is offline (decided 2026-11-04)
+
+1. When the computer is offline, its sessions are **offline**. There is no in-between state and no grace period.
+2. While it is offline, the server **keeps trying to reach** the computer.
+3. **Nothing fails because the computer is offline.** Work pauses; it does not error. A tool call in progress waits for
+   the computer. Messages sent meanwhile wait in the session.
+4. When the computer is back, the session **continues where it stopped**, through Pi Durable, as it does after a server
+   restart.
+5. The session shows it: "<computer> offline, reconnecting…" in the session, and an offline mark in the list.
+6. The only loss: a command that was running on the computer when it went down, if its process is gone (the computer
+   slept or the app quit). That one call comes back `interrupted` when the computer is back, as after a server restart.
+
+This replaces: tools failing with "<computer> is offline", killing running commands after 2 minutes away, and every
+special case for an offline computer (the attachment warning, context from the last scan, the memory project lookup).
+
+### Sharing (decided 2026-11-04)
+
+One server-wide switch in Menu → Runners, **Let others use these sessions**, off by default. A switch per session was
+considered and left out to keep things simple, since Runners is already the place for runner settings.
+
+### Allowed folders (decided 2026-11-04)
+
+1. **The list is on the computer only,** saved with the runner's link. The server never sees it; it only gets a yes or a
+   no for each session. Only the person at the computer adds to it, by answering the question.
+2. **A new session in a folder that is not allowed asks** on the computer: New session, a fork sent to the computer, and
+   Send again to the computer. It shows who asks, the server, and the folder.
+3. **Allow** adds the folder to the list and starts the session. **Deny** refuses it and saves nothing. No answer within
+   2 minutes denies.
+4. **A session in an allowed folder, or inside one, starts without asking.** Subfolders count: `~/work` covers
+   `~/work/gaze-reader`, not `~/Documents`. The real location is checked after following links. Upper and lower case
+   count as the same on macOS and Windows.
+5. **Broad folders** (the home folder, `/`, a whole drive) get a warning, and the main choice is **Allow this session
+   only**, which saves nothing.
+6. **Never asks:** sessions already running, their subagents and teams, a session after the computer reconnects, and
+   everything when **Ask before new sessions** is off (on by default).
+7. **Changing a session's folder** to one outside the list asks, as a new session does.
+8. **Managing the list:** the desktop app's Runner card lists the folders with **Remove**; the standalone runner has
+   `pi-pocket runner folders` and `pi-pocket runner folders remove <folder>`. Removing a folder only makes the next new
+   session there ask again; sessions already running keep running.
+
+### No service option (decided 2026-11-04)
+
+The runner runs only where it can ask: in an open terminal (`pi-pocket runner`, which asks in the terminal with a bell)
+or in the desktop app (which asks with a dialog). The Linux `pi-pocket runner service` option is removed: a background
+service has nowhere to ask.
+
+### Drops (decided 2026-11-01, replaced 2026-11-04)
+
+Replaced by [Offline is offline](#offline-is-offline-decided-2026-11-04). Kept for the record.
 
 Pi Durable keeps the session, its history, the run, and the queue on the server, whatever happens to the link. A drop
 can only lose the one command running at that moment.
