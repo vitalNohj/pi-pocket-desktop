@@ -1209,6 +1209,42 @@ function renderRunner(next: ConfigState): void {
     unlink.hidden = link === undefined;
     unlink.disabled = busy;
 
+    element("runner-folders-error").hidden = runner.foldersError === undefined;
+    element("runner-folders-error").textContent = runner.foldersError ?? "";
+    const folders = element("runner-folders");
+
+    folders.replaceChildren();
+
+    if (runner.folders === undefined || runner.folders.length === 0) {
+        const empty = document.createElement("p");
+
+        empty.className = "row-note";
+        empty.textContent = runner.folders === undefined
+            ? (runner.foldersError === undefined ? "Loading allowed folders…" : "Allowed folders are unavailable.")
+            : "No allowed folders yet. A folder is added when you allow a session in it.";
+        folders.append(empty);
+    } else {
+        for (const folder of runner.folders) {
+            const row = document.createElement("div");
+            const name = document.createElement("span");
+            const remove = document.createElement("button");
+
+            row.className = "row";
+            name.textContent = folder;
+            name.style.overflowWrap = "anywhere";
+            remove.type = "button";
+            remove.className = "secondary danger";
+            remove.textContent = "Remove";
+            remove.disabled = busy;
+            remove.setAttribute("aria-label", `Remove allowed folder ${folder}`);
+            remove.addEventListener("click", () => {
+                void gui.runnerFolders(folder).catch(() => {});
+            });
+            row.append(name, remove);
+            folders.append(row);
+        }
+    }
+
     element("runner-log-box").hidden = runner.log.length === 0;
     element("runner-log").textContent = runner.log.join("\n");
 }
@@ -1231,6 +1267,11 @@ function linkRunner(): void {
 }
 
 element("runner-link").addEventListener("click", linkRunner);
+element<HTMLDetailsElement>("runner-card").addEventListener("toggle", () => {
+    if (element<HTMLDetailsElement>("runner-card").open) {
+        void gui.runnerFolders().catch(() => {});
+    }
+});
 
 for (const id of ["runner-server", "runner-code"]) {
     element(id).addEventListener("keydown", (event) => {
