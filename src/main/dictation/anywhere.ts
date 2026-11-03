@@ -25,7 +25,7 @@ import {
 import type { AnywhereState, Settings, ThemeColors } from "../../shared/types";
 import { APP_ORIGIN, serveAppPages } from "../settings-screen/config-protocol";
 import { preloadPath } from "../core/paths";
-import { KEY, keyLabel, needsMask, pasteText, Trigger, triggerKey } from "./anywhere-keys";
+import { KEY, keptType, keyLabel, needsMask, pasteText, Trigger, triggerKey } from "./anywhere-keys";
 import type { Listening, PageMessage } from "./dictation";
 
 /** uiohook-napi, as used here. Loaded only once Dictate anywhere is turned on. */
@@ -495,10 +495,12 @@ export function setUpAnywhere(host: AnywhereHost) {
             for (const item of items) {
                 const data: Record<string, Blob | string> = {};
 
-                for (const type of item.types) {
+                for (const type of item.types.filter(keptType)) {
                     const value = await item.getType(type).catch(() => undefined);
 
-                    if (value instanceof Blob) {
+                    // An empty value is a promise of data the clipboard's owner no longer gives: written back, it
+                    // would hide the real types.
+                    if (value instanceof Blob && value.size > 0) {
                         data[type] = value;
                     }
                 }

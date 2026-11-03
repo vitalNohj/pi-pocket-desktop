@@ -191,3 +191,12 @@ export function pasteText(phrases: readonly string[]): string {
 
     return /[.!?。！？]$/.test(text) ? `${text} ` : text;
 }
+
+/**
+ * Whether a clipboard type is content worth giving back. X11 lists its own protocol targets (TARGETS, TIMESTAMP,
+ * MULTIPLE, SAVE_TARGETS) and portal handles among the types; they describe the old owner, and written back they break
+ * what an app reads (a copied file loses its text/uri-list).
+ */
+export function keptType(type: string): boolean {
+    return !/format="(TARGETS|TIMESTAMP|MULTIPLE|SAVE_TARGETS|DELETE|INCR|application\/vnd\.portal\.[^"]*)"/.test(type);
+}

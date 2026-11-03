@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { join } from "node:path";
 import { test } from "node:test";
-import { HOLD_MS, KEY, keyLabel, needsMask, pasteText, Trigger, triggerKey } from "../main/dictation/anywhere-keys";
+import { HOLD_MS, KEY, keptType, keyLabel, needsMask, pasteText, Trigger, triggerKey } from "../main/dictation/anywhere-keys";
 import { bpeVocab, customWords, modelById, MODELS } from "../main/dictation/dictation-catalog";
 import { defaultSettings, validateSettings } from "../main/core/settings";
 
@@ -136,4 +136,18 @@ test("settings: Dictate anywhere is off by default, and its values are checked",
         bad.problems.map((problem) => problem.path).sort(),
         ["anywhere.key", "anywhere.mode", "dictation.words"],
     );
+});
+
+test("the clipboard keeps content types, not X11's protocol targets or portal handles", () => {
+    const raw = (name: string) => `electron application/osclipboard;format="${name}"`;
+
+    assert.ok(keptType("text/plain"));
+    assert.ok(keptType("image/png"));
+    assert.ok(keptType(raw("x-special/gnome-copied-files")));
+    assert.ok(keptType(raw("UTF8_STRING")));
+    assert.ok(!keptType(raw("TARGETS")));
+    assert.ok(!keptType(raw("TIMESTAMP")));
+    assert.ok(!keptType(raw("MULTIPLE")));
+    assert.ok(!keptType(raw("SAVE_TARGETS")));
+    assert.ok(!keptType(raw("application/vnd.portal.files")));
 });
