@@ -21,8 +21,11 @@ when there is a sensible choice, it is a setting, with a safe default.
 - Product name **Pi Pocket**; executable `pi-pocket-gui` (so it never clashes with the server's `pi-pocket` command).
 - Icon: Pi Pocket's own π icon (`assets/icon.svg`, MIT, from upstream). The tray icon adds a dot when something needs
   you.
-- Look: Pi Pocket's default look (Tokyo Night palette, Geist, JetBrains Mono), so the config page and the server feel
-  like one app.
+- Look: Pi Pocket's colors (it follows the server's theme), Geist and Geist Mono, so the config page and the server
+  feel like one app.
+- The config screen has a sidebar: **Back to Pi Pocket** (Esc), **Home** (where Pi Pocket runs and the way into it,
+  plus tiles for Runner, Updates, Dictation) and **Settings** (one scrolling page of sections, marked in the sidebar as
+  you read). A menu opens it on Home; a failure or first run shows Home with the reason.
 
 ## Connection and the config screen
 

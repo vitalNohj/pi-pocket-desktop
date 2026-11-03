@@ -21,6 +21,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
         firstElementChild: { style: { width: "" } },
         style: { setProperty() {} },
         classList: { toggle() {} },
+        scrollIntoView() {}, setAttribute() {}, removeAttribute() {},
         listeners: new Map<string, (event: { preventDefault(): void }) => void>(),
         addEventListener(name: string, listener: (event: { preventDefault(): void }) => void) { this.listeners.set(name, listener); },
         fire(name: string) { this.listeners.get(name)?.({ preventDefault() {} }); },
@@ -53,6 +54,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
     };
     let render: (next: ConfigState) => void = () => undefined;
     let settingsOpened = 0;
+    let focus: (section: string) => void = () => undefined;
     const connections: { url: string; unverified: boolean }[] = [];
     const views: string[] = [];
     const gui = {
@@ -60,7 +62,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
         state: async () => state,
         probe,
         onState: (listener: typeof render) => { render = listener; },
-        onFocus: () => () => {},
+        onFocus: (listener: typeof focus) => { focus = listener; return () => {}; },
         openSettings: async () => { settingsOpened++; state = { ...state, recovery: false }; render(state); },
         connect: async (input: string, unverified = false) => {
             connections.push({ url: input, unverified });
@@ -81,7 +83,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
 
     runInNewContext(source, {
         URL,
-        window: { gui, clearInterval() {}, setInterval() {}, clearTimeout() {}, setTimeout() {} },
+        window: { gui, clearInterval() {}, setInterval() {}, clearTimeout() {}, setTimeout() {}, scrollTo() {} },
         document: {
             documentElement: makeElement(), body: makeElement(), getElementById: (id: string) => element(id),
             querySelectorAll: (selector: string) => selector === 'input[name="mode"]' ? [radio, parts] : selector === 'input[name="where"]' ? [where.local, where.remote] : [],
@@ -92,6 +94,13 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
 
     return {
         element, connections, views, settingsOpened: () => settingsOpened,
+        focus: async (section: string) => { focus(section); await flush(); },
+        push: async (patch: Partial<ConfigState>, drop: (keyof ConfigState)[] = []) => {
+            state = { ...state, ...patch };
+            for (const key of drop) delete state[key];
+            render(state);
+            await flush();
+        },
         choose: async (side: "local" | "remote") => { where[side].checked = true; where[side === "local" ? "remote" : "local"].checked = false; where[side].fire("change"); await flush(); },
         input: (input: string) => { element("url").value = input; element("url").fire("input"); },
         submit: async () => { element("connect-form").fire("submit"); await flush(); },
@@ -217,4 +226,51 @@ test("a dropped connection shows Disconnected with its reason, an error on the c
     assert.equal(screen.element("choice-remote-error").textContent, "example.com stopped answering");
     assert.equal(screen.element("choice-local-error").hidden, true);
     assert.equal(screen.element("connect").disabled, false, "Connect works as before");
+});
+
+test("a menu opens Home, a section opens Settings at it, and a new failure brings Home back", async () => {
+    const screen = await page(async () => found, { reason: { kind: "user" } });
+    const home = () => screen.element("view-home").hidden === false && screen.element("settings-form").hidden === true;
+
+    await screen.focus("dictation");
+    assert.equal(home(), false);
+    assert.equal(screen.element("settings-form").hidden, false);
+    await screen.focus("home");
+    assert.equal(home(), true);
+    await screen.focus("appearance");
+    assert.equal(home(), false);
+    await screen.push({ reason: { kind: "not-detected", probe: apiError } });
+    assert.equal(home(), true, "the reason the app shows this screen for is on Home");
+    await screen.focus("not-a-section");
+    assert.equal(home(), true, "an unknown section changes nothing");
+});
+
+test("Home offers Back to Pi Pocket only when there is a server to go back to", async () => {
+    const settings = defaultSettings();
+
+    settings.server.mode = "remote";
+    settings.server.url = url;
+    const screen = await page(async () => found, { settings, connectedUrl: url, canReturn: true, probe: found, reason: { kind: "user" } });
+
+    assert.equal(screen.element("remote-back-row").hidden, false);
+    assert.equal(screen.element("remote-address").textContent, url);
+    assert.equal(screen.element("connection-title").textContent, "Connected to your Pi Pocket server");
+    await screen.push({ canReturn: false }, ["connectedUrl"]);
+    assert.equal(screen.element("remote-back-row").hidden, true);
+    assert.equal(screen.element("connection-title").textContent, "Connect to your Pi Pocket server");
+});
+
+test("every sidebar link and Home tile leads to a section that exists", () => {
+    const html = readFileSync(join(__dirname, "..", "renderer", "config", "index.html"), "utf8");
+    const targets = new Set([...html.matchAll(/data-go="([^"]+)"/g)].map((match) => match[1]!));
+
+    assert.ok(targets.has("home"));
+    for (const target of targets) {
+        if (target !== "home") {
+            assert.match(html, new RegExp(`id="sec-${target}"`), `#sec-${target}`);
+        }
+    }
+    for (const section of ["window", "appearance", "notifications", "dictation", "updates", "runner", "server"]) {
+        assert.ok(targets.has(section), `the sidebar links ${section}`);
+    }
 });
