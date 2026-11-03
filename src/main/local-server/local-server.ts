@@ -445,7 +445,19 @@ export function setUpLocalServer(host: LocalHost) {
 
     // ——— The app's own update check ———
 
-    const checkUpdates = async (force: boolean): Promise<void> => {
+    // One check at a time: two at once could both build a runtime, and each one's prune would remove the other's. A check
+    // asked for while one runs (Settings opened again, Check now) joins it.
+    let checking: Promise<void> | undefined;
+
+    const checkUpdates = (force: boolean): Promise<void> => {
+        checking ??= checkOnce(force).finally(() => {
+            checking = undefined;
+        });
+
+        return checking;
+    };
+
+    const checkOnce = async (force: boolean): Promise<void> => {
         const settings = host.settings();
 
         if ((!force && !settings.local.keepUpdated) || building !== undefined || update.status === "building") {
