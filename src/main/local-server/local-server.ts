@@ -28,7 +28,7 @@ import {
 
 const REGISTRY = "https://registry.npmjs.org/pi-pocket/latest";
 /**
- * Where Pi Pocket comes from. For now the fork's branch, which has the desktop bridge; npm's official release later,
+ * Where Pi Pocket comes from. For now the fork's branch, which has the bridge; npm's official release later,
  * once it has the bridge (set this to "npm": that path is kept as it is).
  */
 const SOURCE: "fork" | "npm" = "fork";

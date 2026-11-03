@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 /**
- * The server page's preload: `window.pocketHost`, the host bridge Pi Pocket's web app uses (docs/desktop.md there).
+ * The server page's preload: `window.pocketHost`, the bridge Pi Pocket's web app uses (docs/embedders.md there).
  * The main process says first whether this frame may have it: only the main window's top frame, on the configured
  * server's origin. Anywhere else (a sign-in page in front of the server, another window) the page gets nothing.
  */

@@ -1,7 +1,7 @@
 /**
  * New session from the operating system: the app menu's New Session (⌘N, Ctrl+N), the macOS dock's menu, the tray, and
  * a `pi-pocket://new` link. Each shows the window and, when the server's page can, asks it to open its New session
- * sheet (the bridge's `newSession` event, Pi Pocket's docs/desktop.md). The tray's item is in src/main/bridge/desktop.ts.
+ * sheet (the bridge's `newSession` event, Pi Pocket's docs/embedders.md). The tray's item is in src/main/bridge/desktop.ts.
  *
  * The functions at the top are pure, for the tests; the ones below them hold the app's listeners.
  */

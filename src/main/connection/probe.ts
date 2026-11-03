@@ -1,5 +1,5 @@
 /**
- * Is there a Pi Pocket at this address? First `GET /api/pocket/info`, which a server with the desktop bridge answers
+ * Is there a Pi Pocket at this address? First `GET /api/pocket/info`, which a server with the bridge answers
  * without a sign-in ({ name: "pi-pocket", bridge: N }); else the web app manifest every Pi Pocket serves (bridge 0).
  */
 import type { ProbeResult } from "../../shared/types";
