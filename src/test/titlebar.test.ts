@@ -24,7 +24,7 @@ test("the notch cuts the tiled window under the controls, on their side, only wh
         ["left", "top-left"],
     ]) {
         const rule = new RegExp(
-            String.raw`:root\[data-tiling="on"\]\[data-window-controls="${side}"\] \.layout > :has\(\[data-under-controls="bar"\]\) \{[^}]*border-${corner}-radius:[^}]*corner-${corner}-shape: ${NOTCH_SHAPE.replace(/[()]/g, "\\$&")};`,
+            String.raw`:root\[data-tiling="on"\]\[data-window-controls="${side}"\]:not\(:has\(\[data-under-controls="push"\]\)\) \.layout > :has\(\[data-under-controls="bar"\]\) \{[^}]*border-${corner}-radius:[^}]*corner-${corner}-shape: ${NOTCH_SHAPE.replace(/[()]/g, "\\$&")};`,
         );
 
         assert.match(NOTCH_CSS, rule);
