@@ -220,7 +220,7 @@ export function setUpRunner(host: RunnerHost) {
         const runtime = host.runtime();
 
         if (runtime === undefined) {
-            set("failed", "Install or update Pi Pocket under This computer in Connection to use the runner.");
+            set("failed", "Install or update Pi Pocket under This computer on Home to use the runner.");
 
             return;
         }
@@ -512,7 +512,7 @@ export function setUpRunner(host: RunnerHost) {
                     await host.prepare();
 
                     if (host.runtime() === undefined) {
-                        throw new Error("The runner is not available. Update Pi Pocket under This computer in Connection, then try again.");
+                        throw new Error("The runner is not available. Update Pi Pocket under This computer on Home, then try again.");
                     }
                 }
 

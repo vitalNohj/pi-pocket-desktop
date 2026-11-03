@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { app, BaseWindow, globalShortcut, nativeTheme, net, session, WebContentsView } from "electron";
 import { CONFIG_URL, serveAppPages } from "../settings-screen/config-protocol";
 import { eventCovered, PAGE_CLICK_WAIT_MS, pageClickInfo, readPageClick } from "../window/themed-menu";
-import { setUpAppearance } from "../window/appearance";
+import { setUpAppearance, windowOptions } from "../window/appearance";
 import { parseAppsUseLightTheme, setUpTitleBar, titleBarOptions } from "../window/titlebar";
 import { loadTheme, sameTheme, saveTheme } from "../window/theme";
 import { setUpDesktop } from "../bridge/desktop";
@@ -65,7 +65,8 @@ export async function start(): Promise<void> {
         minHeight: 480,
         show: false,
         backgroundColor: solid,
-        ...(translucentAtStart ? { transparent: true } : {}),
+        // macOS: made with vibrancy so that see-through works later; Linux: see-through only when made so.
+        ...windowOptions(process.platform, loaded.settings.appearance),
         icon: join(ASSETS, "icon-512.png"),
         autoHideMenuBar: !loaded.settings.window.showMenuBar,
         ...titleBarOptions(process.platform, titleBarAtStart, theme),
@@ -87,7 +88,7 @@ export async function start(): Promise<void> {
     const server = new WebContentsView({
         webPreferences: {
             session: serverSession,
-            // window.pocketHost, the host bridge; the main process decides at its start whether the page gets it.
+            // window.pocketHost, the app bridge; the main process decides at its start whether the page gets it.
             preload: preloadPath("server"),
             additionalArguments: ["--pocket-gui-navigation"],
             contextIsolation: true,
@@ -479,7 +480,6 @@ export async function start(): Promise<void> {
         stopDiagnostics();
         globalShortcut.unregisterAll();
         appState.gui?.dictation?.quit();
-        appState.gui?.billionContext?.quit();
     });
 
     registerIpc();

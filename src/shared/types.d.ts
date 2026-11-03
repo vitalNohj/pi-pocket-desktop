@@ -80,11 +80,6 @@ export interface Settings {
         /** The longest call text an approval notification shows; longer ones are cut and marked. */
         maxCallLength: number;
     };
-    updates: {
-        /** Look for new versions of this app. Pi Pocket itself updates on the server. */
-        check: boolean;
-        intervalHours: number;
-    };
     /** This computer's Pi Pocket (src/main/local-server/local-server.ts). A change takes a restart of it. */
     local: {
         /** The folder new sessions start in; empty: the home folder. */
@@ -398,7 +393,7 @@ export interface PinnedSession {
     url: string;
 }
 
-/** A notification the server sent this app's page (docs/desktop.md in Pi Pocket). */
+/** A notification the server sent this app's page (docs/embedders.md in Pi Pocket). */
 export interface HostNotification {
     title: string;
     body: string;

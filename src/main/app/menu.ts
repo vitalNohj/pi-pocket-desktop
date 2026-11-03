@@ -30,6 +30,14 @@ export function openSettingsOn(side: Side | undefined, section?: "dictation"): v
 
     showWindow();
     showConfig({ kind: "user", ...(section === undefined ? {} : { section }) });
+
+    // No timed update checks: opening Settings looks for updates of the app, this computer's Pi Pocket, and the
+    // extension, so what it shows is current.
+    state.gui?.updates?.settingsOpened();
+    state.gui?.local?.settingsOpened();
+    state.gui?.billionContext?.settingsOpened();
+    // The runner's allowed folders can change from a terminal (`pi-pocket runner folders remove`): show them as they are.
+    void state.gui?.runner?.refreshFolders().catch(() => {});
 }
 
 /** Help → Open diagnostics log: the file the stall watchdog and the page events write (README, Diagnostics). */

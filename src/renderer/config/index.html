@@ -8,136 +8,123 @@
         <script type="module" src="main.js"></script>
     </head>
     <body>
+        <svg class="sprite" aria-hidden="true">
+            <symbol id="i-house" viewBox="0 0 256 256"><path d="M219.31,108.68l-80-80a16,16,0,0,0-22.62,0l-80,80A15.87,15.87,0,0,0,32,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V160h32v56a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A15.87,15.87,0,0,0,219.31,108.68ZM208,208H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48V120l80-80,80,80Z"/></symbol>
+            <symbol id="i-terminal-window" viewBox="0 0 256 256"><path d="M128,128a8,8,0,0,1-3,6.25l-40,32a8,8,0,1,1-10-12.5L107.19,128,75,102.25a8,8,0,1,1,10-12.5l40,32A8,8,0,0,1,128,128Zm48,24H136a8,8,0,0,0,0,16h40a8,8,0,0,0,0-16Zm56-96V200a16,16,0,0,1-16,16H40a16,16,0,0,1-16-16V56A16,16,0,0,1,40,40H216A16,16,0,0,1,232,56ZM216,200V56H40V200H216Z"/></symbol>
+            <symbol id="i-app-window" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200ZM80,84A12,12,0,1,1,68,72,12,12,0,0,1,80,84Zm40,0a12,12,0,1,1-12-12A12,12,0,0,1,120,84Z"/></symbol>
+            <symbol id="i-palette" viewBox="0 0 256 256"><path d="M200.77,53.89A103.27,103.27,0,0,0,128,24h-1.07A104,104,0,0,0,24,128c0,43,26.58,79.06,69.36,94.17A32,32,0,0,0,136,192a16,16,0,0,1,16-16h46.21a31.81,31.81,0,0,0,31.2-24.88,104.43,104.43,0,0,0,2.59-24A103.28,103.28,0,0,0,200.77,53.89Zm13,93.71A15.89,15.89,0,0,1,198.21,160H152a32,32,0,0,0-32,32,16,16,0,0,1-21.31,15.07C62.49,194.3,40,164,40,128a88,88,0,0,1,87.09-88h.9a88.35,88.35,0,0,1,88,87.25A88.86,88.86,0,0,1,213.81,147.6ZM140,76a12,12,0,1,1-12-12A12,12,0,0,1,140,76ZM96,100A12,12,0,1,1,84,88,12,12,0,0,1,96,100Zm0,56a12,12,0,1,1-12-12A12,12,0,0,1,96,156Zm88-56a12,12,0,1,1-12-12A12,12,0,0,1,184,100Z"/></symbol>
+            <symbol id="i-bell" viewBox="0 0 256 256"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"/></symbol>
+            <symbol id="i-microphone" viewBox="0 0 256 256"><path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V240a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"/></symbol>
+            <symbol id="i-arrows-clockwise" viewBox="0 0 256 256"><path d="M224,48V96a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h28.69L182.06,73.37a79.56,79.56,0,0,0-56.13-23.43h-.45A79.52,79.52,0,0,0,69.59,72.71,8,8,0,0,1,58.41,61.27a96,96,0,0,1,135,.79L208,76.69V48a8,8,0,0,1,16,0ZM186.41,183.29a80,80,0,0,1-112.47-.66L59.31,168H88a8,8,0,0,0,0-16H40a8,8,0,0,0-8,8v48a8,8,0,0,0,16,0V179.31l14.63,14.63A95.43,95.43,0,0,0,130,222.06h.53a95.36,95.36,0,0,0,67.07-27.33,8,8,0,0,0-11.18-11.44Z"/></symbol>
+            <symbol id="i-hard-drives" viewBox="0 0 256 256"><path d="M208,136H48a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V152A16,16,0,0,0,208,136Zm0,64H48V152H208v48Zm0-160H48A16,16,0,0,0,32,56v48a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V56A16,16,0,0,0,208,40Zm0,64H48V56H208v48ZM192,80a12,12,0,1,1-12-12A12,12,0,0,1,192,80Zm0,96a12,12,0,1,1-12-12A12,12,0,0,1,192,176Z"/></symbol>
+            <symbol id="i-arrow-left" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/></symbol>
+            <symbol id="i-arrow-square-out" viewBox="0 0 256 256"><path d="M224,104a8,8,0,0,1-16,0V59.32l-66.33,66.34a8,8,0,0,1-11.32-11.32L196.68,48H152a8,8,0,0,1,0-16h64a8,8,0,0,1,8,8Zm-40,24a8,8,0,0,0-8,8v72H48V80h72a8,8,0,0,0,0-16H48A16,16,0,0,0,32,80V208a16,16,0,0,0,16,16H176a16,16,0,0,0,16-16V136A8,8,0,0,0,184,128Z"/></symbol>
+            <symbol id="i-desktop" viewBox="0 0 256 256"><path d="M208,40H48A24,24,0,0,0,24,64V176a24,24,0,0,0,24,24h72v16H96a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16H136V200h72a24,24,0,0,0,24-24V64A24,24,0,0,0,208,40ZM48,56H208a8,8,0,0,1,8,8v80H40V64A8,8,0,0,1,48,56ZM208,184H48a8,8,0,0,1-8-8V160H216v16A8,8,0,0,1,208,184Z"/></symbol>
+            <symbol id="i-globe" viewBox="0 0 256 256"><path d="M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm88,104a87.61,87.61,0,0,1-3.33,24H174.16a157.44,157.44,0,0,0,0-48h38.51A87.61,87.61,0,0,1,216,128ZM102,168H154a115.11,115.11,0,0,1-26,45A115.27,115.27,0,0,1,102,168Zm-3.9-16a140.84,140.84,0,0,1,0-48h59.88a140.84,140.84,0,0,1,0,48ZM40,128a87.61,87.61,0,0,1,3.33-24H81.84a157.44,157.44,0,0,0,0,48H43.33A87.61,87.61,0,0,1,40,128ZM154,88H102a115.11,115.11,0,0,1,26-45A115.27,115.27,0,0,1,154,88Zm52.33,0H170.71a135.28,135.28,0,0,0-22.3-45.6A88.29,88.29,0,0,1,206.37,88ZM107.59,42.4A135.28,135.28,0,0,0,85.29,88H49.63A88.29,88.29,0,0,1,107.59,42.4ZM49.63,168H85.29a135.28,135.28,0,0,0,22.3,45.6A88.29,88.29,0,0,1,49.63,168Zm98.78,45.6a135.28,135.28,0,0,0,22.3-45.6h35.66A88.29,88.29,0,0,1,148.41,213.6Z"/></symbol>
+            <symbol id="i-caret-right" viewBox="0 0 256 256"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></symbol>
+            <symbol id="i-play" viewBox="0 0 256 256"><path d="M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.94,15.94,0,0,0,80,232a16.07,16.07,0,0,0,8.36-2.35L232.4,141.51a15.81,15.81,0,0,0,0-27ZM80,215.94V40l143.83,88Z"/></symbol>
+            <symbol id="i-stop" viewBox="0 0 256 256"><path d="M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,160H56V56H200V200Z"/></symbol>
+            <symbol id="i-cloud-arrow-up" viewBox="0 0 256 256"><path d="M178.34,165.66,160,147.31V208a8,8,0,0,1-16,0V147.31l-18.34,18.35a8,8,0,0,1-11.32-11.32l32-32a8,8,0,0,1,11.32,0l32,32a8,8,0,0,1-11.32,11.32ZM160,40A88.08,88.08,0,0,0,81.29,88.68,64,64,0,1,0,72,216h40a8,8,0,0,0,0-16H72a48,48,0,0,1,0-96c1.1,0,2.2,0,3.29.12A88,88,0,0,0,72,128a8,8,0,0,0,16,0,72,72,0,1,1,100.8,66,8,8,0,0,0,3.2,15.34,7.9,7.9,0,0,0,3.2-.68A88,88,0,0,0,160,40Z"/></symbol>
+            <symbol id="i-sparkle" viewBox="0 0 256 256"><path d="M197.58,129.06,146,110l-19-51.62a15.92,15.92,0,0,0-29.88,0L78,110l-51.62,19a15.92,15.92,0,0,0,0,29.88L78,178l19,51.62a15.92,15.92,0,0,0,29.88,0L146,178l51.62-19a15.92,15.92,0,0,0,0-29.88ZM137,164.22a8,8,0,0,0-4.74,4.74L112,223.85,91.78,169A8,8,0,0,0,87,164.22L32.15,144,87,123.78A8,8,0,0,0,91.78,119L112,64.15,132.22,119a8,8,0,0,0,4.74,4.74L191.85,144ZM144,40a8,8,0,0,1,8-8h16V16a8,8,0,0,1,16,0V32h16a8,8,0,0,1,0,16H184V64a8,8,0,0,1-16,0V48H152A8,8,0,0,1,144,40ZM248,88a8,8,0,0,1-8,8h-8v8a8,8,0,0,1-16,0V96h-8a8,8,0,0,1,0-16h8V72a8,8,0,0,1,16,0v8h8A8,8,0,0,1,248,88Z"/></symbol>
+            <symbol id="i-warning-circle" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm-8-80V80a8,8,0,0,1,16,0v56a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,172Z"/></symbol>
+        </svg>
         <aside id="recovery" class="recovery-bar" aria-label="Desktop app navigation" hidden>
             <button type="button" id="server-settings" class="secondary">← GUI Settings</button>
             <span class="small">Pi Pocket was not detected. Sign in, or return to GUI Settings.</span>
         </aside>
-        <main id="settings-page" class="page">
-            <header class="brand">
-                <span class="logo" aria-hidden="true">π</span>
-                <div>
-                    <h1>GUI Settings</h1>
-                    <p class="muted">Pi Pocket desktop <span id="app-version"></span></p>
+        <div id="settings-page" class="app">
+            <nav class="side" aria-label="GUI Settings">
+                <header class="brand">
+                    <span class="logo" aria-hidden="true">π</span>
+                    <span><h1>Pi Pocket</h1><span class="caption">Desktop <span id="app-version"></span></span></span>
+                </header>
+                <button type="button" id="back" class="back" hidden><svg class="i sm" aria-hidden="true"><use href="#i-arrow-left"/></svg><span>Back to Pi Pocket</span><kbd>Esc</kbd></button>
+                <div class="nav-group">
+                    <span class="nav-label">Pi Pocket</span>
+                    <a class="nav-item" href="#home" data-go="home"><svg class="i sm" aria-hidden="true"><use href="#i-house"/></svg><span>Home</span><span id="nav-status" class="dot" data-state="checking"><span class="sr" id="nav-status-text"></span></span></a>
+                    <a class="nav-item" href="#runner" data-go="runner"><svg class="i sm" aria-hidden="true"><use href="#i-terminal-window"/></svg><span>Runner</span></a>
                 </div>
-                <button type="button" id="back" class="ghost" hidden>← Back to Pi Pocket</button>
-            </header>
-
-            <nav class="settings-nav" aria-label="Settings sections">
-                <a href="#appearance-card">Appearance</a>
-                <a href="#updates-card">Updates</a>
-                <a href="#notifications-card">Notifications</a>
-                <a href="#runner-card">Runner</a>
+                <div class="nav-group">
+                    <span class="nav-label">Settings</span>
+                    <a class="nav-item" href="#window" data-go="window"><svg class="i sm" aria-hidden="true"><use href="#i-app-window"/></svg><span>Window</span></a>
+                    <a class="nav-item" href="#appearance" data-go="appearance"><svg class="i sm" aria-hidden="true"><use href="#i-palette"/></svg><span>Appearance</span></a>
+                    <a class="nav-item" href="#notifications" data-go="notifications"><svg class="i sm" aria-hidden="true"><use href="#i-bell"/></svg><span>Notifications</span></a>
+                    <a class="nav-item" href="#dictation" data-go="dictation"><svg class="i sm" aria-hidden="true"><use href="#i-microphone"/></svg><span>Dictation</span></a>
+                    <a class="nav-item" href="#updates" data-go="updates"><svg class="i sm" aria-hidden="true"><use href="#i-arrows-clockwise"/></svg><span>Updates</span></a>
+                    <a class="nav-item" href="#server" data-go="server"><svg class="i sm" aria-hidden="true"><use href="#i-hard-drives"/></svg><span>Server</span></a>
+                </div>
+                <div class="side-foot">
+                    <span class="caption">Settings save automatically. <span id="saved" aria-live="polite"></span></span>
+                </div>
             </nav>
 
-            <div id="banner" class="banner" role="alert" hidden></div>
+            <main id="content" tabindex="-1">
+                <div id="problems" class="card problems" role="alert" hidden><h3>Some settings could not be used</h3><p class="muted small">These values in config.json are not valid. The app uses their defaults.</p><ul id="problem-list"></ul></div>
 
-            <div class="columns">
-                <section class="column" id="connection-section" aria-labelledby="connection-heading">
-                    <h2 class="section-title" id="connection-heading">Connection</h2>
-                    <div class="where" role="radiogroup" aria-label="Where Pi Pocket runs">
-                        <label><input type="radio" name="where" value="local" /><span class="choice"><span class="choice-head"><strong>This computer</strong><span id="choice-local" class="pill" data-state="checking" role="status">…</span></span><small>Run the server here.</small><small id="choice-local-error" class="choice-error" hidden></small></span></label>
-                        <label><input type="radio" name="where" value="remote" /><span class="choice"><span class="choice-head"><strong>Another server</strong><span id="choice-remote" class="pill" data-state="checking" role="status">…</span></span><small>Connect to an existing server.</small><small id="choice-remote-error" class="choice-error" hidden></small></span></label>
-                    </div>
+                <!-- Home: where Pi Pocket runs, its state, and the way into it. -->
+                <div class="view" id="view-home">
+                    <div id="banner" class="banner" role="alert" hidden></div>
 
-                    <section class="card connection" id="local-card" aria-labelledby="local-title" hidden>
-                        <div class="card-head">
-                            <h3 id="local-title">Pi Pocket on this computer</h3>
-                            <span id="local-status" class="pill" data-state="checking" role="status">Checking…</span>
-                        </div>
-                        <p class="card-description">Run Pi Pocket here while the desktop app is open.</p>
-                        <p id="local-detail" class="muted small"></p>
+                    <section class="hero" id="local-card" aria-labelledby="local-title" hidden>
+                        <div class="eyebrow"><span id="local-status" class="pill" data-state="checking" role="status">Checking…</span><span id="local-address" class="mono caption"></span></div>
+                        <h2 id="local-title" class="hero-text">Pi Pocket on this computer</h2>
+                        <p id="local-detail" class="hero-sub"></p>
                         <div id="local-progress" class="progress" hidden><div></div></div>
                         <div class="actions">
-                            <button type="button" class="primary" data-local="install" hidden>Install Pi Pocket</button>
-                            <button type="button" class="primary" data-local="start" hidden>Start</button>
-                            <button type="button" class="primary" data-local="open" hidden>Open Pi Pocket</button>
+                            <button type="button" class="primary" id="local-show" hidden><svg class="i sm" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back to Pi Pocket</button>
+                            <button type="button" class="primary" data-local="install" hidden><svg class="i sm" aria-hidden="true"><use href="#i-cloud-arrow-up"/></svg>Install Pi Pocket</button>
+                            <button type="button" class="primary" data-local="start" hidden><svg class="i sm" aria-hidden="true"><use href="#i-play"/></svg>Start</button>
+                            <button type="button" class="primary" data-local="open" hidden><svg class="i sm" aria-hidden="true"><use href="#i-arrow-square-out"/></svg>Open Pi Pocket</button>
                             <button type="button" class="secondary" data-local="restart" hidden>Restart</button>
                             <button type="button" class="ghost" data-local="stop" hidden>Stop</button>
-                            <button type="button" class="ghost" id="local-show" hidden>Show Pi Pocket</button>
-                        </div>
-                        <div class="rows local-rows">
-                            <div class="row" id="local-restart-row" hidden>
-                                <span><strong>Restart to apply changes</strong><small>Sessions continue after the server restarts.</small></span>
-                                <button type="button" class="secondary" data-local="restart">Restart Pi Pocket</button>
-                            </div>
-                            <div class="row stack">
-                                <label for="local-folder"><strong>Folder for new sessions</strong><small>Each session can use a different folder.</small></label>
-                                <span class="path-field"><input type="text" data-key="local.folder" id="local-folder" spellcheck="false" /><button type="button" class="secondary" data-choose="local-folder" aria-label="Choose the folder for new sessions">Choose…</button></span>
-                            </div>
-                            <label class="row"><span><strong>Who can connect</strong><small id="access-note"></small></span>
-                                <select data-key="local.access" id="local-access">
-                                    <option value="local">This computer only</option>
-                                    <option value="lan">Devices on the local network</option>
-                                    <option value="tailscale">Devices on my Tailscale network</option>
-                                    <option value="cloudflare">Anywhere, through Cloudflare</option>
-                                </select>
-                            </label>
-                            <h4 class="row-group">Server updates</h4>
-                            <label class="row"><span><strong>Keep Pi Pocket up to date</strong><small>Install server and Node.js updates. Restart the server to use them.</small></span><input type="checkbox" data-key="local.keepUpdated" /></label>
-                            <div class="row">
-                                <span><strong id="local-update-status">Not checked yet</strong><small id="local-update-detail"></small></span>
-                                <span class="buttons"><button type="button" class="secondary" data-local="check-updates" id="local-update-check">Check now</button></span>
-                            </div>
-                            <details class="advanced">
-                                <summary><span>Advanced<small>Port, data folder, and maintenance</small></span></summary>
-                                <div class="rows nested">
-                                    <label class="row"><span><strong>Server port</strong></span><input type="number" data-key="local.port" class="short" min="1024" max="65535" /></label>
-                                    <div class="row stack">
-                                        <label for="local-data"><strong>Data folder</strong><small>Stores sessions, people, and server settings. Leave empty to use the default folder.</small></label>
-                                        <span class="path-field"><input type="text" data-key="local.data" id="local-data" spellcheck="false" /><button type="button" class="secondary" data-choose="local-data" aria-label="Choose the server data folder">Choose…</button></span>
-                                    </div>
-                                    <div class="row" id="local-uninstall-row" hidden>
-                                        <span><strong>Uninstall the server</strong><small>Remove Pi Pocket and its Node.js. Keep sessions and settings.</small></span>
-                                        <button type="button" class="secondary danger" data-local="uninstall">Uninstall</button>
-                                    </div>
-                                </div>
-                            </details>
-                            <details class="log" id="local-log-box">
-                                <summary>Server log</summary>
-                                <pre id="local-log"></pre>
-                                <button type="button" class="ghost small" data-local="show-log">Show log file</button>
-                            </details>
                         </div>
                     </section>
 
-                    <section class="card connection" id="remote-card" aria-labelledby="connection-title">
-                        <div class="card-head">
-                            <h3 id="connection-title">Another server</h3>
-                            <span id="status" class="pill" data-state="checking" role="status">Checking…</span>
+                    <section class="hero" id="remote-card" aria-labelledby="connection-title">
+                        <div class="eyebrow"><span id="status" class="pill" data-state="checking" role="status">Checking…</span><span id="remote-address" class="mono caption"></span></div>
+                        <h2 id="connection-title" class="hero-text">Connect to your Pi Pocket server</h2>
+                        <p class="hero-sub">Use the address you open in a browser, not a model API address. Then sign in with a login link or invite.</p>
+                        <div class="actions" id="remote-back-row" hidden><button type="button" class="primary" id="remote-back"><svg class="i sm" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back to Pi Pocket</button></div>
+                        <div class="card panel">
+                            <p id="status-detail" class="muted small"></p>
+                            <form id="connect-form" autocomplete="off">
+                                <div class="mode" role="radiogroup" aria-label="Address format">
+                                    <label><input type="radio" name="mode" value="url" checked /> Full address</label>
+                                    <label><input type="radio" name="mode" value="parts" /> Host and port</label>
+                                </div>
+                                <div id="url-fields" class="fields">
+                                    <label class="field wide">
+                                        <span>Server address</span>
+                                        <input id="url" type="text" spellcheck="false" placeholder="http://127.0.0.1:8787" />
+                                    </label>
+                                </div>
+                                <div id="part-fields" class="fields parts" hidden>
+                                    <label class="field">
+                                        <span>Protocol</span>
+                                        <select id="scheme"><option value="http">http</option><option value="https">https</option></select>
+                                    </label>
+                                    <label class="field grow"><span>Host</span><input id="host" type="text" spellcheck="false" placeholder="127.0.0.1" /></label>
+                                    <label class="field port"><span>Port</span><input id="port" type="text" inputmode="numeric" placeholder="8787" /></label>
+                                    <label class="field grow"><span>Path <em class="muted">(optional)</em></span><input id="path" type="text" spellcheck="false" placeholder="/" /></label>
+                                </div>
+                                <p id="url-error" class="error small" role="alert" hidden></p>
+                                <div class="actions">
+                                    <button type="button" id="test" class="secondary">Check</button>
+                                    <button type="button" id="retry" class="secondary" hidden>Retry now</button>
+                                    <span id="retry-note" class="muted small"></span>
+                                    <button type="submit" id="connect" class="primary">Connect</button>
+                                </div>
+                            </form>
+                            <p id="settings-shortcut" class="muted small"></p>
                         </div>
-                        <p class="card-description">Connect to Pi Pocket on another computer.</p>
-                        <p id="status-detail" class="muted small"></p>
+                    </section>
 
-                        <form id="connect-form" autocomplete="off">
-                            <div class="mode" role="radiogroup" aria-label="Address format">
-                                <label><input type="radio" name="mode" value="url" checked /> Full address</label>
-                                <label><input type="radio" name="mode" value="parts" /> Host and port</label>
-                            </div>
-                            <div id="url-fields" class="fields">
-                                <label class="field wide">
-                                    <span>Server address</span>
-                                    <input id="url" type="text" spellcheck="false" placeholder="http://127.0.0.1:8787" />
-                                </label>
-                            </div>
-                            <div id="part-fields" class="fields parts" hidden>
-                                <label class="field">
-                                    <span>Protocol</span>
-                                    <select id="scheme"><option value="http">http</option><option value="https">https</option></select>
-                                </label>
-                                <label class="field grow"><span>Host</span><input id="host" type="text" spellcheck="false" placeholder="127.0.0.1" /></label>
-                                <label class="field port"><span>Port</span><input id="port" type="text" inputmode="numeric" placeholder="8787" /></label>
-                                <label class="field grow"><span>Path <em class="muted">(optional)</em></span><input id="path" type="text" spellcheck="false" placeholder="/" /></label>
-                            </div>
-                            <p id="url-error" class="error small" role="alert" hidden></p>
-                            <div class="actions">
-                                <button type="button" id="test" class="secondary">Check</button>
-                                <button type="button" id="retry" class="secondary" hidden>Retry now</button>
-                                <span id="retry-note" class="muted small"></span>
-                                <button type="submit" id="connect" class="primary">Connect</button>
-                            </div>
-                        </form>
-                        <p class="muted small">Use the address you open in a browser, not a model API address. Then sign in with a login link or invite.</p>
-                        <p id="settings-shortcut" class="muted small"></p>
+                    <section class="where-section" id="connection-section" aria-labelledby="connection-heading">
+                        <h2 class="group-heading" id="connection-heading">Where Pi Pocket runs</h2>
+                        <div class="where" role="radiogroup" aria-labelledby="connection-heading">
+                            <label><input type="radio" name="where" value="local" /><svg class="i" aria-hidden="true"><use href="#i-desktop"/></svg><span class="choice"><span class="choice-head"><strong>This computer</strong><span id="choice-local" class="pill" data-state="checking" role="status">…</span></span><small>Run the server here, while the app is open.</small><small id="choice-local-error" class="choice-error" hidden></small></span></label>
+                            <label><input type="radio" name="where" value="remote" /><svg class="i" aria-hidden="true"><use href="#i-globe"/></svg><span class="choice"><span class="choice-head"><strong>Another server</strong><span id="choice-remote" class="pill" data-state="checking" role="status">…</span></span><small>Connect to Pi Pocket on another computer.</small><small id="choice-remote-error" class="choice-error" hidden></small></span></label>
+                        </div>
                     </section>
 
                     <details class="card get" id="get-card">
@@ -156,155 +143,198 @@
                         </div>
                     </details>
 
-                    <details class="card" id="billion-context-card">
-                        <summary><h3><span class="title-row">Billion context <span class="pill" data-state="other">Experimental</span></span><span class="card-description">Keep long conversations going with context compression.</span></h3></summary>
-                        <div class="rows">
-                            <p class="row-note">This extension summarizes older messages. Pi can read the originals when needed. <a href="#" id="bc-page">About this extension</a></p>
-                            <p class="row-note"><strong>Experimental.</strong> I have used it every day for over a month, and I want it available to everybody I made this app for. It can still change, and it may not suit every model or session.</p>
-                            <!-- Temporary note: remove when Pi Pocket accepts the desktop bridge. -->
-                            <p class="row-note">Ideally, only agents, meaning long-running sessions, would use billion-context, and regular sessions would not. Pi Pocket does not separate agents from sessions (a session with a schedule or trigger is an agent), and that is a big feature to add, so this app turns the extension on for all sessions, which is how I use it.</p>
-                            <p class="row-note">I'd like to explore a Pi Pocket feature that adds "Agents". Agents would use this extension for their compaction, and regular sessions would not. Any agent, like PiP, could be used to orchestrate sessions. PiP, Pi Pocket's assistant, is a session that should get billion-context, for example, in my opinion. This note is meant for the Pi Pocket development team.</p>
-                            <p class="row-note error" id="bc-message" role="alert" hidden></p>
-                            <div id="bc-local">
-                                <p class="row-note"><strong>For Pi Pocket on this computer.</strong> Install puts this extension in the Pi Pocket server this app runs here.</p>
-                                <div class="row"><span><strong id="bc-status">Not installed</strong><small id="bc-detail"></small></span><span class="buttons"><button type="button" class="primary" id="bc-install">Install</button><button type="button" class="primary" id="bc-update">Update</button><button type="button" class="secondary" id="bc-enable">Turn on</button><button type="button" class="secondary" id="bc-disable">Turn off</button><button type="button" class="secondary" id="bc-check">Check now</button><button type="button" class="secondary danger" id="bc-uninstall">Uninstall</button></span></div>
-                                <label class="row" id="bc-auto-row"><span><strong>Update automatically</strong><small>Install new versions when the app checks for updates.</small></span><input type="checkbox" data-key="billionContext.autoUpdate" /></label>
-                                <div class="row"><span><strong>Extension folder</strong><small id="bc-folder"></small></span><button type="button" class="secondary" id="bc-show-folder">Show folder</button></div>
+                    <section class="tiles" aria-label="At a glance">
+                        <button type="button" class="tile" data-go="runner"><span class="tile-head"><svg class="i sm" aria-hidden="true"><use href="#i-terminal-window"/></svg><span class="pill" id="tile-runner-pill" data-state="checking"></span></span><strong>Runner</strong><small id="tile-runner-text"></small></button>
+                        <button type="button" class="tile" data-go="updates"><span class="tile-head"><svg class="i sm" aria-hidden="true"><use href="#i-arrows-clockwise"/></svg><span class="pill" id="tile-updates-pill" data-state="checking"></span></span><strong id="tile-updates-title">Updates</strong><small id="tile-updates-text"></small></button>
+                        <button type="button" class="tile" data-go="dictation"><span class="tile-head"><svg class="i sm" aria-hidden="true"><use href="#i-microphone"/></svg><span class="pill" id="tile-dictation-pill" data-state="checking"></span></span><strong>Dictation</strong><small id="tile-dictation-text"></small></button>
+                    </section>
+                </div>
+
+                <!-- Settings: every section on one page; the sidebar jumps to each. -->
+                <form id="settings-form" class="view settings" autocomplete="off" hidden>
+            <section class="section" id="sec-window" aria-labelledby="h-window">
+                <div class="section-head"><h2 id="h-window">Window</h2><p>How the app opens, closes, and handles links.</p></div>
+                <div class="card rows" id="window-card">
+                    <h4 class="row-group">Startup and tray</h4>
+                    <label class="row"><span><strong>Close to tray</strong><small id="tray-note">Keep the app running after you close the window.</small></span><input type="checkbox" data-key="window.closeToTray" /></label>
+                    <label class="row"><span><strong>Launch at login</strong><small>Start the app when you sign in to this computer.</small></span><input type="checkbox" data-key="window.launchAtLogin" /></label>
+                    <label class="row"><span><strong>Start hidden</strong><small>At login, start in the tray without showing the window.</small></span><input type="checkbox" data-key="window.startHidden" /></label>
+                    <h4 class="row-group">Window and links</h4>
+                    <label class="row"><span><strong>Title bar</strong><small id="title-bar-note">Seamless puts the window buttons over the page.</small></span><select data-key="window.titleBar"><option value="seamless">Seamless</option><option value="system">System</option></select></label>
+                    <div class="row" id="title-bar-restart" hidden><span><strong>Restart to apply changes</strong><small>The title bar changes when the app restarts.</small></span><button type="button" class="secondary" data-relaunch>Restart app</button></div>
+                    <label class="row" id="menu-bar-row"><span><strong>Show menu bar</strong><small>When hidden, press Alt to show it.</small></span><input type="checkbox" data-key="window.showMenuBar" /></label>
+                    <label class="row"><span><strong>Links to Pi Pocket pages</strong><small>Where to open new pages, such as artifacts.</small></span><select data-key="window.sameOriginLinks"><option value="appWindow">App window</option><option value="browser">System browser</option></select></label>
+                    <h4 class="row-group">Keyboard shortcut</h4>
+                    <label class="row"><span><strong>Global shortcut</strong><small>Show or hide the window from any app.</small></span><input type="checkbox" data-key="window.hotkeyEnabled" /></label>
+                    <label class="row stack"><span><strong>Shortcut</strong><small>Use CommandOrControl for ⌘ on macOS or Ctrl on Windows and Linux.</small></span><input type="text" data-key="window.hotkey" spellcheck="false" /></label>
+                </div>
+            </section>
+
+            <section class="section" id="sec-appearance" aria-labelledby="h-appearance">
+                <div class="section-head"><h2 id="h-appearance">Appearance</h2><p>Colors follow your Pi Pocket theme. Adjust the background and system effects here.</p></div>
+                <div class="card rows" id="appearance-card">
+                    <label class="row"><span><strong>See-through background</strong><small id="translucent-note">Show the desktop behind Pi Pocket, with blur.</small></span><input type="checkbox" data-key="appearance.translucent" /></label>
+                    <div class="row" id="translucent-restart" hidden><span><strong>Restart to apply changes</strong><small>On Linux, transparency changes when the app restarts.</small></span><button type="button" class="secondary" data-relaunch>Restart app</button></div>
+                    <label class="row"><span><strong>Opacity</strong><small>Lower values show more of the desktop. Menus and cards stay solid.</small></span><span class="range"><input type="range" data-key="appearance.opacity" min="0" max="100" step="1" /><output id="opacity-value"></output></span></label>
+                    <label class="row" data-platform="darwin"><span><strong>Blur</strong><small>Choose the macOS background material.</small></span><select data-key="appearance.macMaterial"><option value="under-window">Window (default)</option><option value="sidebar">Sidebar</option><option value="hud">Dark glass</option><option value="fullscreen-ui">Full-screen</option></select></label>
+                    <label class="row" data-platform="win32"><span><strong>Blur</strong><small>Acrylic blurs the desktop. Mica uses the wallpaper color.</small></span><select data-key="appearance.windowsMaterial"><option value="acrylic">Acrylic</option><option value="mica">Mica</option></select></label>
+                    <label class="row" id="tray-menu-row" data-platform="win32"><span><strong>Tray menu style</strong><small>Use the Windows theme or your Pi Pocket theme.</small></span><select data-key="appearance.trayMenu"><option value="windows">Windows</option><option value="theme">Pi Pocket</option></select></label>
+                </div>
+            </section>
+
+            <section class="section" id="sec-notifications" aria-labelledby="h-notifications">
+                <div class="section-head"><h2 id="h-notifications">Notifications</h2><p>Get alerts and answer approvals from your desktop.</p></div>
+                <div class="card rows" id="notifications-card">
+                    <label class="row"><span><strong>Show notifications</strong><small>Works while the app runs, including in the tray. Requires server desktop support.</small></span><input type="checkbox" data-key="notifications.enabled" /></label>
+                    <label class="row"><span><strong>Play a sound</strong></span><input type="checkbox" data-key="notifications.sound" /></label>
+                    <label class="row"><span><strong>Approve from notifications</strong><small>Deny is always available. Shortened commands can hide important details.</small></span><select data-key="notifications.allowFromNotification"><option value="whenFullyShown">When the full command is shown</option><option value="always">Always</option><option value="never">Never; use the app</option></select></label>
+                    <details class="advanced">
+                        <summary><span>Advanced<small>Command length</small></span></summary>
+                        <div class="rows nested"><label class="row"><span><strong>Command character limit</strong><small>Longer commands are shortened in notifications.</small></span><input type="number" data-key="notifications.maxCallLength" class="short" min="20" max="2000" /></label></div>
+                    </details>
+                </div>
+            </section>
+
+            <section class="section" id="sec-dictation" aria-labelledby="h-dictation">
+                <div class="section-head"><h2 id="h-dictation">Dictation</h2><p>Turn speech into text without sending audio off this computer.</p></div>
+                <div class="card rows" id="dictation-card">
+                    <p class="row-note" id="dictation-note">Download a speech model to use Pi Pocket's microphone button. The speech engine (<span id="dictation-engine-size"></span>) downloads with the first model and is removed with the last.</p>
+                    <p class="row-note error" id="dictation-message" role="alert" hidden></p>
+                    <details class="advanced" id="dictation-models-section">
+                        <summary id="dictation-models-toggle"><span>Speech models <small id="dictation-models-summary">· none downloaded</small></span></summary>
+                        <div id="dictation-models" class="models"></div>
+                    </details>
+                    <label class="row"><span><strong>Words as you speak</strong><small>Show text before you pause. Uses more CPU.</small></span><input type="checkbox" data-key="dictation.live" /></label>
+                    <div class="row"><span><strong>Model folder</strong><small id="dictation-folder"></small></span><button type="button" class="secondary" id="dictation-show-folder">Show folder</button></div>
+                </div>
+            </section>
+
+            <section class="section" id="sec-updates" aria-labelledby="h-updates">
+                <div class="section-head"><h2 id="h-updates">Updates</h2><p>Keep the desktop app up to date. It checks when it starts and each time you open Settings. Server updates are under Server.</p></div>
+                <div class="card rows" id="updates-card">
+                    <div class="row"><span><strong id="update-status">Not checked yet</strong><small id="update-detail"></small></span><span class="buttons"><button type="button" id="update-action" hidden></button><button type="button" id="update-check" class="secondary">Check now</button></span></div>
+                </div>
+            </section>
+
+            <section class="section" id="sec-runner" aria-labelledby="h-runner">
+                <div class="section-head"><span id="server-tools" class="sr">Server tools</span><h2 id="h-runner">Runner</h2><p>Let your server use this computer's files and commands.</p></div>
+                <div class="card rows" id="runner-card">
+                    <p class="row-note">The agent, models, API keys, and history stay on the server. The runner works while this app is open, including in the tray.</p>
+                    <div class="row"><span><strong id="runner-status">Not linked</strong><small id="runner-detail"></small></span><span class="buttons"><button type="button" class="secondary" id="runner-restart">Reconnect</button><button type="button" class="secondary danger" id="runner-unlink">Unlink</button></span></div>
+                    <label class="row" id="runner-enabled-row"><span><strong>Enable runner</strong><small>When off, the server shows this computer as offline.</small></span><input type="checkbox" data-key="runner.enabled" /></label>
+                    <label class="row" id="runner-confirm-row"><span><strong>Ask before new sessions</strong><small>Shows who wants to start a session and in which folder. Off: sessions start without asking.</small></span><input type="checkbox" data-key="runner.confirmSessions" /></label>
+                    <label class="row" id="runner-http-row"><span><strong>Allow plain HTTP</strong><small>The runner uses HTTPS, or plain HTTP only to this computer or a device on your tailnet. Turn on only for a server on a network you trust.</small></span><input type="checkbox" data-key="runner.allowHttp" /></label>
+                    <p class="row-note error" id="runner-confirm-error" role="alert" hidden></p>
+                    <div id="runner-link-form" class="runner-link-form">
+                        <p class="row-note">In Pi Pocket, open <strong>Menu → Runners → Link a computer</strong>, name this computer, and choose <strong>Get a link code</strong>. Enter the address and code it shows. The first link installs the runner (about 60 MB).</p>
+                        <div class="fields">
+                            <label class="field grow"><span>Server address</span><input id="runner-server" type="text" spellcheck="false" autocomplete="off" placeholder="https://pocket.example.com" /></label>
+                            <label class="field runner-code"><span>Link code</span><input id="runner-code" type="text" spellcheck="false" autocomplete="off" placeholder="ABCD-EFGH-JKLM" /></label>
+                        </div>
+                        <p class="row-note error" id="runner-link-error" role="alert" hidden></p>
+                        <div class="actions"><button type="button" class="primary" id="runner-link">Link</button></div>
+                    </div>
+                    <p class="row-note security-note">Only you can start sessions here. They are private unless the server owner enables sharing. Anyone who can prompt a shared session can run commands here.</p>
+                    <h4 class="row-group" id="runner-folders-heading">Allowed folders</h4>
+                    <p class="row-note">Sessions in these folders, and folders inside them, start without asking. A folder is added when you allow a session in it.</p>
+                    <p class="row-note error" id="runner-folders-error" role="alert" hidden></p>
+                    <div id="runner-folders" aria-labelledby="runner-folders-heading"><p class="row-note">Loading allowed folders…</p></div>
+                    <details class="log" id="runner-log-box" hidden><summary>Runner log</summary><pre id="runner-log"></pre></details>
+                </div>
+            </section>
+
+            <section class="section" id="sec-server" aria-labelledby="h-server">
+                <div class="section-head"><h2 id="h-server">Server</h2><p>Pi Pocket on this computer, another server, and server extensions.</p></div>
+                <h3 class="group-heading" id="preferences">This computer</h3>
+                <div class="card rows local-rows" id="server-local-settings">
+                    <div class="row" id="local-restart-row" hidden>
+                        <span><strong>Restart to apply changes</strong><small>Sessions continue after the server restarts.</small></span>
+                        <button type="button" class="secondary" data-local="restart">Restart Pi Pocket</button>
+                    </div>
+                    <div class="row stack">
+                        <label for="local-folder"><strong>Folder for new sessions</strong><small>Each session can use a different folder.</small></label>
+                        <span class="path-field"><input type="text" data-key="local.folder" id="local-folder" spellcheck="false" /><button type="button" class="secondary" data-choose="local-folder" aria-label="Choose the folder for new sessions">Choose…</button></span>
+                    </div>
+                    <label class="row"><span><strong>Who can connect</strong><small id="access-note"></small></span>
+                        <select data-key="local.access" id="local-access">
+                            <option value="local">This computer only</option>
+                            <option value="lan">Devices on the local network</option>
+                            <option value="tailscale">Devices on my Tailscale network</option>
+                            <option value="cloudflare">Anywhere, through Cloudflare</option>
+                        </select>
+                    </label>
+                    <h4 class="row-group">Server updates</h4>
+                    <label class="row"><span><strong>Keep Pi Pocket up to date</strong><small>Install server and Node.js updates. Restart the server to use them.</small></span><input type="checkbox" data-key="local.keepUpdated" /></label>
+                    <div class="row">
+                        <span><strong id="local-update-status">Not checked yet</strong><small id="local-update-detail"></small></span>
+                        <span class="buttons"><button type="button" class="secondary" data-local="check-updates" id="local-update-check">Check now</button></span>
+                    </div>
+                    <details class="advanced">
+                        <summary><span>Advanced<small>Port, data folder, and maintenance</small></span></summary>
+                        <div class="rows nested">
+                            <label class="row"><span><strong>Server port</strong></span><input type="number" data-key="local.port" class="short" min="1024" max="65535" /></label>
+                            <div class="row stack">
+                                <label for="local-data"><strong>Data folder</strong><small>Stores sessions, people, and server settings. Leave empty to use the default folder.</small></label>
+                                <span class="path-field"><input type="text" data-key="local.data" id="local-data" spellcheck="false" /><button type="button" class="secondary" data-choose="local-data" aria-label="Choose the server data folder">Choose…</button></span>
                             </div>
-                            <div id="bc-remote" hidden>
-                                <p class="row-note"><strong>You are connected to a remote server.</strong> The Install button works only for the Pi Pocket this app runs on this computer, so install this extension on your remote server itself (Linux or macOS), with the steps below. Choose <strong>This computer</strong> above to install it here instead.</p>
-                                <ol class="steps">
-                                    <li><span>If the old <code>billion-context-pi-pocket-adapter</code> is installed, follow the repository's migration instructions first. Keep its settings, stored extension name, and state folder. Do not enable both copies.</span></li>
-                                    <li><span>On Linux or macOS, run this command. It also installs updates:</span><div class="command"><code id="bc-command"></code><button type="button" class="ghost small" data-copy="bc-command">Copy</button></div></li>
-                                    <li><span>Change <code>~/.pi-pocket</code> if your server uses another data folder. On Windows, download the repository. Copy <code>billion-context-pi-pocket.ts</code> and the <code>billion-context-pi-pocket</code> folder into its <code>extensions</code> folder.</span></li>
-                                    <li><span>In Pi Pocket, open <strong>Menu → Extensions</strong>. Turn on <strong>billion-context-pi-pocket</strong>. Before an update, turn it off. Run the command, then turn it on again.</span></li>
-                                </ol>
+                            <div class="row" id="local-uninstall-row" hidden>
+                                <span><strong>Uninstall the server</strong><small>Remove Pi Pocket and its Node.js. Keep sessions and settings.</small></span>
+                                <button type="button" class="secondary danger" data-local="uninstall">Uninstall</button>
                             </div>
                         </div>
                     </details>
-                </section>
-
-                <form id="settings-form" class="settings" autocomplete="off">
-                    <h2 class="section-title" id="preferences">App preferences</h2>
-                    <details class="card" id="window-card" open>
-                        <summary><h3>Window<span class="card-description">Choose how the app opens, closes, and handles links.</span></h3></summary>
-                        <div class="rows">
-                            <h4 class="row-group">Startup and tray</h4>
-                            <label class="row"><span><strong>Close to tray</strong><small id="tray-note">Keep the app running after you close the window.</small></span><input type="checkbox" data-key="window.closeToTray" /></label>
-                            <label class="row"><span><strong>Launch at login</strong><small>Start the app when you sign in to this computer.</small></span><input type="checkbox" data-key="window.launchAtLogin" /></label>
-                            <label class="row"><span><strong>Start hidden</strong><small>At login, start in the tray without showing the window.</small></span><input type="checkbox" data-key="window.startHidden" /></label>
-                            <h4 class="row-group">Window and links</h4>
-                            <label class="row"><span><strong>Title bar</strong><small id="title-bar-note">Seamless puts the window buttons over the page.</small></span><select data-key="window.titleBar"><option value="seamless">Seamless</option><option value="system">System</option></select></label>
-                            <div class="row" id="title-bar-restart" hidden><span><strong>Restart to apply changes</strong><small>The title bar changes when the app restarts.</small></span><button type="button" class="secondary" data-relaunch>Restart app</button></div>
-                            <label class="row" id="menu-bar-row"><span><strong>Show menu bar</strong><small>When hidden, press Alt to show it.</small></span><input type="checkbox" data-key="window.showMenuBar" /></label>
-                            <label class="row"><span><strong>Links to Pi Pocket pages</strong><small>Where to open new pages, such as artifacts.</small></span><select data-key="window.sameOriginLinks"><option value="appWindow">App window</option><option value="browser">System browser</option></select></label>
-                            <h4 class="row-group">Keyboard shortcut</h4>
-                            <label class="row"><span><strong>Global shortcut</strong><small>Show or hide the window from any app.</small></span><input type="checkbox" data-key="window.hotkeyEnabled" /></label>
-                            <label class="row stack"><span><strong>Shortcut</strong><small>Use CommandOrControl for ⌘ on macOS or Ctrl on Windows and Linux.</small></span><input type="text" data-key="window.hotkey" spellcheck="false" /></label>
+                    <details class="log" id="local-log-box">
+                        <summary>Server log</summary>
+                        <pre id="local-log"></pre>
+                        <button type="button" class="ghost small" data-local="show-log">Show log file</button>
+                    </details>
+                </div>
+                <h3 class="group-heading">Another server</h3>
+                <div class="card rows" id="remote-settings-card">
+                    <label class="row"><span><strong>Connect at startup</strong><small>Open Pi Pocket when the server answers. Otherwise, show this screen.</small></span><input type="checkbox" data-key="connection.autoConnect" /></label>
+                    <label class="row stack"><span><strong>Other allowed addresses</strong><small>One per line, without a path. For example, a Cloudflare Access sign-in page. Other links open in your browser.</small></span><textarea data-key="server.extraOrigins" rows="2" spellcheck="false" placeholder="https://myteam.cloudflareaccess.com"></textarea></label>
+                    <details class="advanced">
+                        <summary><span>Advanced<small>Checks and retries</small></span></summary>
+                        <div class="rows nested">
+                            <label class="row"><span><strong>Server check interval</strong><small>Seconds between checks while connected. Use 0 to turn checks off.</small></span><input type="number" data-key="connection.healthIntervalSeconds" class="short" min="0" max="3600" /></label>
+                            <label class="row"><span><strong>Failed checks before reconnecting</strong><small>After this many failures, show this screen and keep trying.</small></span><input type="number" data-key="connection.failuresBeforeOutage" class="short" min="1" max="100" /></label>
+                            <label class="row"><span><strong>Maximum retry delay</strong><small>Seconds between retries. The delay increases up to this limit.</small></span><input type="number" data-key="connection.retryMaxSeconds" class="short" min="2" max="3600" /></label>
+                            <label class="row"><span><strong>Check timeout</strong><small>Milliseconds to wait for each server check.</small></span><input type="number" data-key="connection.probeTimeoutMs" class="short" min="500" max="60000" /></label>
                         </div>
                     </details>
-
-                    <details class="card" id="appearance-card">
-                        <summary><h3>Appearance<span class="card-description">Adjust the background and system effects.</span></h3></summary>
-                        <div class="rows">
-                            <label class="row"><span><strong>See-through background</strong><small id="translucent-note">Show the desktop behind Pi Pocket, with blur.</small></span><input type="checkbox" data-key="appearance.translucent" /></label>
-                            <div class="row" id="translucent-restart" hidden><span><strong>Restart to apply changes</strong><small>On Linux, transparency changes when the app restarts.</small></span><button type="button" class="secondary" data-relaunch>Restart app</button></div>
-                            <label class="row"><span><strong>Opacity</strong><small>Lower values show more of the desktop. Menus and cards stay solid.</small></span><span class="range"><input type="range" data-key="appearance.opacity" min="0" max="100" step="1" /><output id="opacity-value"></output></span></label>
-                            <label class="row" data-platform="darwin"><span><strong>Blur</strong><small>Choose the macOS background material.</small></span><select data-key="appearance.macMaterial"><option value="under-window">Window (default)</option><option value="sidebar">Sidebar</option><option value="hud">Dark glass</option><option value="fullscreen-ui">Full-screen</option></select></label>
-                            <label class="row" data-platform="win32"><span><strong>Blur</strong><small>Acrylic blurs the desktop. Mica uses the wallpaper color.</small></span><select data-key="appearance.windowsMaterial"><option value="acrylic">Acrylic</option><option value="mica">Mica</option></select></label>
-                            <label class="row" id="tray-menu-row" data-platform="win32"><span><strong>Tray menu style</strong><small>Use the Windows theme or your Pi Pocket theme.</small></span><select data-key="appearance.trayMenu"><option value="windows">Windows</option><option value="theme">Pi Pocket</option></select></label>
+                </div>
+                <h3 class="group-heading">Extensions</h3>
+                <details class="card" id="billion-context-card">
+                    <summary><h3><span class="title-row">Billion context <span class="pill" data-state="other">Experimental</span></span><span class="card-description">Keep long conversations going with context compression.</span></h3></summary>
+                    <div class="rows">
+                        <p class="row-note">This extension summarizes older messages. Pi can read the originals when needed. <a href="#" id="bc-page">About this extension</a></p>
+                        <p class="row-note"><strong>Experimental.</strong> I have used it every day for over a month, and I want it available to everybody I made this app for. It can still change, and it may not suit every model or session.</p>
+                        <!-- Temporary note: remove when Pi Pocket accepts the desktop bridge. -->
+                        <p class="row-note">Ideally, only agents, meaning long-running sessions, would use billion-context, and regular sessions would not. Pi Pocket does not separate agents from sessions (a session with a schedule or trigger is an agent), and that is a big feature to add, so this app turns the extension on for all sessions, which is how I use it.</p>
+                        <p class="row-note">I'd like to explore a Pi Pocket feature that adds "Agents". Agents would use this extension for their compaction, and regular sessions would not. Any agent, like PiP, could be used to orchestrate sessions. PiP, Pi Pocket's assistant, is a session that should get billion-context, for example, in my opinion. This note is meant for the Pi Pocket development team.</p>
+                        <p class="row-note error" id="bc-message" role="alert" hidden></p>
+                        <div id="bc-local">
+                            <p class="row-note"><strong>For Pi Pocket on this computer.</strong> Install puts this extension in the Pi Pocket server this app runs here.</p>
+                            <div class="row"><span><strong id="bc-status">Not installed</strong><small id="bc-detail"></small></span><span class="buttons"><button type="button" class="primary" id="bc-install">Install</button><button type="button" class="primary" id="bc-update">Update</button><button type="button" class="secondary" id="bc-enable">Turn on</button><button type="button" class="secondary" id="bc-disable">Turn off</button><button type="button" class="secondary" id="bc-check">Check now</button><button type="button" class="secondary danger" id="bc-uninstall">Uninstall</button></span></div>
+                            <label class="row" id="bc-auto-row"><span><strong>Update automatically</strong><small>Install new versions when the app checks for updates.</small></span><input type="checkbox" data-key="billionContext.autoUpdate" /></label>
+                            <div class="row"><span><strong>Extension folder</strong><small id="bc-folder"></small></span><button type="button" class="secondary" id="bc-show-folder">Show folder</button></div>
                         </div>
-                    </details>
-
-                    <details class="card" id="notifications-card">
-                        <summary><h3>Notifications<span class="card-description">Get alerts and answer approvals from your desktop.</span></h3></summary>
-                        <div class="rows">
-                            <label class="row"><span><strong>Show notifications</strong><small>Works while the app runs, including in the tray. Requires server desktop support.</small></span><input type="checkbox" data-key="notifications.enabled" /></label>
-                            <label class="row"><span><strong>Play a sound</strong></span><input type="checkbox" data-key="notifications.sound" /></label>
-                            <label class="row"><span><strong>Approve from notifications</strong><small>Deny is always available. Shortened commands can hide important details.</small></span><select data-key="notifications.allowFromNotification"><option value="whenFullyShown">When the full command is shown</option><option value="always">Always</option><option value="never">Never; use the app</option></select></label>
-                            <details class="advanced">
-                                <summary><span>Advanced<small>Command length</small></span></summary>
-                                <div class="rows nested"><label class="row"><span><strong>Command character limit</strong><small>Longer commands are shortened in notifications.</small></span><input type="number" data-key="notifications.maxCallLength" class="short" min="20" max="2000" /></label></div>
-                            </details>
+                        <div id="bc-remote" hidden>
+                            <p class="row-note"><strong>You are connected to a remote server.</strong> The Install button works only for the Pi Pocket this app runs on this computer, so install this extension on your remote server itself (Linux or macOS), with the steps below. Choose <strong>This computer</strong> above to install it here instead.</p>
+                            <ol class="steps">
+                                <li><span>If the old <code>billion-context-pi-pocket-adapter</code> is installed, follow the repository's migration instructions first. Keep its settings, stored extension name, and state folder. Do not enable both copies.</span></li>
+                                <li><span>On Linux or macOS, run this command. It also installs updates:</span><div class="command"><code id="bc-command"></code><button type="button" class="ghost small" data-copy="bc-command">Copy</button></div></li>
+                                <li><span>Change <code>~/.pi-pocket</code> if your server uses another data folder. On Windows, download the repository. Copy <code>billion-context-pi-pocket.ts</code> and the <code>billion-context-pi-pocket</code> folder into its <code>extensions</code> folder.</span></li>
+                                <li><span>In Pi Pocket, open <strong>Menu → Extensions</strong>. Turn on <strong>billion-context-pi-pocket</strong>. Use <strong>Menu → Billion context</strong> to install or update the program. Before an update, turn the extension off. Run the command, then turn it on again.</span></li>
+                            </ol>
                         </div>
-                    </details>
+                    </div>
+                </details>
+            </section>
 
-                    <details class="card" id="dictation-card">
-                        <summary><h3>Dictation<span class="card-description">Turn speech into text without sending audio off this computer.</span></h3></summary>
-                        <div class="rows">
-                            <p class="row-note" id="dictation-note">Download a speech model to use Pi Pocket's microphone button. The speech engine (<span id="dictation-engine-size"></span>) downloads with the first model and is removed with the last.</p>
-                            <p class="row-note error" id="dictation-message" role="alert" hidden></p>
-                            <details class="advanced" id="dictation-models-section">
-                                <summary id="dictation-models-toggle"><span>Speech models <small id="dictation-models-summary">· none downloaded</small></span></summary>
-                                <div id="dictation-models" class="models"></div>
-                            </details>
-                            <label class="row"><span><strong>Words as you speak</strong><small>Show text before you pause. Uses more CPU.</small></span><input type="checkbox" data-key="dictation.live" /></label>
-                            <div class="row"><span><strong>Model folder</strong><small id="dictation-folder"></small></span><button type="button" class="secondary" id="dictation-show-folder">Show folder</button></div>
-                        </div>
-                    </details>
-
-                    <details class="card" id="updates-card">
-                        <summary><h3>Updates<span class="card-description">Keep the desktop app up to date.</span></h3></summary>
-                        <div class="rows">
-                            <label class="row"><span><strong>Check for app updates</strong><small>Server updates are separate. See Pi Pocket on this computer, or update your remote server.</small></span><input type="checkbox" data-key="updates.check" /></label>
-                            <div class="row"><span><strong id="update-status">Not checked yet</strong><small id="update-detail"></small></span><span class="buttons"><button type="button" id="update-action" hidden></button><button type="button" id="update-check" class="secondary">Check now</button></span></div>
-                            <details class="advanced">
-                                <summary><span>Advanced<small>Update check interval</small></span></summary>
-                                <div class="rows nested"><label class="row"><span><strong>Check every</strong><small>Hours between app update checks.</small></span><input type="number" data-key="updates.intervalHours" class="short" min="1" max="720" /></label></div>
-                            </details>
-                        </div>
-                    </details>
-
-                    <h2 class="section-title" id="server-tools">Server tools</h2>
-                    <details class="card" id="runner-card">
-                        <summary><h3>Runner<span class="card-description">Let your server use this computer's files and commands.</span></h3></summary>
-                        <div class="rows">
-                            <p class="row-note">The agent, models, API keys, and history stay on the server. The runner works while this app is open, including in the tray.</p>
-                            <div class="row"><span><strong id="runner-status">Not linked</strong><small id="runner-detail"></small></span><span class="buttons"><button type="button" class="secondary" id="runner-restart">Reconnect</button><button type="button" class="secondary danger" id="runner-unlink">Unlink</button></span></div>
-                            <label class="row" id="runner-enabled-row"><span><strong>Enable runner</strong><small>When off, the server shows this computer as offline.</small></span><input type="checkbox" data-key="runner.enabled" /></label>
-                            <label class="row" id="runner-confirm-row"><span><strong>Ask before new sessions</strong><small>Shows who wants to start a session and in which folder. Off: sessions start without asking.</small></span><input type="checkbox" data-key="runner.confirmSessions" /></label>
-                            <label class="row" id="runner-http-row"><span><strong>Allow plain HTTP</strong><small>The runner uses HTTPS, or plain HTTP only to this computer or a device on your tailnet. Turn on only for a server on a network you trust.</small></span><input type="checkbox" data-key="runner.allowHttp" /></label>
-                            <p class="row-note error" id="runner-confirm-error" role="alert" hidden></p>
-                            <div id="runner-link-form" class="runner-link-form">
-                                <p class="row-note">In Pi Pocket, open <strong>Menu → Runners → Link a computer</strong>, name this computer, and choose <strong>Get a link code</strong>. Enter the address and code it shows. The first link installs the runner (about 60 MB).</p>
-                                <div class="fields">
-                                    <label class="field grow"><span>Server address</span><input id="runner-server" type="text" spellcheck="false" autocomplete="off" placeholder="https://pocket.example.com" /></label>
-                                    <label class="field runner-code"><span>Link code</span><input id="runner-code" type="text" spellcheck="false" autocomplete="off" placeholder="ABCD-EFGH-JKLM" /></label>
-                                </div>
-                                <p class="row-note error" id="runner-link-error" role="alert" hidden></p>
-                                <div class="actions"><button type="button" class="primary" id="runner-link">Link</button></div>
-                            </div>
-                            <p class="row-note security-note">Only you can start sessions here. They are private unless the server owner enables sharing. Anyone who can prompt a shared session can run commands here.</p>
-                            <section aria-labelledby="runner-folders-heading">
-                                <h3 id="runner-folders-heading">Allowed folders</h3>
-                                <p class="row-note error" id="runner-folders-error" role="alert" hidden></p>
-                                <div id="runner-folders"><p class="row-note">Loading allowed folders…</p></div>
-                            </section>
-                            <details class="log" id="runner-log-box" hidden><summary>Runner log</summary><pre id="runner-log"></pre></details>
-                        </div>
-                    </details>
-
-                    <details class="card" id="remote-settings-card">
-                        <summary><h3>Remote server<span class="card-description">Control automatic connections and server checks.</span></h3></summary>
-                        <div class="rows">
-                            <label class="row"><span><strong>Connect at startup</strong><small>Open Pi Pocket when the server answers. Otherwise, show this screen.</small></span><input type="checkbox" data-key="connection.autoConnect" /></label>
-                            <label class="row stack"><span><strong>Other allowed addresses</strong><small>One per line, without a path. For example, a Cloudflare Access sign-in page. Other links open in your browser.</small></span><textarea data-key="server.extraOrigins" rows="2" spellcheck="false" placeholder="https://myteam.cloudflareaccess.com"></textarea></label>
-                            <details class="advanced">
-                                <summary><span>Advanced<small>Checks and retries</small></span></summary>
-                                <div class="rows nested">
-                                    <label class="row"><span><strong>Server check interval</strong><small>Seconds between checks while connected. Use 0 to turn checks off.</small></span><input type="number" data-key="connection.healthIntervalSeconds" class="short" min="0" max="3600" /></label>
-                                    <label class="row"><span><strong>Failed checks before reconnecting</strong><small>After this many failures, show this screen and keep trying.</small></span><input type="number" data-key="connection.failuresBeforeOutage" class="short" min="1" max="100" /></label>
-                                    <label class="row"><span><strong>Maximum retry delay</strong><small>Seconds between retries. The delay increases up to this limit.</small></span><input type="number" data-key="connection.retryMaxSeconds" class="short" min="2" max="3600" /></label>
-                                    <label class="row"><span><strong>Check timeout</strong><small>Milliseconds to wait for each server check.</small></span><input type="number" data-key="connection.probeTimeoutMs" class="short" min="500" max="60000" /></label>
-                                </div>
-                            </details>
-                        </div>
-                    </details>
-
-                    <div id="problems" class="card problems" role="alert" hidden><h3>Some settings could not be used</h3><p class="muted small">These values in config.json are not valid. The app uses their defaults.</p><ul id="problem-list"></ul></div>
-                    <div class="footer"><span class="muted small">Settings save automatically. <span id="saved" aria-live="polite"></span></span><span class="muted small config-location">Settings file: <code id="config-path"></code></span><button type="button" id="show-file" class="ghost small">Show file</button></div>
+                    <div class="foot"><span class="muted small config-location">Settings file: <code id="config-path"></code></span><button type="button" id="show-file" class="ghost small">Show file</button></div>
                 </form>
-            </div>
-        </main>
+            </main>
+        </div>
     </body>
 </html>

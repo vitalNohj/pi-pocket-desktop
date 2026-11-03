@@ -14,9 +14,6 @@ Pi Pocket installed and kept current for you · a tray with your pinned sessions
 
 </div>
 
-> [!WARNING]
-> **Windows Defender may block the Windows installer.** It has flagged it as `Program:Win32/Contebrew.A!ml`, a machine-learning guess (`!ml`), not a match with any known malware. The installer isn't code-signed yet, so each new version can be flagged again. Flagged files are submitted to Microsoft as false positives. If it is blocked: in Windows Security → **Protection history**, open the entry and choose **Allow**, then download it again. The source and the build are public: [the workflow](.github/workflows/build.yml) builds every release.
-
 > [!NOTE]
 > **Use this computer from your server with a runner.** Without a runner, Pi uses the server's files and commands. Link this computer to use its files and commands instead. See [Runner](#runner) for setup and access rules.
 
@@ -46,7 +43,7 @@ Download the app for your computer from [**Releases**](https://github.com/vitalN
 | | File | |
 |---|---|---|
 | **macOS** | `…-mac-arm64.dmg` (Apple Silicon) or `…-mac-x64.dmg` (Intel) | Drag the app into Applications. It is not signed by Apple yet: the first time, right-click it and choose **Open**. If macOS still refuses, use **Open Anyway** in System Settings → Privacy & Security, or run `xattr -cr "/Applications/Pi Pocket.app"`. |
-| **Windows** | `pi-pocket-gui-win-x64.exe` (no version in its name until it is signed) | SmartScreen warns about an unsigned app: **More info** → **Run anyway**. Defender may block it as a false positive: [see above](#pi-pocket-for-desktop). |
+| **Windows** | `pi-pocket-gui-win-x64.exe` (no version in its name until it is signed) | SmartScreen warns about an unsigned app: **More info** → **Run anyway**. |
 | **Linux** | `…-linux-x86_64.AppImage` or `…-linux-amd64.deb` | Make the AppImage executable and run it, or install the .deb. |
 
 Open the app and pick where Pi Pocket runs:
@@ -64,7 +61,7 @@ Pick **This computer** in Settings and click **Install Pi Pocket**. The app down
 
 - **It runs while the app runs,** also with the window closed to the tray. Quitting the app stops it; running sessions pick up at the next start. With **Launch at login** and **Start hidden**, this computer is an always-on Pi Pocket for your phone.
 - **Who can connect:** this computer only, the local network, your Tailscale network, or anywhere through a Cloudflare link. **Folder for new sessions** sets the starting folder. **Advanced** holds the server port and data folder (`~/.pi-pocket` by default), plus **Uninstall**. The server log is below it.
-- **Kept up to date:** the app looks for a newer Pi Pocket and Node.js at start and every few hours, and installs them beside the ones in use. They take over when Pi Pocket restarts: **Restart** in Settings, the tray's **Restart Pi Pocket to update**, or the next start of the app. If a new version does not start, the one before runs again. Pi Pocket's own Settings → Updates works too.
+- **Kept up to date:** the app looks for a newer Pi Pocket and Node.js at start and each time you open Settings, and installs them beside the ones in use. They take over when Pi Pocket restarts: **Restart** in Settings, the tray's **Restart Pi Pocket to update**, or the next start of the app. If a new version does not start, the one before runs again. Pi Pocket's own Settings → Updates works too.
 - **Pi Pocket already running** on that port (started in a terminal) is found and offered instead.
 - **It sees your tools:** Pi Pocket gets the same environment as your terminal (your shell's `PATH`), so the agent finds `git`, `node`, and the rest.
 
@@ -113,27 +110,28 @@ Words show while you speak and are corrected when you pause (**Words as you spea
 
 This is an experimental feature. I have used it every day for over a month, and I want it available to everybody I made this app for. It can still change.
 
-The **Billion context** card, in the **Connection** column under the server it installs to, installs [billion-context-pi-pocket](https://github.com/vitalNohj/billion-context-pi-pocket) (context compression for long conversations) in the Pi Pocket the app runs on this computer, and turns it on. Pi Pocket must be running. When the app is connected to a remote server (**Another server**), the card says so and shows the steps to install the extension on that server itself (Linux or macOS) instead.
+**Billion context**, in **Settings → Server → Extensions**, installs [billion-context-pi-pocket](https://github.com/vitalNohj/billion-context-pi-pocket) (context compression for long conversations) in the Pi Pocket the app runs on this computer, and turns it on. Pi Pocket must be running. When the app is connected to a remote server (**Another server**), the card says so and shows the steps to install the extension on that server itself (Linux or macOS) instead.
 
 <!-- Temporary note: remove when Pi Pocket accepts the desktop bridge. -->
 Ideally, only agents, meaning long-running sessions, would use billion-context, and regular sessions would not. Pi Pocket does not separate agents from sessions (a session with a schedule or trigger is an agent), and that is a big feature to add, so this app turns the extension on for all sessions, which is how I use it.
 
 I'd like to explore a Pi Pocket feature that adds "Agents". Agents would use this extension for their compaction, and regular sessions would not. Any agent, like PiP, could be used to orchestrate sessions. PiP, Pi Pocket's assistant, is a session that should get billion-context, for example, in my opinion. This note is meant for the Pi Pocket development team.
 
-- **Install** downloads the newest commit of the integration's `main` branch from GitHub, checks each file against the git hash the commit lists, and puts `billion-context-pi-pocket.ts` and the `billion-context-pi-pocket/` helper folder in Pi Pocket's `extensions` folder. Then it turns the extension on through Pi Pocket's API.
-- **Update** shows when a newer commit is out, at each start and as often as the app looks for its own updates. It turns the extension off, swaps the files, and restores its previous on/off choice. **Update automatically** does this without asking (off by default).
+- **Install** downloads the newest commit of the integration's `main` branch from GitHub, checks each file against the git hash the commit lists, and puts `billion-context-pi-pocket.ts` and the `billion-context-pi-pocket/` helper folder in Pi Pocket's `extensions` folder. Then it turns the extension on through Pi Pocket's API and asks the extension to install its pinned runtime.
+- **Update** shows when a newer commit is out, at each start and each time you open Settings. It turns the extension off, swaps the files, and restores its previous on/off choice. If it was on, the app asks the extension to install its pinned runtime. If it was off, the app does not enable it or install the runtime. **Update automatically** does this without asking (off by default).
 - Existing GUI installations of `billion-context-pi-pocket-adapter.ts` and its helper folder remain manageable. **Update** migrates them to the new names. The old module is off before the new module can load. Migration copies settings to `billion-context-pi-pocket.json`, preserving all values and explicitly retaining the old `extensionName` and `stateDir` defaults (`billion-context-pi`) when no overrides exist. The old settings file stays as a backup. Conversation and compression state never move.
 - A failed update restores the previous files, settings, and on/off choice. An interrupted update keeps a recovery record and backups; the next start of the local server or extension action restores them before other work. Do not remove its `_billion-context-pi-pocket.update/` folder during recovery.
 - The GUI refuses migration if both module names exist, either helper folder belongs to a differently named module, or old and new settings conflict. Resolve those copies or settings first; the GUI does not select one or overwrite them. An invalid new settings file never falls back to old settings.
 - A custom `stateDir` must stay outside both helper folders and the installer's transaction folder. The GUI stops an update or uninstall rather than remove state kept there. Move that state safely before continuing; changing only its setting would hide the existing state.
-- **Uninstall** turns the installed module off and removes its module and helper folder. Both settings filenames and all saved compression state stay. Reinstall uses the new settings when present; otherwise it migrates retained old settings.
+- The displayed BCP version is the version supported by the integration; it does not confirm that the runtime is installed. A disabled update does not install it. **Enable** turns the extension on and asks it to install its pinned runtime. If runtime installation fails, the app restores the disabled choice. **Disable** turns it off without uninstalling the runtime or removing ACP data.
+- **Uninstall** turns the installed module off and removes its module and helper folder. Both settings filenames, saved compression state, and the runtime data/cache folder can remain. Reinstall uses the new settings when present; otherwise it migrates retained old settings.
 - A copy installed by hand under another file name is left alone: the card says so.
 
-With **Another server**, the card shows the command that installs it on that server instead. It refuses an old installation: follow the integration repository's migration instructions first, keep its stored extension name and state folder, and never enable both modules.
+With **Another server**, the card shows the command that installs it on that server instead. It refuses an old installation: follow the integration repository's migration instructions first, keep its stored extension name and state folder, and never enable both modules. Use the extension menu on that server to install its pinned runtime.
 
 ### Runner
 
-Use the **Runner** card under **Server tools**, or the **Runner** link at the top of GUI Settings. A runner lets your server use this computer's files and commands. The agent, models, API keys, and history stay on the server. No SSH or open port is needed.
+Use **Runner** in the GUI Settings sidebar, or the Runner tile on Home. A runner lets your server use this computer's files and commands. The agent, models, API keys, and history stay on the server. No SSH or open port is needed.
 
 The app has the same runner as `pi-pocket runner` built in, and links the same way: the server cannot tell them apart.
 
@@ -160,31 +158,31 @@ The server must support runners. For now, use [vitalNohj/pi-pocket](https://gith
 
 Open **GUI Settings…** from the File menu, tray menu, Pi Pocket menu, or a right-click on the page. You can also press Ctrl+, (⌘, on macOS). This shortcut works even if the server page fails.
 
-The top links go to **Appearance**, **Updates**, **Notifications**, and **Runner**, and open that card. Connection comes first, with the server and the Billion context card. App preferences follow, then server tools. Most cards start closed. Each card has a short description. Ports, timeouts, limits, and update intervals are in closed **Advanced** sections.
+GUI Settings has a sidebar with two parts, **Home** and **Settings**. **Back to Pi Pocket** is at its top (or press Esc) whenever there is a Pi Pocket to go back to. Opened from a menu, GUI Settings starts on Home. When a server fails or is missing, the app shows Home with the reason.
 
-| Section | Card | What it controls |
-|---|---|---|
-| Connection | **Pi Pocket on this computer** | Install and run the server here. Choose a session folder and who can connect. Server updates are separate from app updates. |
-| Connection | **Another server** | Enter a full address or a host and port. Check it, then connect. |
-| Connection | **Get the server** | Set up Pi Pocket on another computer. Shown with **Another server**. |
-| Connection | **Billion context** | Install context compression here, or get installation steps for your server. |
-| App preferences | **Window** | Startup, tray, title bar, links, and the global shortcut. |
-| App preferences | **Appearance** | Background transparency, opacity, and system effects. |
-| App preferences | **Notifications** | Desktop alerts, sound, and approval buttons. |
-| App preferences | **Dictation** | Download speech models and turn speech into text on this computer. |
-| App preferences | **Updates** | Desktop app updates. The check interval is in **Advanced**. |
-| Server tools | **Runner** | Let your server use this computer's files and commands. See [Runner](#runner). |
-| Server tools | **Remote server** | Connect at startup, allow other addresses, and set check and retry limits. Shown with **Another server**. |
+**Home** shows where Pi Pocket runs and the way into it: the server's status and address, with **Start**, **Connect**, or **Back to Pi Pocket**. Below are the two choices, **This computer** and **Another server**, and tiles for **Runner**, **Updates**, and **Dictation** that open their section.
 
-The two choices at the top, **This computer** and **Another server**, only show that side's settings, with a status for each. A click on a choice does not connect, disconnect, start, or stop anything. The window changes servers only when you click **Connect**, **Start**, or **Open**. A remote connection stays while you look at This computer. When Pi Pocket on this computer stops on its own, the app shows a notification.
+**Settings** is one scrolling page. The sidebar marks the section you read and jumps to any of them. Each part has a short description. Ports, timeouts, and limits are in closed **Advanced** sections.
+
+| Section | What it controls |
+|---|---|
+| **Window** | Startup, tray, title bar, links, and the global shortcut. |
+| **Appearance** | Background transparency, opacity, and system effects. |
+| **Notifications** | Desktop alerts, sound, and approval buttons. |
+| **Dictation** | Download speech models and turn speech into text on this computer. |
+| **Updates** | Desktop app updates, checked at startup and each time Settings opens. |
+| **Runner** | Let your server use this computer's files and commands. See [Runner](#runner). |
+| **Server** | **This computer**: session folder, who can connect, and server updates. **Another server**: connect at startup, other allowed addresses, and check and retry limits. **Extensions**: Billion context. |
+
+The two choices on Home, **This computer** and **Another server**, only show that side, with a status for each. A click on a choice does not connect, disconnect, start, or stop anything. The window changes servers only when you click **Connect**, **Start**, or **Open**. A remote connection stays while you look at This computer. When Pi Pocket on this computer stops on its own, the app shows a notification.
 
 Use the server address you open in a browser, not a model API address. A failed check keeps your saved address and any working connection. The status shows **Connected** when Pi Pocket is open. To change servers, enter and check the new address before you connect.
 
 If a sign-in page hides Pi Pocket, choose **Open webpage anyway**. This is available only for HTML pages. A **GUI Settings** button stays visible until Pi Pocket is detected. HTTP errors and other responses return to settings.
 
-<img src="docs/images/settings.png" alt="The settings screen: the connection on the left, the Window settings on the right" width="100%" />
+<img src="docs/images/settings.png" alt="GUI Settings: the sidebar with Home and Settings, and Home showing where Pi Pocket runs" width="100%" />
 
-In **Remote server**, **Other allowed addresses** can include a sign-in page, such as Cloudflare Access. Enter one address per line, without a path. By default, **Advanced** uses a 10-second server check interval, 3 failed checks before reconnecting, a 30-second maximum retry delay, and a 4-second check timeout. The app keeps trying after a connection fails.
+In **Server → Another server**, **Other allowed addresses** can include a sign-in page, such as Cloudflare Access. Enter one address per line, without a path. By default, **Advanced** uses a 10-second server check interval, 3 failed checks before reconnecting, a 30-second maximum retry delay, and a 4-second check timeout. The app keeps trying after a connection fails.
 
 The settings are also a JSON file you can edit by hand. A value that is not valid falls back to its default, and the settings screen lists it.
 
@@ -210,7 +208,7 @@ The app writes a diagnostics log. It records page hangs and crashes, failed load
 
 ### Updates
 
-The **Updates** card manages the desktop app, not the server. The app checks at startup and every 6 hours by default. Choose **Check now** to check manually. Change the interval in **Updates → Advanced**. Server updates are under **Connection → Pi Pocket on this computer → Server updates**.
+**Settings → Updates** manages the desktop app, not the server. The app checks at startup and each time you open Settings, so what Settings shows is current. There is no timed check. Choose **Check now** to check again. Server updates are under **Settings → Server → This computer → Server updates**.
 
 - **Windows and the AppImage** download it and install it when the app restarts. The app asks first.
 - **macOS:** until the app is signed by Apple, macOS will not let it replace itself. It downloads the new disk image to Downloads, checked against GitHub's checksum, then quits and opens it (macOS cannot replace an app that is running): drag the app into Applications over the old one, then open it again. Your settings and sign-in stay.

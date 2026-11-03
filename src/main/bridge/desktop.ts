@@ -1,5 +1,5 @@
 /**
- * The app's side of the host bridge (src/preload/server.ts): what the server's page asks for (the badge, native
+ * The app's side of the app bridge (src/preload/server.ts): what the server's page asks for (the badge, native
  * notifications, the pinned sessions, menu items), and what the app tells it (its window shown or hidden, a session to
  * open, an approval answered in a notification). It also owns the tray's menu and icon, which show the pins and badge.
  *

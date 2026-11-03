@@ -1,13 +1,13 @@
 /// <reference lib="dom" />
 /**
- * The server page's preload: `window.pocketHost`, the host bridge Pi Pocket's web app uses (docs/desktop.md there).
+ * The server page's preload: `window.pocketHost`, the app bridge Pi Pocket's web app uses (docs/embedders.md there).
  * The main process says first whether this frame may have it: only the main window's top frame, on the configured
  * server's origin. Anywhere else (a sign-in page in front of the server, another window) the page gets nothing.
  */
 import { contextBridge, ipcRenderer } from "electron";
 import type { HostEvent, HostHello, ThemeToken } from "../shared/types";
 
-/** The bridge version this app speaks. */
+/** The app bridge version this app speaks. */
 const API_VERSION = 1;
 
 const hello = ipcRenderer.sendSync("host:hello") as HostHello | null;
@@ -33,6 +33,9 @@ if (hello !== null && typeof hello === "object") {
         apiVersion: API_VERSION,
         capabilities: ["menu", "badge", "notify", "visibility", "pinned", "open", "newSession", "saveFile"],
         saveFile: (input: unknown) => ipcRenderer.invoke("host:save-file", input),
+        // The heading of this app's group in Pi Pocket's menu (Pi Pocket's docs/embedders.md). An older Pi Pocket
+        // does not ask for it, and shows its own heading.
+        menuTitle: () => "Pi Pocket Desktop",
         menuItems: () => [{ id: "server-settings", label: "GUI Settings…", hint: "This desktop app's settings" }],
         invoke: (id: unknown) => {
             if (typeof id !== "string") {
@@ -63,10 +66,69 @@ if (hello !== null && typeof hello === "object") {
 
     watchTheme();
     reportRightClicks();
+    openSessionLinksHere((url) => {
+        if (listener === undefined) {
+            return false;
+        }
+
+        try {
+            listener({ type: "open", url });
+        } catch (error) {
+            console.error(error);
+        }
+
+        return true;
+    });
 
     if (hello.dictation) {
         offerDictation();
     }
+}
+
+/**
+ * The session a click on a link asks to open here: the link's path (`/s/12`) when it is a plain click (the main button,
+ * no ⌘, Ctrl, Shift, or Alt) on a link to one of this server's sessions. Null for anything else, which opens as it
+ * would: a new window for ⌘ or Shift, the system browser for another site.
+ */
+export function sessionLinkHere(
+    click: { button: number; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean },
+    href: string | null,
+    base: string,
+): string | null {
+    if (href === null || click.button !== 0 || click.metaKey || click.ctrlKey || click.shiftKey || click.altKey) {
+        return null;
+    }
+
+    let url: URL;
+
+    try {
+        url = new URL(href, base);
+    } catch {
+        return null;
+    }
+
+    return url.origin === new URL(base).origin && /^\/s\/\d+\/?$/.test(url.pathname) ? url.pathname.replace(/\/$/, "") : null;
+}
+
+/**
+ * Pi Pocket opens every link in a reply in a new window, as a browser opens a new tab. In this app a plain click on a
+ * link to a session opens it in this window instead, through the bridge's `open` event; ⌘ or Shift still opens a new
+ * window. Only links the page left alone: PiP's panel opens its own session links already. `open` says whether the
+ * page took it (it has subscribed).
+ */
+function openSessionLinksHere(open: (url: string) => boolean): void {
+    document.addEventListener("click", (event) => {
+        if (event.defaultPrevented || !(event.target instanceof Element)) {
+            return;
+        }
+
+        const anchor = event.target.closest("a[href]");
+        const path = anchor === null ? null : sessionLinkHere(event, anchor.getAttribute("href"), location.href);
+
+        if (path !== null && open(path)) {
+            event.preventDefault();
+        }
+    });
 }
 
 /** How long Pi Pocket's boot screen shows before the Reload button comes. */

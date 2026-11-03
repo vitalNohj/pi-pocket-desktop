@@ -21,8 +21,11 @@ when there is a sensible choice, it is a setting, with a safe default.
 - Product name **Pi Pocket**; executable `pi-pocket-gui` (so it never clashes with the server's `pi-pocket` command).
 - Icon: Pi Pocket's own π icon (`assets/icon.svg`, MIT, from upstream). The tray icon adds a dot when something needs
   you.
-- Look: Pi Pocket's default look (Tokyo Night palette, Geist, JetBrains Mono), so the config page and the server feel
-  like one app.
+- Look: Pi Pocket's colors (it follows the server's theme), Geist and Geist Mono, so the config page and the server
+  feel like one app.
+- The config screen has a sidebar: **Back to Pi Pocket** (Esc), **Home** (where Pi Pocket runs and the way into it,
+  plus tiles for Runner, Updates, Dictation) and **Settings** (one scrolling page of sections, marked in the sidebar as
+  you read). A menu opens it on Home; a failure or first run shows Home with the reason.
 
 ## Connection and the config screen
 
@@ -99,13 +102,14 @@ Built in a worktree from `upstream/main` (`/home/nohj/pi-pocket-desktop-bridge`)
 when everything is finished, explaining that it is for this GUI or any other wrapper app.
 
 - `GET /api/pocket/info` (no sign-in): `{ name: "pi-pocket", bridge: 1 }`. No version.
-- **Host bridge**, generic and versioned: the wrapper's preload exposes `window.pocketHost`:
+- **App bridge**, generic and versioned: the wrapper's preload exposes `window.pocketHost`:
 
   ```js
   window.pocketHost = {
       kind: "pi-pocket-gui",
       apiVersion: 1,
       capabilities: ["menu", "badge", "notify", "visibility", "pinned"], // "dictation" reserved
+      menuTitle(), // the heading of this app's group in the menu: "Pi Pocket Desktop"
       menuItems(), // [{ id, label, group }]
       invoke(id), // e.g. "server-settings"
       setBadge(count),
@@ -117,7 +121,7 @@ when everything is finished, explaining that it is for this GUI or any other wra
   ```
 
   Pi Pocket uses only the capabilities it finds, and ignores what it does not know.
-- The page shows the wrapper's menu items (a "Desktop" group with **GUI Settings…**).
+- The page shows the wrapper's menu items in a group under the wrapper's own title (`menuTitle()`: a "Pi Pocket Desktop" group with **GUI Settings…**).
 - The server sends push decisions to desktop clients over the live connection.
 - The page reports visibility from the wrapper.
 - A server without the bridge still works in the GUI, with a one-time notice: "This server doesn't support desktop
