@@ -65,8 +65,12 @@ export interface DesktopHost {
     themeChanged: (theme: ThemeColors) => void;
     /** Offline dictation has an engine for this computer. */
     dictation: () => boolean;
+    /** The dictation key as the page names it (KeyboardEvent.code); undefined: none. */
+    dictationKey: () => string | undefined;
     /** A right-click the page left alone, as its preload saw it (src/main/window/themed-menu.ts reads it). */
     pageRightClick: (click: unknown) => void;
+    /** The tray's Dictate item (Dictate anywhere is on), with what a click does; undefined when it is off. */
+    dictateItem: () => { label: string; click: () => void } | undefined;
 }
 
 function originOf(url: string): string | undefined {
@@ -84,7 +88,9 @@ let badge = 0;
 let lastVisible: boolean | undefined;
 /** The host events the page said it handles, as it subscribed; undefined until it did. */
 let pageEvents: Set<string> | undefined;
-let trayIcons: { plain: NativeImage; dot: NativeImage; brand: string; dotColor: string } | undefined;
+let trayIcons: { plain: NativeImage; dot: NativeImage; recording: NativeImage; brand: string; dotColor: string } | undefined;
+/** Dictate anywhere records: the tray's π is red. */
+let recording = false;
 
 export function setUpDesktop(host: DesktopHost): {
     /** The window was shown, hidden, minimized, restored, or the view changed: tell the page if that changed. */
@@ -101,6 +107,8 @@ export function setUpDesktop(host: DesktopHost): {
      * started for it (a link), and connects now: it waits for the page as for one that is loading.
      */
     newSession: (starting?: boolean) => void;
+    /** Dictate anywhere starts or stops recording: the tray's π turns red, and back. */
+    setRecording: (on: boolean) => void;
 } {
     const fromServerPage = (event: IpcMainEvent | IpcMainInvokeEvent): boolean => {
         const frame = event.senderFrame;
@@ -145,7 +153,7 @@ export function setUpDesktop(host: DesktopHost): {
     };
 
     /** The tray's π, as the rail of Pi Pocket's page draws it, in the theme's brand color; with a dot when sessions need you. */
-    const icons = (): { plain: NativeImage; dot: NativeImage } => {
+    const icons = (): { plain: NativeImage; dot: NativeImage; recording: NativeImage } => {
         const colors = host.theme().colors;
 
         if (trayIcons !== undefined && trayIcons.brand === colors.brand && trayIcons.dotColor === colors.err) {
@@ -156,6 +164,12 @@ export function setUpDesktop(host: DesktopHost): {
         const mask = nativeImage.createFromPath(join(host.assets, process.platform === "darwin" ? "tray-pi-36.png" : "tray-pi-44.png"));
         const { width, height } = mask.getSize();
         const pixels = Buffer.from(mask.toBitmap());
+        const red = Buffer.from(pixels);
+
+        tint(red, rgbOf(colors.err));
+        paintDot(red, width, height, cornerDot(width, height), rgbOf(colors.err));
+
+        const recordingIcon = nativeImage.createFromBitmap(red, { width, height, scaleFactor: 2 });
 
         tint(pixels, rgbOf(colors.brand));
 
@@ -165,7 +179,7 @@ export function setUpDesktop(host: DesktopHost): {
 
         const dot = nativeImage.createFromBitmap(pixels, { width, height, scaleFactor: 2 });
 
-        trayIcons = { plain, dot, brand: colors.brand, dotColor: colors.err };
+        trayIcons = { plain, dot, recording: recordingIcon, brand: colors.brand, dotColor: colors.err };
 
         return trayIcons;
     };
@@ -198,10 +212,12 @@ export function setUpDesktop(host: DesktopHost): {
         }));
         const update = host.updateItem();
         const reload = host.reloadItem();
+        const dictate = host.dictateItem();
 
         return [
             { label: badge > 0 ? `Open Pi Pocket  (${badge} need you)` : "Open Pi Pocket", click: host.showWindow },
             { label: "New session", click: () => newSession() },
+            ...(dictate === undefined ? [] : [{ label: dictate.label, click: dictate.click }]),
             ...(reload === undefined ? [] : [{ label: reload.label, click: reload.click }]),
             ...(update === undefined ? [] : [{ label: update.label, click: update.click }]),
             ...(pinItems.length > 0
@@ -229,8 +245,8 @@ export function setUpDesktop(host: DesktopHost): {
             tray.setContextMenu(Menu.buildFromTemplate(nativeTemplate()));
         }
 
-        tray.setImage(badge > 0 ? icons().dot : icons().plain);
-        tray.setToolTip(badge > 0 ? `Pi Pocket — ${badge} ${badge === 1 ? "session needs" : "sessions need"} you` : "Pi Pocket");
+        tray.setImage(recording ? icons().recording : badge > 0 ? icons().dot : icons().plain);
+        tray.setToolTip(recording ? "Pi Pocket — recording" : badge > 0 ? `Pi Pocket — ${badge} ${badge === 1 ? "session needs" : "sessions need"} you` : "Pi Pocket");
         popup?.refresh();
     };
 
@@ -242,6 +258,7 @@ export function setUpDesktop(host: DesktopHost): {
             pins,
             showWindow: host.showWindow,
             newSession: () => newSession(),
+            dictate: host.dictateItem(),
             openSettings: host.openSettings,
             quit: host.quit,
             openPin: open,
@@ -350,7 +367,7 @@ export function setUpDesktop(host: DesktopHost): {
         // Only the server view's top frame on the server's origin gets the bridge: never a frame, another window, or a
         // sign-in page in front of the server.
         const hello: HostHello | null = fromServerPage(event)
-            ? { visible: visible(), dictation: host.dictation() }
+            ? { visible: visible(), dictation: host.dictation(), dictationKey: host.dictationKey() ?? null }
             : null;
 
         event.returnValue = hello;
@@ -452,5 +469,11 @@ export function setUpDesktop(host: DesktopHost): {
             pageEvents = undefined;
         },
         newSession,
+        setRecording: (on) => {
+            if (recording !== on) {
+                recording = on;
+                refreshTray();
+            }
+        },
     };
 }

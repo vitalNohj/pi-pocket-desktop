@@ -51,13 +51,15 @@ export interface TrayMenuInput {
     pins: PinnedSession[];
     showWindow: () => void;
     newSession: () => void;
+    /** Dictate anywhere's item, while it is on. */
+    dictate?: { label: string; click: () => void } | undefined;
     openSettings: () => void;
     quit: () => void;
     openPin: (url: string) => void;
 }
 
 /**
- * The tray's items, in the order the native menu uses: Open Pi Pocket (with the needs-you count), New session, Reload
+ * The tray's items, in the order the native menu uses: Open Pi Pocket (with the needs-you count), New session, Dictate (while Dictate anywhere is on), Reload
  * while the window is up, the update when there is one, the pinned sessions, GUI Settings…, Quit.
  */
 export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
@@ -67,6 +69,8 @@ export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
         run: input.showWindow,
     };
     const newSession: TrayMenuAction = { id: "new-session", label: "New session", run: input.newSession };
+    const dictate: TrayMenuAction | undefined =
+        input.dictate === undefined ? undefined : { id: "dictate", label: input.dictate.label, run: input.dictate.click };
     const reload: TrayMenuAction | undefined =
         input.reload === undefined ? undefined : { id: "reload", label: input.reload.label, run: input.reload.click };
     const update: TrayMenuAction | undefined =
@@ -78,10 +82,11 @@ export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
     }));
     const settings: TrayMenuAction = { id: "settings", label: "GUI Settings…", run: input.openSettings };
     const quit: TrayMenuAction = { id: "quit", label: "Quit", run: input.quit };
-    const actions = [open, newSession, ...(reload === undefined ? [] : [reload]), ...(update === undefined ? [] : [update]), ...pins, settings, quit];
+    const actions = [open, newSession, ...(dictate === undefined ? [] : [dictate]), ...(reload === undefined ? [] : [reload]), ...(update === undefined ? [] : [update]), ...pins, settings, quit];
     const rows: TrayMenuRow[] = [
         rowOf(open),
         rowOf(newSession),
+        ...(dictate === undefined ? [] : [rowOf(dictate)]),
         ...(reload === undefined ? [] : [rowOf(reload)]),
         ...(update === undefined ? [] : [rowOf(update)]),
         ...(pins.length > 0 ? [{ kind: "separator" as const }, { kind: "header" as const, label: "Pinned" }, ...pins.map(rowOf)] : []),

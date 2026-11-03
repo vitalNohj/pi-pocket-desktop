@@ -14,6 +14,10 @@ export interface LoadMessage {
     engine: string;
     vad: string;
     config: Record<string, unknown>;
+    /** More recognizer options, such as the beam search custom words need. */
+    recognizer: Record<string, unknown>;
+    /** Custom words, "/" between them; empty for none. */
+    hotwords: string;
     /** Recognise the phrase so far while it is spoken. */
     live: boolean;
     /** The longest phrase passed to the model at once, in seconds. */
@@ -46,7 +50,7 @@ interface Stream {
     acceptWaveform(wave: { sampleRate: number; samples: Float32Array }): void;
 }
 interface Recognizer {
-    createStream(): Stream;
+    createStream(hotwords?: string): Stream;
     decodeAsync(stream: Stream): Promise<{ text?: string }>;
 }
 interface Vad {
@@ -72,6 +76,7 @@ const send = (message: WorkerOut): void => {
 let recognizer: Recognizer | undefined;
 let vad: Vad | undefined;
 let live = false;
+let hotwords = "";
 /** Messages are handled one after another: audio waits for the model to load. */
 let queue: Promise<void> = Promise.resolve();
 
@@ -111,7 +116,7 @@ function concat(parts: Float32Array[], length: number): Float32Array {
 }
 
 async function recognise(samples: Float32Array): Promise<string> {
-    const stream = recognizer!.createStream();
+    const stream = hotwords === "" ? recognizer!.createStream() : recognizer!.createStream(hotwords);
 
     stream.acceptWaveform({ sampleRate: RATE, samples });
 
@@ -130,7 +135,9 @@ async function load(message: LoadMessage): Promise<void> {
         recognizer = await sherpa.OfflineRecognizer.createAsync({
             featConfig: { sampleRate: RATE, featureDim: 80 },
             modelConfig: message.config,
+            ...message.recognizer,
         });
+        hotwords = message.hotwords;
         vad = new sherpa.Vad(
             {
                 sileroVad: {

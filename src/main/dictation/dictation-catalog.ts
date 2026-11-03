@@ -293,3 +293,53 @@ export function longestPhraseSeconds(model: SpeechModel): number {
 export function formatSize(bytes: number): string {
     return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${String(Math.max(1, Math.round(bytes / 1e6)))} MB`;
 }
+
+/** How strongly custom words are preferred: below 3 they rarely change a result, above it common words get forced in. */
+export const CUSTOM_WORDS_SCORE = 3;
+
+/**
+ * A BPE vocabulary from a model's tokens.txt ("piece id" per line): sherpa-onnx needs one to split custom words into
+ * the model's word pieces. The score is the negative id, the order the pieces were learned in.
+ */
+export function bpeVocab(tokens: string): string {
+    const lines: string[] = [];
+
+    for (const line of tokens.split("\n")) {
+        const at = line.lastIndexOf(" ");
+
+        if (at > 0) {
+            lines.push(`${line.slice(0, at)}\t${String(-Number(line.slice(at + 1)))}`);
+        }
+    }
+
+    return `${lines.join("\n")}\n`;
+}
+
+/** Whether a model can take custom words: sherpa-onnx gives them only to transducer models (Parakeet). */
+export function takesCustomWords(model: SpeechModel): boolean {
+    return model.family === "parakeet";
+}
+
+/**
+ * What custom words add to a model's config: beam search with the words as hotwords. Undefined when there are none
+ * or the model cannot take them. The vocabulary file is bpe.vocab in the model's folder (made by bpeVocab).
+ */
+export function customWords(
+    model: SpeechModel,
+    folder: string,
+    words: readonly string[],
+    join: (...parts: string[]) => string,
+): { model: Record<string, unknown>; recognizer: Record<string, unknown>; hotwords: string } | undefined {
+    // "/" separates the words for sherpa-onnx, and ":" would set a score.
+    const clean = words.map((word) => word.replace(/[/:]/g, " ").replace(/\s+/g, " ").trim()).filter((word) => word !== "");
+
+    if (!takesCustomWords(model) || clean.length === 0) {
+        return undefined;
+    }
+
+    return {
+        model: { modelingUnit: "bpe", bpeVocab: join(folder, "bpe.vocab") },
+        recognizer: { decodingMethod: "modified_beam_search", maxActivePaths: 4, hotwordsScore: CUSTOM_WORDS_SCORE },
+        hotwords: [...new Set(clean)].join("/"),
+    };
+}

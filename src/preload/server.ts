@@ -82,6 +82,7 @@ if (hello !== null && typeof hello === "object") {
 
     if (hello.dictation) {
         offerDictation();
+        offerDictationKey(hello.dictationKey);
     }
 }
 
@@ -316,6 +317,60 @@ type DictationMessage =
  * Pocket's mic button and Alt+V work unchanged. The microphone is read here, at 16 kHz, and goes to the main process,
  * which recognises it on this computer.
  */
+/**
+ * The dictation key in this window (src/main/dictation/page-mic.ts): presses the mic Alt+V would use, PiP's while it
+ * shows, else the session's, and none under a sheet or the launcher, as with Alt+V. A click on Pi Pocket's own button, so
+ * its dictation runs and the button shows it.
+ */
+function offerDictationKey(first: string | null): void {
+    let code = first;
+
+    ipcRenderer.on("host:dictation-key", (_event, next: unknown) => {
+        code = typeof next === "string" ? next : null;
+    });
+
+    // The app acts on the key (before-input-event); Pi Pocket never sees it, nor the window's menu an Alt alone.
+    const swallow = (event: KeyboardEvent): void => {
+        if (code !== null && event.code === code) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+    };
+
+    window.addEventListener("keydown", swallow, true);
+    window.addEventListener("keyup", swallow, true);
+
+    const shown = (element: Element | null): element is HTMLElement =>
+        element instanceof HTMLElement && element.isConnected && element.getClientRects().length > 0;
+
+    const mic = (): HTMLElement | undefined => {
+        if (shown(document.querySelector('[data-part~="sheet"]')) || shown(document.querySelector('[data-part~="launcher"]'))) {
+            return undefined;
+        }
+
+        const pip = document.querySelector('[data-part~="pip"] .mic-button');
+
+        if (shown(pip)) {
+            return pip;
+        }
+
+        const boxes = Array.from(document.querySelectorAll('[data-part~="composer"] .mic-button')).filter(shown);
+
+        return boxes.at(-1);
+    };
+
+    ipcRenderer.on("host:dictate", (_event, request: { n: number; action: "toggle" | "stop" }) => {
+        const button = mic();
+        const listening = button?.getAttribute("aria-pressed") === "true";
+
+        if (button !== undefined && (request.action === "toggle" || listening)) {
+            button.click();
+        }
+
+        ipcRenderer.send("host:dictate-answer", request.n, { found: button !== undefined, listening });
+    });
+}
+
 function offerDictation(): void {
     let next = 0;
     const listeners = new Map<number, (message: DictationMessage) => void>();

@@ -25,6 +25,10 @@
         "appId": "io.github.vitalnohj.pipocketgui",
         "productName": "Pi Pocket",
         "artifactName": "pi-pocket-gui-${version}-${os}-${arch}.${ext}",
+        "npmRebuild": false,
+        "asarUnpack": [
+            "node_modules/uiohook-napi/**/*.node"
+        ],
         "directories": {
             "output": "release"
         },
@@ -108,6 +112,7 @@
         "typescript": "5.9.3"
     },
     "dependencies": {
-        "electron-updater": "6.8.11"
+        "electron-updater": "6.8.11",
+        "uiohook-napi": "1.5.5"
     }
 }

@@ -43,6 +43,7 @@ export function configState(): ConfigState {
         update: state.updates?.state() ?? { method: "source", status: "idle" },
         local,
         dictation: state.dictation!.state(),
+        anywhere: state.anywhere?.state() ?? { status: "off", copyOnly: false },
         billionContext: state.billionContext!.state(),
         runner: { ...state.runner!.state(), ...(currentOrigin() === "null" ? {} : { suggestedServer: currentOrigin() }) },
     };

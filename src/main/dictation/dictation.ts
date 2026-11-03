@@ -10,7 +10,7 @@
  * On disk, in <userData>/dictation: engine-<version>/ (node_modules with the addon, silero_vad.onnx), models/<id>/.
  * A folder takes its name only once all its files are in and checked.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, readdir, rename, rm } from "node:fs/promises";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
@@ -18,6 +18,8 @@ import { execFile } from "node:child_process";
 import { ipcMain, utilityProcess, type IpcMainEvent, type IpcMainInvokeEvent, type UtilityProcess } from "electron";
 import type { DictationAction, DictationState, Settings } from "../../shared/types";
 import {
+    bpeVocab,
+    customWords,
     ENGINE_JS,
     ENGINE_VERSION,
     engineNative,
@@ -57,6 +59,14 @@ export type PageMessage =
     | { id: number; type: "error"; error: string }
     | { id: number; type: "end" };
 
+/** A dictation of the app's own (Dictate anywhere), not the page's: what it hears, and how it sends audio and ends. */
+export interface Listening {
+    id: number;
+    audio: (samples: Float32Array) => void;
+    /** Ends it: `drop` throws away what was said; else the last phrase is recognised first. */
+    stop: (drop: boolean) => void;
+}
+
 /** A loaded model is kept this long after the last dictation, then its memory is freed. */
 const IDLE_MS = 10 * 60 * 1000;
 
@@ -81,6 +91,9 @@ export function setUpDictation(host: DictationHost) {
     let idleTimer: NodeJS.Timeout | undefined;
     /** The dictation that listens now (only one, in the whole app). */
     let active: number | undefined;
+    /** Dictations of the app's own (negative ids, so they never meet the page's), and who hears each. */
+    const owners = new Map<number, (message: PageMessage) => void>();
+    let nextOwn = 0;
     let status: DictationState["status"] = "idle";
 
     const scan = async (): Promise<void> => {
@@ -276,8 +289,8 @@ export function setUpDictation(host: DictationHost) {
         idleTimer = undefined;
 
         if (active !== undefined && !keepActive) {
-            host.toPage({ id: active, type: "error", error: "aborted" });
-            host.toPage({ id: active, type: "end" });
+            deliver({ id: active, type: "error", error: "aborted" });
+            deliver({ id: active, type: "end" });
             active = undefined;
         }
 
@@ -288,6 +301,21 @@ export function setUpDictation(host: DictationHost) {
         loading = undefined;
         status = "idle";
         host.changed();
+    };
+
+    /** A message goes to whoever started the dictation: the app's own listener, or the server's page. */
+    const deliver = (message: PageMessage): void => {
+        const owner = owners.get(message.id);
+
+        if (message.type === "end") {
+            owners.delete(message.id);
+        }
+
+        if (owner !== undefined) {
+            owner(message);
+        } else if (message.id > 0) {
+            host.toPage(message);
+        }
     };
 
     const post = (message: WorkerIn): void => {
@@ -305,13 +333,13 @@ export function setUpDictation(host: DictationHost) {
                 loadFailed?.(new Error(message.message));
                 break;
             case "result":
-                host.toPage({ id: message.id, type: "result", text: message.text, final: message.final });
+                deliver({ id: message.id, type: "result", text: message.text, final: message.final });
                 break;
             case "error":
-                host.toPage({ id: message.id, type: "error", error: message.message });
+                deliver({ id: message.id, type: "error", error: message.message });
                 break;
             case "ended":
-                host.toPage({ id: message.id, type: "end" });
+                deliver({ id: message.id, type: "end" });
 
                 if (active === message.id) {
                     active = undefined;
@@ -368,8 +396,8 @@ export function setUpDictation(host: DictationHost) {
             loadFailed?.(new Error(why));
 
             if (active !== undefined) {
-                host.toPage({ id: active, type: "error", error: why.replace(/\.$/, "") });
-                host.toPage({ id: active, type: "end" });
+                deliver({ id: active, type: "error", error: why.replace(/\.$/, "") });
+                deliver({ id: active, type: "end" });
                 active = undefined;
             }
 
@@ -392,8 +420,8 @@ export function setUpDictation(host: DictationHost) {
 
                 // The dictation waiting for this model ends: the page stops its microphone.
                 if (active !== undefined) {
-                    host.toPage({ id: active, type: "error", error: message });
-                    host.toPage({ id: active, type: "end" });
+                    deliver({ id: active, type: "error", error: message });
+                    deliver({ id: active, type: "end" });
                     active = undefined;
                 }
 
@@ -406,17 +434,67 @@ export function setUpDictation(host: DictationHost) {
         });
 
         const threads = Math.max(1, Math.min(4, availableParallelism() - 1));
+        const folder = join(modelsDir, model.id);
+        const words = customWords(model, folder, host.settings().dictation.words, join);
 
-        post({
-            type: "load",
-            engine: engineDir,
-            vad: join(engineDir, VAD.name),
-            config: modelConfig(model, join(modelsDir, model.id), threads, join),
-            live: host.settings().dictation.live,
-            longest: longestPhraseSeconds(model),
-        });
+        // Custom words need the model's word pieces as a BPE vocabulary, made once from its tokens. Written before
+        // "load" is posted: the worker takes messages in order, and "start" follows at once.
+        let vocabulary: string | undefined;
+
+        try {
+            if (words !== undefined) {
+                writeVocabulary(folder);
+            }
+        } catch (error) {
+            vocabulary = (error as Error).message;
+        }
+
+        if (vocabulary !== undefined) {
+            setImmediate(() => loadFailed?.(new Error(`Custom words: ${vocabulary}`)));
+        } else {
+            post({
+                type: "load",
+                engine: engineDir,
+                vad: join(engineDir, VAD.name),
+                config: { ...modelConfig(model, folder, threads, join), ...(words?.model ?? {}) },
+                recognizer: words?.recognizer ?? {},
+                hotwords: words?.hotwords ?? "",
+                live: host.settings().dictation.live,
+                longest: longestPhraseSeconds(model),
+            });
+        }
 
         return loading;
+    };
+
+    const writeVocabulary = (folder: string): void => {
+        const target = join(folder, "bpe.vocab");
+
+        if (!existsSync(target)) {
+            writeFileSync(target, bpeVocab(readFileSync(join(folder, "tokens.txt"), "utf8")));
+        }
+    };
+
+    /** Starts a dictation: the model loads while the microphone starts, and the worker keeps the audio until it is ready. */
+    const begin = (id: number, model: SpeechModel): void => {
+        // A dictation still listening (another box, or the app's own): it ends first.
+        if (active !== undefined && active !== id) {
+            post({ type: "abort", id: active });
+        }
+
+        active = id;
+        clearTimeout(idleTimer);
+        void load(model).catch(() => undefined);
+        post({ type: "start", id });
+        status = "listening";
+        host.changed();
+    };
+
+    /** The model chosen, when it and the engine are on this computer. */
+    const ready = (): SpeechModel | undefined => {
+        const chosen = modelById(host.settings().dictation.model);
+
+        return chosen !== undefined && installed.has(chosen.id) && engineReady ? chosen : undefined;
     };
 
     const idle = (): void => {
@@ -430,32 +508,30 @@ export function setUpDictation(host: DictationHost) {
 
     // ——— The server page's calls ———
 
+    const stopOne = (id: number, drop: boolean): void => {
+        if (worker === undefined) {
+            deliver({ id, type: "end" });
+
+            return;
+        }
+
+        post({ type: drop ? "abort" : "stop", id });
+    };
+
     ipcMain.handle("host:dictation-start", async (event, id: unknown) => {
         if (!host.fromServerPage(event) || typeof id !== "number") {
             return { error: "service-not-allowed" };
         }
 
-        const chosen = modelById(host.settings().dictation.model);
+        const chosen = ready();
 
-        if (chosen === undefined || !installed.has(chosen.id) || !engineReady) {
+        if (chosen === undefined) {
             host.needModel();
 
             return { error: "no speech model is downloaded yet (GUI Settings → Dictation)" };
         }
 
-        // A dictation still listening (another box): it ends first.
-        if (active !== undefined && active !== id) {
-            post({ type: "abort", id: active });
-        }
-
-        active = id;
-        clearTimeout(idleTimer);
-
-        // The model loads while the mic starts; the worker keeps the audio until it is ready.
-        void load(chosen).catch(() => undefined);
-        post({ type: "start", id });
-        status = "listening";
-        host.changed();
+        begin(id, chosen);
 
         return { ok: true };
     });
@@ -471,18 +547,43 @@ export function setUpDictation(host: DictationHost) {
             return;
         }
 
-        if (worker === undefined) {
-            host.toPage({ id, type: "end" });
-
-            return;
-        }
-
-        post({ type: drop === true ? "abort" : "stop", id });
+        stopOne(id, drop === true);
     });
 
     void scan();
 
     return {
+        /** A speech model is ready to use. */
+        ready: (): boolean => ready() !== undefined,
+
+        /** Starts a dictation of the app's own; undefined when no model is downloaded. */
+        listen(owner: (message: PageMessage) => void): Listening | undefined {
+            const chosen = ready();
+
+            if (chosen === undefined) {
+                return undefined;
+            }
+
+            const id = --nextOwn;
+
+            owners.set(id, owner);
+            begin(id, chosen);
+
+            return {
+                id,
+                audio: (samples) => {
+                    if (active === id) {
+                        post({ type: "audio", id, samples });
+                    }
+                },
+                stop: (drop) => {
+                    if (owners.has(id)) {
+                        stopOne(id, drop);
+                    }
+                },
+            };
+        },
+
         state(): DictationState {
             const chosen = host.settings().dictation.model;
 

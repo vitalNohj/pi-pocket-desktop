@@ -52,7 +52,7 @@ if (command === "shot") {
 
     const result = await send("Page.captureScreenshot", {
         format: "png",
-        ...(scale === 1 ? {} : { clip: { x: 0, y: 0, width: metrics.clientWidth, height: metrics.clientHeight, scale } }),
+        ...(scale === 1 ? {} : { clip: { x: metrics.pageX, y: metrics.pageY, width: metrics.clientWidth, height: metrics.clientHeight, scale } }),
     });
     const { writeFileSync } = await import("node:fs");
 
