@@ -33,6 +33,9 @@ if (hello !== null && typeof hello === "object") {
         apiVersion: API_VERSION,
         capabilities: ["menu", "badge", "notify", "visibility", "pinned", "open", "newSession", "saveFile"],
         saveFile: (input: unknown) => ipcRenderer.invoke("host:save-file", input),
+        // The heading of this app's group in Pi Pocket's menu (Pi Pocket's docs/embedders.md). An older Pi Pocket
+        // does not ask for it, and shows its own heading.
+        menuTitle: () => "Pi Pocket GUI",
         menuItems: () => [{ id: "server-settings", label: "GUI Settings…", hint: "This desktop app's settings" }],
         invoke: (id: unknown) => {
             if (typeof id !== "string") {
