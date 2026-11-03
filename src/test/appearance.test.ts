@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { pageCss, translucencySupport } from "../main/window/appearance";
+import { pageCss, translucencySupport, windowOptions } from "../main/window/appearance";
 import { defaultSettings, validateSettings } from "../main/core/settings";
 
 test("macOS and Windows 11 22H2 blur at any time; Linux needs the window made see-through at start", () => {
@@ -9,6 +9,18 @@ test("macOS and Windows 11 22H2 blur at any time; Linux needs the window made se
     assert.equal(translucencySupport("win32", "10.0.19045", false).kind, "unsupported");
     assert.deepEqual(translucencySupport("linux", "6.8.0", false), { kind: "restart" });
     assert.deepEqual(translucencySupport("linux", "6.8.0", true), { kind: "live", blur: "compositor" });
+});
+
+test("a macOS window is always made with vibrancy, so its compositor clears what it redraws", () => {
+    const off = { ...defaultSettings().appearance, translucent: false, macMaterial: "hud" as const };
+
+    // Off too: setVibrancy later cannot make an opaque compositor see-through, and see-through views then ghost.
+    assert.deepEqual(windowOptions("darwin", off), { vibrancy: "hud" });
+    assert.deepEqual(windowOptions("darwin", { ...off, translucent: true }), { vibrancy: "hud" });
+    assert.deepEqual(windowOptions("linux", off), {});
+    assert.deepEqual(windowOptions("linux", { ...off, translucent: true }), { transparent: true });
+    // Windows' backdrop material sets the compositor's state itself, at any time.
+    assert.deepEqual(windowOptions("win32", { ...off, translucent: true }), {});
 });
 
 test("the page's grounds take the opacity; what floats over them stays solid", () => {
