@@ -445,7 +445,19 @@ export function setUpLocalServer(host: LocalHost) {
 
     // ——— The app's own update check ———
 
-    const checkUpdates = async (force: boolean): Promise<void> => {
+    // One check at a time: two at once could both build a runtime, and each one's prune would remove the other's. A check
+    // asked for while one runs (Settings opened again, Check now) joins it.
+    let checking: Promise<void> | undefined;
+
+    const checkUpdates = (force: boolean): Promise<void> => {
+        checking ??= checkOnce(force).finally(() => {
+            checking = undefined;
+        });
+
+        return checking;
+    };
+
+    const checkOnce = async (force: boolean): Promise<void> => {
         const settings = host.settings();
 
         if ((!force && !settings.local.keepUpdated) || building !== undefined || update.status === "building") {
@@ -503,8 +515,8 @@ export function setUpLocalServer(host: LocalHost) {
         }
     };
 
-    // One timer at most, however many ways it is started.
-    const updates = new UpdateSchedule(() => checkUpdates(false), () => host.settings().updates.intervalHours);
+    // Checks at the start, then each time Settings opens (`update-schedule.ts`).
+    const updates = new UpdateSchedule(() => checkUpdates(false));
 
     /** The runtime an update built becomes the current one; the one before stays until the new one has started. */
     const adoptNext = async (): Promise<boolean> => {
@@ -942,7 +954,7 @@ export function setUpLocalServer(host: LocalHost) {
         },
         /** The person's own environment, as a terminal has it, for what the app starts. */
         environment: loginEnvironment,
-        /** Look for newer versions now and then, also while another server is in use (the runner runs from it). */
+        /** Look for newer versions now and when Settings opens, also while another server is in use (the runner runs from it). */
         keepCurrent: (): void => {
             updates.ensure();
         },
@@ -1001,7 +1013,8 @@ export function setUpLocalServer(host: LocalHost) {
             set("absent");
             host.down({ kind: "unavailable" });
         },
-        rescheduleUpdates: (): void => updates.plan(),
+        /** The person opened Settings: look for newer versions, when this Pi Pocket is kept current. */
+        settingsOpened: (): void => updates.settingsOpened(),
         /** The tray's line for a new version waiting for a restart. */
         trayItem: (): { label: string; click: () => void } | undefined =>
             update.status === "ready" && child !== undefined

@@ -16,7 +16,8 @@ const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
 /** Run the actual built renderer. Only its DOM and IPC boundary are stubbed, not its connection logic. */
 async function page(probe: (input: string) => Promise<ProbeResult>, initial: Partial<ConfigState> = {}) {
     const makeElement = () => ({
-        value: "", textContent: "", hidden: false, disabled: false, checked: false, title: "",
+        value: "", textContent: "", hidden: false, disabled: false, checked: false, title: "", open: false,
+        className: "", type: "", children: [] as unknown[],
         dataset: {} as Record<string, string>,
         firstElementChild: { style: { width: "" } },
         style: { setProperty() {} },
@@ -26,7 +27,8 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
         addEventListener(name: string, listener: (event: { preventDefault(): void }) => void) { this.listeners.set(name, listener); },
         fire(name: string) { this.listeners.get(name)?.({ preventDefault() {} }); },
         querySelectorAll: () => [],
-        replaceChildren() {},
+        append(...children: unknown[]) { this.children.push(...children); },
+        replaceChildren() { this.children = []; },
     });
     const html = readFileSync(join(__dirname, "..", "renderer", "config", "index.html"), "utf8");
     const nodes = new Map([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => [match[1]!, makeElement()]));
@@ -58,7 +60,16 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
     let focus: (section: string) => void = () => undefined;
     const connections: { url: string; unverified: boolean }[] = [];
     const views: string[] = [];
+    const folderActions: (string | undefined)[] = [];
     const gui = {
+        runnerFolders: async (folder?: string) => {
+            folderActions.push(folder);
+
+            if (folder !== undefined) {
+                state = { ...state, runner: { ...state.runner, folders: (state.runner.folders ?? []).filter((saved) => saved !== folder) } };
+                render(state);
+            }
+        },
         view: async (side: "local" | "remote") => { views.push(side); state = { ...state, viewing: side }; render(state); },
         state: async () => state,
         probe,
@@ -86,7 +97,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
         URL,
         window: { gui, clearInterval() {}, setInterval() {}, clearTimeout() {}, setTimeout() {}, scrollTo() {} },
         document: {
-            documentElement: makeElement(), body: makeElement(), getElementById: (id: string) => element(id),
+            documentElement: makeElement(), body: makeElement(), getElementById: (id: string) => element(id), createElement: makeElement,
             querySelectorAll: (selector: string) => selector === 'input[name="mode"]' ? [radio, parts] : selector === 'input[name="where"]' ? [where.local, where.remote] : [],
             querySelector: (selector: string) => selector.includes('name="mode"') ? radio : selector.includes("translucent") ? translucent : opacity,
         },
@@ -94,7 +105,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
     await flush();
 
     return {
-        element, connections, views, settingsOpened: () => settingsOpened,
+        element, connections, views, folderActions, settingsOpened: () => settingsOpened,
         focus: async (section: string) => { focus(section); await flush(); },
         push: async (patch: Partial<ConfigState>, drop: (keyof ConfigState)[] = []) => {
             state = { ...state, ...patch };
@@ -227,6 +238,27 @@ test("a dropped connection shows Disconnected with its reason, an error on the c
     assert.equal(screen.element("choice-remote-error").textContent, "example.com stopped answering");
     assert.equal(screen.element("choice-local-error").hidden, true);
     assert.equal(screen.element("connect").disabled, false, "Connect works as before");
+});
+
+test("the Runner card reads allowed folders when the screen loads, renders paths as text, and removes one", async () => {
+    const folder = "/home/person/<project>";
+    const screen = await page(async () => found, {
+        runner: { status: "connected", enabled: true, available: true, log: [], folders: [folder], link: { server: url, id: "id", name: "Computer" } },
+    });
+
+    await flush();
+    assert.deepEqual(screen.folderActions, [undefined]);
+    const row = screen.element("runner-folders").children[0] as ReturnType<typeof screen.element>;
+    const [name, remove] = row.children as ReturnType<typeof screen.element>[];
+
+    assert.equal(name!.textContent, folder);
+    assert.equal(remove!.textContent, "Remove");
+    remove!.fire("click");
+    await flush();
+    assert.deepEqual(screen.folderActions, [undefined, folder]);
+    const empty = screen.element("runner-folders").children[0] as ReturnType<typeof screen.element>;
+
+    assert.equal(empty.textContent, "No allowed folders yet. A folder is added when you allow a session in it.");
 });
 
 test("a menu opens Home, a section opens Settings at it, and a new failure brings Home back", async () => {

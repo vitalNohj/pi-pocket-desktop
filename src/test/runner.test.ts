@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { setUpRunner, type RunnerConfirmation, type RunnerHost } from "../main/runner/runner";
+import { parseRunnerFolders, setUpRunner, type RunnerConfirmation, type RunnerHost } from "../main/runner/runner";
 import { validateSettings } from "../main/core/settings";
 
 function host(home: string, overrides: Partial<RunnerHost> = {}): RunnerHost {
@@ -54,7 +54,7 @@ test("without a link it is unlinked, and with one but no runtime it says what to
 /** A stand-in launcher: links, saves confirmation choices, and records its arguments and stdin. */
 function fakeRuntime(
     home: string,
-    options: { script?: string; confirmError?: string; legacyError?: string } = {},
+    options: { script?: string; confirmError?: string; legacyError?: string; foldersWarning?: string } = {},
 ): { node: string; launcher: string; bin: string } {
     const launcher = join(home, "fake-launcher.mjs");
 
@@ -70,6 +70,18 @@ if (args[1] === "link") {
     if (args[3] === "BAD-CODE") { console.error("pi-pocket runner: refused the code"); process.exit(1); }
     writeFileSync(file, JSON.stringify({ server: args[2], id: "id", name: "Mac", key: "k" }));
     console.log("Linked.");
+} else if (args[1] === "folders") {
+    const link = JSON.parse(readFileSync(file, "utf8"));
+    if (args[2] === "remove") {
+        const folders = link.settings?.folders ?? [];
+        if (!folders.includes(args[3])) { console.error("No allowed folder matches"); process.exit(1); }
+        link.settings = { ...link.settings, folders: folders.filter(folder => folder !== args[3]) };
+        writeFileSync(file, JSON.stringify(link));
+    } else {
+        const warning = ${JSON.stringify(options.foldersWarning ?? "")};
+        if (warning) { console.error(warning); }
+        console.log(JSON.stringify(link.settings?.folders ?? []));
+    }
 } else if (args[1] === "settings" && args[2] === "confirm") {
     const error = ${JSON.stringify(options.confirmError ?? "")};
     if (error) { console.error(error); process.exit(1); }
@@ -113,6 +125,7 @@ const request: RunnerConfirmation = {
     person: "Owner",
     folder: "/Users/me/project",
     kind: "new",
+    broad: false,
 };
 
 const confirmLine = (value: RunnerConfirmation) => `console.log(${JSON.stringify(`PI-POCKET-CONFIRM ${JSON.stringify(value)}`)});`;
@@ -441,6 +454,73 @@ for (const legacyError of ['Unknown option "--confirm-via"', "unknown command: c
         }
     });
 }
+
+test("folder lists contain only strings, including long lists, and invalid output fails visibly", () => {
+    const folders = Array.from({ length: 400 }, (_, i) => `/Users/me/projects/folder-${String(i)}`);
+
+    assert.deepEqual(parseRunnerFolders(JSON.stringify(folders)), folders);
+    assert.deepEqual(parseRunnerFolders("[]"), []);
+    for (const invalid of ["{}", '["/work", false]', '"/work"', "unknown command"]) {
+        assert.throws(() => parseRunnerFolders(invalid));
+    }
+});
+
+test("the card preserves folder JSON, reads and removes with the same runtime, and does not restart", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const runtime = fakeRuntime(home, { foldersWarning: "A warning on stderr is not part of the folder JSON." });
+    const runner = setUpRunner(host(home, { runtime: () => runtime }));
+    const folders = [
+        "/work/project?token=abc cache", "/work/project?token=abc", "/work/project&token=abc", "/work/雪😀", "/work/ends with a space ",
+        ...Array.from({ length: 400 }, (_, i) => `/Users/me/projects/folder-${String(i)}`),
+    ];
+    const file = join(home, "runner.json");
+
+    try {
+        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        await until(() => runner.state().status === "connected", "connected");
+        const link = JSON.parse(readFileSync(file, "utf8"));
+
+        link.settings = { folders };
+        writeFileSync(file, JSON.stringify(link));
+        await runner.refreshFolders();
+        assert.deepEqual(runner.state().folders, folders);
+        assert.deepEqual(calls(home).filter((args) => args[1] === "folders").at(-1), ["runner", "folders", "--json", "--config", file]);
+        await runner.removeFolder(folders[0]!);
+        assert.deepEqual(runner.state().folders, folders.slice(1));
+        assert.deepEqual(calls(home).find((args) => args[2] === "remove"), ["runner", "folders", "remove", folders[0], "--config", file]);
+        assert.equal(calls(home).filter((args) => args[1] === "--confirm-via").length, 1);
+        await assert.rejects(runner.removeFolder("/unknown"), /No allowed folder matches/);
+        assert.match(runner.state().foldersError ?? "", /Could not remove allowed folder/);
+    } finally {
+        await runner.quit();
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test("a completed Allow refreshes folders only after the runner saves, including move and broad questions", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const move = { ...request, kind: "move" as const };
+    const runtime = fakeRuntime(home, { script: `${confirmLine(move)}
+        process.stdin.on("data", () => {
+            const link = JSON.parse(readFileSync(file, "utf8"));
+            link.settings = { folders: [${JSON.stringify(request.folder)}] };
+            writeFileSync(file, JSON.stringify(link));
+            ${endLine(request.id)}
+        });` });
+    const asked: RunnerConfirmation[] = [];
+    const runner = setUpRunner(host(home, { runtime: () => runtime, ask: async (value) => { asked.push(value); return true; } }));
+
+    try {
+        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        await until(() => runner.state().folders?.length === 1, "the saved folder after Allow");
+        assert.deepEqual(asked, [move]);
+        assert.deepEqual(runner.state().folders, [request.folder]);
+        assert.equal(runner.state().foldersError, undefined);
+    } finally {
+        await runner.quit();
+        rmSync(home, { recursive: true, force: true });
+    }
+});
 
 test("linking installs Pi Pocket first when no runtime has the runner, and says so when it still has none", async () => {
     const home = mkdtempSync(join(tmpdir(), "runner-"));

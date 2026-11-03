@@ -80,11 +80,6 @@ export interface Settings {
         /** The longest call text an approval notification shows; longer ones are cut and marked. */
         maxCallLength: number;
     };
-    updates: {
-        /** Look for new versions of this app. Pi Pocket itself updates on the server. */
-        check: boolean;
-        intervalHours: number;
-    };
     /** This computer's Pi Pocket (src/main/local-server/local-server.ts). A change takes a restart of it. */
     local: {
         /** The folder new sessions start in; empty: the home folder. */
@@ -164,6 +159,9 @@ export interface RunnerState {
     enabled: boolean;
     /** The confirmation setting could not be applied, or this runner does not support it. */
     confirmError?: string;
+    /** Allowed folders on this computer, read by the runner CLI. Undefined until first read. */
+    folders?: string[];
+    foldersError?: string;
     /** An installed Pi Pocket on this computer has the runner. */
     available: boolean;
     /** The server the app uses now, to fill in the link form's address. */
@@ -521,6 +519,8 @@ export interface GuiConfigApi {
     showDictationFolder(): Promise<void>;
     billionContext(action: BillionContextAction): Promise<void>;
     runner(action: RunnerAction): Promise<void>;
+    /** Read the allowed folders, or remove one. */
+    runnerFolders(remove?: string): Promise<void>;
     /** Link this computer with a code from the server's Menu → Runners; rejects with the runner's message. */
     linkRunner(request: RunnerLinkRequest): Promise<void>;
     /** The main process asks to show a section of the settings, such as "dictation". */

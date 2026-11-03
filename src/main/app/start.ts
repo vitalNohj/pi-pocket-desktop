@@ -496,7 +496,6 @@ export async function start(): Promise<void> {
         globalShortcut.unregisterAll();
         appState.gui?.anywhere?.quit();
         appState.gui?.dictation?.quit();
-        appState.gui?.billionContext?.quit();
     });
 
     appState.gui.anywhere = setUpAnywhere({

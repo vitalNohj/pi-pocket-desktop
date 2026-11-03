@@ -97,9 +97,6 @@ export function registerIpc(): void {
         }
 
         state.anywhere?.settingsChanged();
-        state.updates?.reschedule();
-        state.local?.rescheduleUpdates();
-        state.billionContext?.reschedule();
 
         if (
             before.runner.confirmSessions !== state.settings.runner.confirmSessions ||
@@ -229,6 +226,20 @@ export function registerIpc(): void {
         if (appState.gui!.settings.server.mode !== "local") {
             appState.gui!.local!.keepCurrent();
         }
+    });
+
+    handle("config:runner-folders", (_event, remove: unknown) => {
+        const runner = appState.gui!.runner!;
+
+        if (remove === undefined) {
+            return runner.refreshFolders();
+        }
+
+        if (typeof remove !== "string" || remove.length === 0) {
+            throw new Error("Not a folder");
+        }
+
+        return runner.removeFolder(remove);
     });
 
     handle("config:runner", async (_event, action) => {

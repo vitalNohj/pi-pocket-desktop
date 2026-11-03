@@ -30,7 +30,9 @@ export interface RunnerConfirmation {
     computer: string;
     person: string;
     folder: string;
-    kind: "new" | "fork";
+    kind: "new" | "fork" | "move";
+    /** Older runners omit this: use the session-only warning rather than promise a saved folder. */
+    broad?: boolean;
 }
 
 export interface RunnerHost {
@@ -84,6 +86,9 @@ export function setUpRunner(host: RunnerHost) {
     let legacyLauncher: string | undefined;
     let confirmError: string | undefined;
     let confirmationSync = Promise.resolve();
+    let folders: string[] | undefined;
+    let foldersError: string | undefined;
+    let foldersSync = Promise.resolve();
 
     const readLink = (): Link | undefined => {
         try {
@@ -128,24 +133,51 @@ export function setUpRunner(host: RunnerHost) {
                 stdio: ["ignore", "pipe", "pipe"],
                 windowsHide: true,
             });
+            const folderJson = args[0] === "folders" && args[1] === "--json";
+            let stdout = "";
             let output = "";
-            const keep = (chunk: Buffer) => {
-                output = `${output}${chunk.toString("utf8")}`.slice(-8000);
+            const keep = (chunk: string) => {
+                output = `${output}${chunk}`.slice(-8000);
             };
 
-            proc.stdout.on("data", keep);
+            proc.stdout.setEncoding("utf8");
+            proc.stderr.setEncoding("utf8");
+            proc.stdout.on("data", (chunk: string) => {
+                // Machine-readable folder paths must not be truncated, redacted, or mixed with stderr.
+                if (folderJson) {
+                    stdout += chunk;
+                }
+
+                keep(chunk);
+            });
             proc.stderr.on("data", keep);
             proc.on("error", fail);
             proc.on("close", (code) => {
                 const text = output.split("\n").map(plain).filter(Boolean).join("\n");
 
                 if (code === 0) {
-                    done(text);
+                    done(folderJson ? stdout : text);
                 } else {
                     fail(new Error(text.replace(/^pi-pocket runner: /gm, "") || `The runner stopped with code ${String(code)}.`));
                 }
             });
         });
+    };
+
+    /** Read through the runner CLI, never expose its link key to the settings page. */
+    const refreshFolders = (): Promise<void> => {
+        foldersSync = foldersSync.then(async () => {
+            try {
+                folders = readLink() === undefined ? [] : parseRunnerFolders(await runOnce(["folders", "--json"]));
+                foldersError = undefined;
+            } catch (error) {
+                foldersError = `Could not read allowed folders: ${(error as Error).message}`;
+            }
+
+            host.changed();
+        });
+
+        return foldersSync;
     };
 
     /** Serialize writes so a quick second setting change is always applied last. No link yet is not an error. */
@@ -294,6 +326,8 @@ export function setUpRunner(host: RunnerHost) {
 
                     questions.delete(value.id);
                     question?.controller.abort();
+                    // New runners end the question after saving an Allow answer.
+                    void refreshFolders();
                 } else if (isConfirmation(value)) {
                     if (!questions.has(value.id)) {
                         questions.set(value.id, { request: value, controller: new AbortController() });
@@ -449,6 +483,8 @@ export function setUpRunner(host: RunnerHost) {
                 enabled: host.enabled(),
                 ...(confirmationProblem === undefined ? {} : { confirmError: confirmationProblem }),
                 available: host.runtime() !== undefined,
+                ...(folders === undefined ? {} : { folders: [...folders] }),
+                ...(foldersError === undefined ? {} : { foldersError }),
                 log: lines.slice(-40),
             };
         },
@@ -491,6 +527,7 @@ export function setUpRunner(host: RunnerHost) {
                     await syncConfirmation();
                     failures = 0;
                     await host.setEnabled(true);
+                    await refreshFolders();
                 } finally {
                     // Linked, or not: the link there is now (the new one, or the one before) runs again.
                     holding = false;
@@ -507,6 +544,8 @@ export function setUpRunner(host: RunnerHost) {
                     await confirmationSync;
                     await rm(linkFile, { force: true });
                     confirmError = undefined;
+                    folders = [];
+                    foldersError = undefined;
                     set("unlinked");
                 } finally {
                     holding = false;
@@ -530,6 +569,21 @@ export function setUpRunner(host: RunnerHost) {
                 });
             }
         },
+        refreshFolders,
+        removeFolder: (folder: string): Promise<void> =>
+            step("Removing allowed folder…", async () => {
+                try {
+                    await runOnce(["folders", "remove", folder]);
+                    foldersError = undefined;
+                } catch (error) {
+                    foldersError = `Could not remove allowed folder: ${(error as Error).message}`;
+                    host.changed();
+
+                    throw error;
+                }
+
+                await refreshFolders();
+            }),
         /** The setting already changed. The runner reads the saved choice for each request; keep it running. */
         confirmChanged: syncConfirmation,
         restart: async (): Promise<void> => {
@@ -551,6 +605,7 @@ export function setUpRunner(host: RunnerHost) {
         quit: async (): Promise<void> => {
             quitting = true;
             await stop();
+            await foldersSync;
         },
     };
 }
@@ -563,7 +618,19 @@ function isConfirmation(value: { id: number }): value is RunnerConfirmation {
     const request = value as Partial<RunnerConfirmation>;
 
     return typeof request.server === "string" && typeof request.computer === "string" && typeof request.person === "string"
-        && typeof request.folder === "string" && (request.kind === "new" || request.kind === "fork");
+        && typeof request.folder === "string" && (request.kind === "new" || request.kind === "fork" || request.kind === "move")
+        && (request.broad === undefined || typeof request.broad === "boolean");
+}
+
+/** `runner folders --json` must return only folder strings. Fail visibly for unsupported or broken runners. */
+export function parseRunnerFolders(text: string): string[] {
+    const value: unknown = JSON.parse(text);
+
+    if (!Array.isArray(value) || !value.every((folder: unknown) => typeof folder === "string")) {
+        throw new Error("The runner did not return a folder list. Update Pi Pocket on this computer.");
+    }
+
+    return value as string[];
 }
 
 function readLines(stream: NodeJS.ReadableStream, listener: (line: string) => void): void {
