@@ -6,7 +6,7 @@
  *   and no permission. With no mic to press (a sheet open, no session), it dictates anywhere instead, if that is on.
  * - Any other app, with Dictate anywhere on: the keyboard hook hears it, and the words are pasted where the cursor is
  *   (src/main/dictation/anywhere.ts).
- * - GUI Settings in front: nothing.
+ * - GUI Settings in front: it dictates anywhere, if that is on, so the words go into the box you type in there.
  *
  * A recording belongs to where it started: the next press (or letting go) ends it there, wherever you are by then.
  */
@@ -20,8 +20,6 @@ export interface DictationKeyHost {
     settings: () => Settings;
     /** Pi Pocket's window has the focus and shows Pi Pocket (not GUI Settings). */
     pageInFront: () => boolean;
-    /** GUI Settings is in front: the key does nothing there. */
-    settingsInFront: () => boolean;
     pageMic: (action: PageMicAction) => Promise<PageMicAnswer>;
     anywhere: () =>
         | {
@@ -66,12 +64,6 @@ export function setUpDictationKey(host: DictationKeyHost) {
         if (anywhere?.recording() === true) {
             trigger?.reset();
             anywhere.stop(false);
-
-            return;
-        }
-
-        if (host.settingsInFront()) {
-            trigger?.reset();
 
             return;
         }
