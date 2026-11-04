@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { join } from "node:path";
 import { test } from "node:test";
-import { domKey, HOLD_MS, KEY, keptType, keyLabel, needsMask, pasteText, Trigger, triggerKey } from "../main/dictation/anywhere-keys";
+import { domKey, HOLD_MS, KEY, keptType, keyLabel, needsMask, pasteText, pillPlace, Trigger, triggerKey } from "../main/dictation/anywhere-keys";
 import { bpeVocab, customWords, modelById, MODELS } from "../main/dictation/dictation-catalog";
 import { defaultSettings, validateSettings } from "../main/core/settings";
 
@@ -170,4 +170,15 @@ test("resume: a press that would stop starts after all, and letting go then stop
     trigger.resume(1000);
     assert.ok(trigger.recording);
     assert.equal(trigger.up(K, 1000 + HOLD_MS + 1), "stop");
+});
+
+test("the pill goes to the top when the pointer is in the screen's lower half", () => {
+    const area = { x: 0, y: 25, width: 1440, height: 875 };
+    const size = { width: 340, height: 72 };
+
+    assert.deepEqual(pillPlace(area, { x: 300, y: 200 }, size), { x: 550, y: 788, edge: "bottom" });
+    assert.deepEqual(pillPlace(area, { x: 300, y: 700 }, size), { x: 550, y: 65, edge: "top" });
+    // A second screen to the right, above the first.
+    assert.equal(pillPlace({ x: 1440, y: -400, width: 1920, height: 1080 }, { x: 2000, y: 300 }, size).edge, "top");
+    assert.equal(pillPlace({ x: 1440, y: -400, width: 1920, height: 1080 }, { x: 2000, y: 0 }, size).edge, "bottom");
 });

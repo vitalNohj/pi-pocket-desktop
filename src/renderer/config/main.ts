@@ -1191,7 +1191,7 @@ function renderAnywhere(next: ConfigState): void {
         : anywhere.status === "recording"
           ? "Recording now"
           : anywhere.status === "working"
-            ? "Recognising"
+            ? "Transcribing"
             : anywhere.status === "error"
               ? "Cannot run: see above"
               : ready

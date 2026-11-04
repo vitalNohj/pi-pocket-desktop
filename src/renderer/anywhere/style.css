@@ -52,6 +52,11 @@ body {
         transform 120ms ease;
 }
 
+/* At the top of the screen, it comes down instead of up. */
+.pill[data-edge="top"] {
+    transform: translateY(-6px) scale(0.98);
+}
+
 .pill[data-shown="true"] {
     opacity: 1;
     transform: none;

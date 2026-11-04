@@ -11,6 +11,7 @@ type PillMessage =
     | { type: "stop" }
     | { type: "show"; state: "working" | "done" | "error"; title: string; detail?: string }
     | { type: "words"; text: string }
+    | { type: "edge"; edge: "top" | "bottom" }
     | { type: "hide" };
 
 declare global {
@@ -155,6 +156,9 @@ window.anywhere.listen((message) => {
             break;
         case "words":
             detail.textContent = message.text;
+            break;
+        case "edge":
+            pill.dataset.edge = message.edge;
             break;
         case "hide":
             pill.dataset.shown = "false";
