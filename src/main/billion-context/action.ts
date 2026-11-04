@@ -13,17 +13,8 @@ export async function billionContextAction(action: BillionContextAction): Promis
         case "install":
             await extension.install();
             break;
-        case "update":
-            await extension.update();
-            break;
         case "check":
             await extension.check();
-            break;
-        case "enable":
-            await extension.enable();
-            break;
-        case "disable":
-            await extension.disable();
             break;
         case "show-folder":
             shell.showItemInFolder(join(extension.state().folder, extension.state().installed?.file ?? INTEGRATION.file));
@@ -34,9 +25,9 @@ export async function billionContextAction(action: BillionContextAction): Promis
         case "uninstall": {
             const { response } = await dialog.showMessageBox(state.window, {
                 type: "warning",
-                message: "Remove billion-context-pi-pocket from this computer's Pi Pocket?",
-                detail: `This turns it off and removes its files from ${extension.state().folder}.\n\nIts settings file and its saved compression state stay. Install puts it back.`,
-                buttons: ["Remove", "Cancel"],
+                message: "Uninstall billion-context-pi?",
+                detail: "This removes the downloaded program. Your chats, compression history, and settings stay. Pi Pocket manages context normally until you install it again.",
+                buttons: ["Uninstall", "Cancel"],
                 defaultId: 1,
                 cancelId: 1,
             });

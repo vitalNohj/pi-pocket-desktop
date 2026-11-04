@@ -271,7 +271,7 @@ export function registerIpc(): void {
     });
 
     handle("config:billion-context", (_event, action) => {
-        const actions: BillionContextAction[] = ["install", "update", "uninstall", "check", "enable", "disable", "show-folder", "open-page"];
+        const actions: BillionContextAction[] = ["install", "uninstall", "check", "show-folder", "open-page"];
 
         if (typeof action !== "string" || !(actions as string[]).includes(action)) {
             throw new Error("Not an action");

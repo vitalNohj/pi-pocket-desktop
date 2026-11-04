@@ -1,9 +1,11 @@
 import { strict as assert } from "node:assert";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { runInNewContext } from "node:vm";
+import type { BillionContextState, ExtensionStatus } from "../shared/types";
 import { INTEGRATION, INTEGRATION_PAGE, LEGACY_INTEGRATION, integrationFiles, blobSha, REMOTE_COMMAND, type TreeEntry } from "../main/billion-context/billion-context";
 import { validateSettings } from "../main/core/settings";
 
@@ -76,9 +78,9 @@ test("the remote command uses the renamed repository and refuses legacy installa
     }
 });
 
-test("automatic updates are off unless turned on", () => {
-    assert.equal(validateSettings({}).settings.billionContext.autoUpdate, false);
-    assert.equal(validateSettings({ billionContext: { autoUpdate: true } }).settings.billionContext.autoUpdate, true);
+test("automatic installation and updates are on by default and keep an explicit off choice", () => {
+    assert.equal(validateSettings({}).settings.billionContext.autoUpdate, true);
+    assert.equal(validateSettings({ billionContext: { autoUpdate: false } }).settings.billionContext.autoUpdate, false);
     assert.equal(validateSettings({ billionContext: { autoUpdate: "yes" } }).problems.length, 1);
 });
 
@@ -127,4 +129,106 @@ test("the extension folder stays the running Pi Pocket's until it restarts with 
 
     await local.stop();
     assert.equal(local.dataFolder(), join(home, "data-b"));
+});
+
+/** Run the actual built card renderer with its DOM boundary stubbed. */
+function renderCard(patch: Partial<BillionContextState> = {}) {
+    const html = readFileSync(join(__dirname, "..", "renderer", "config", "index.html"), "utf8");
+    const nodes = new Map([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => [match[1]!, { textContent: "", hidden: false, disabled: false }]));
+    const element = (id: string) => {
+        const node = nodes.get(id);
+
+        assert.ok(node, `Missing #${id}`);
+        return node;
+    };
+    const source = readFileSync(join(__dirname, "..", "renderer", "config", "main.js"), "utf8");
+    const card = source.match(/^function renderBillionContext\(next\) \{[\s\S]*?^\}/m)?.[0];
+
+    assert.ok(card, "The built renderer must contain the card");
+    runInNewContext(`${card}\nrenderBillionContext(state);`, {
+        element,
+        state: { billionContext: {
+            server: "running", foreign: false, updateAvailable: false, folder: "/data/extensions", page: INTEGRATION_PAGE, command: REMOTE_COMMAND, ...patch,
+        } },
+    });
+    return { element, html };
+}
+
+const cardInstalled = { file: INTEGRATION.file, version: "0.1.83", commit: "a".repeat(40), enabled: true };
+const cardStatus = (state: ExtensionStatus["runtime"]["state"], extra: Partial<ExtensionStatus["runtime"]> = {}): ExtensionStatus => ({
+    runtime: { state, installed: state === "installed" || state === "legacy", managed: true, version: "0.1.84", busy: false, availableVersion: "0.1.84", updateAvailable: false, host: "linux-x64", ...extra },
+    defaultOffBehavior: "Pi Pocket manages context",
+});
+
+for (const item of [
+    { name: "no files", patch: {}, status: "Not installed", label: "Install", uninstall: false, check: false },
+    { name: "module off", patch: { installed: { ...cardInstalled, enabled: false } }, status: "Off in Menu → Extensions", label: "Reinstall", uninstall: false, check: true },
+    { name: "installed", patch: { installed: cardInstalled, extension: cardStatus("installed") }, status: "Active · BCP 0.1.84", label: "Reinstall", uninstall: true, check: true },
+    { name: "legacy", patch: { installed: cardInstalled, extension: cardStatus("legacy") }, status: "Active · BCP 0.1.84 (bundled copy)", label: "Reinstall", uninstall: true, check: true },
+    { name: "uninstalled", patch: { installed: cardInstalled, extension: cardStatus("uninstalled") }, status: "Program uninstalled · Pi Pocket manages context", label: "Install", uninstall: false, check: true },
+    { name: "absent", patch: { installed: cardInstalled, extension: cardStatus("absent") }, status: "Program not installed", label: "Install", uninstall: false, check: true },
+    { name: "error", patch: { installed: cardInstalled, extension: cardStatus("error", { error: "Download failed" }) }, status: "Needs repair", label: "Reinstall", uninstall: true, check: true },
+    { name: "bundled", patch: { installed: { ...cardInstalled, bundled: true } }, status: "Active · BCP 0.1.83 (bundled copy)", label: "Reinstall", uninstall: true, check: true },
+    { name: "unavailable pinned status", patch: { installed: cardInstalled }, status: "Program not installed", label: "Reinstall", uninstall: false, check: true },
+] satisfies { name: string; patch: Partial<BillionContextState>; status: string; label: string; uninstall: boolean; check: boolean }[]) {
+    test(`the card shows the ${item.name} state and only the permitted controls`, () => {
+        const card = renderCard(item.patch);
+
+        assert.equal(card.element("bc-status").textContent, item.status);
+        assert.equal(card.element("bc-install").textContent, item.label);
+        assert.equal(card.element("bc-install").hidden, false);
+        assert.equal(card.element("bc-uninstall").hidden, !item.uninstall);
+        assert.equal(card.element("bc-check").hidden, !item.check);
+        assert.equal(card.element("bc-folder").textContent, "/data/extensions");
+        assert.doesNotMatch(card.html, /id="bc-(enable|update|disable)"/);
+        assert.match(card.html, />Check for updates<\/button>/);
+        assert.match(card.html, /Install and update automatically/);
+        if (item.name === "error") assert.equal(card.element("bc-detail").textContent, "Download failed");
+    });
+}
+
+test("the card keeps foreign-copy instructions without offering an installation", () => {
+    const card = renderCard({ foreign: true });
+
+    assert.equal(card.element("bc-status").textContent, "Not installed");
+    assert.match(card.element("bc-detail").textContent, /Installed under another name/);
+    assert.equal(card.element("bc-install").hidden, true);
+});
+
+test("the card shows extension-file and runtime updates on its primary button", () => {
+    for (const patch of [
+        { updateAvailable: true, latest: { commit: "b".repeat(40), version: "0.1.85" }, extension: cardStatus("installed") },
+        { extension: cardStatus("installed", { updateAvailable: true, availableVersion: "0.1.85" }) },
+    ]) {
+        const card = renderCard({ installed: cardInstalled, ...patch });
+
+        assert.equal(card.element("bc-install").textContent, "Update");
+        assert.equal(card.element("bc-detail").textContent, "Update available: BCP 0.1.85");
+    }
+});
+
+test("the card shows local check times and check errors", () => {
+    const extension = cardStatus("installed");
+
+    extension.updates = { checkedAt: 1000, latest: { commit: "a".repeat(40) }, available: false };
+    const checked = renderCard({ installed: cardInstalled, extension });
+
+    assert.equal(checked.element("bc-detail").textContent, `Up to date · checked ${new Date(1000).toLocaleString()}`);
+    extension.updates.error = "GitHub unavailable";
+    assert.equal(renderCard({ installed: cardInstalled, extension }).element("bc-detail").textContent, "GitHub unavailable");
+    delete extension.updates.error;
+    assert.equal(renderCard({ installed: cardInstalled, extension, message: "Check failed" }).element("bc-detail").textContent, "Check failed");
+});
+
+test("the card keeps server-absent, server-stopped, and remote instructions", () => {
+    assert.equal(renderCard({ server: "absent" }).element("bc-detail").textContent, "First, install Pi Pocket under This computer on Home.");
+    const stopped = renderCard({ server: "stopped" });
+
+    assert.equal(stopped.element("bc-detail").textContent, "Start Pi Pocket before installing or turning on the extension.");
+    assert.equal(stopped.element("bc-install").hidden, true);
+    const remote = renderCard({ server: "remote" });
+
+    assert.equal(remote.element("bc-local").hidden, true);
+    assert.equal(remote.element("bc-remote").hidden, false);
+    assert.equal(remote.element("bc-command").textContent, REMOTE_COMMAND);
 });

@@ -9,7 +9,7 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { copyFile, cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import type { BillionContextState, Settings } from "../../shared/types";
+import type { BillionContextState, ExtensionStatus, Settings } from "../../shared/types";
 import { downloadChecked } from "../core/download";
 
 export const INTEGRATION = {
@@ -150,6 +150,9 @@ export function setUpBillionContext(host: BillionContextHost) {
     let message: string | undefined;
     let latest: { commit: string; version?: string } | undefined;
     let checkedAt: number | undefined;
+    let remote: ExtensionStatus | undefined;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    let handledRequest: number | undefined;
     /** What Pi Pocket said about the extension, the last time it was asked. */
     let modules: ExtensionInfo[] = [];
 
@@ -267,12 +270,18 @@ export function setUpBillionContext(host: BillionContextHost) {
     };
 
     /** Install only the pins reviewed and shipped with the extension. Older bundles have no install route. */
-    const installRuntime = async (): Promise<void> => {
+    const installRuntime = async (mode: "explicit" | "auto"): Promise<void> => {
         let answer: unknown;
 
         try {
-            const status = await api("/api/x/billion-context-pi-pocket/status") as { runtime?: { state?: unknown } } | undefined;
-            const action = status?.runtime?.state === "error" ? "repair" : "install";
+            const status = await api("/api/x/billion-context-pi-pocket/status") as ExtensionStatus;
+            const runtime = status.runtime;
+
+            if (mode === "auto" && (runtime.state === "uninstalled" || (runtime.installed && !runtime.updateAvailable))) {
+                return;
+            }
+
+            const action = runtime.state === "error" || (mode === "explicit" && runtime.installed && runtime.updateAvailable !== true) ? "repair" : "install";
 
             answer = await api(`/api/x/billion-context-pi-pocket/runtime/${action}`, {});
         } catch (error) {
@@ -301,6 +310,23 @@ export function setUpBillionContext(host: BillionContextHost) {
         remember(await api("/api/extensions"));
     };
 
+    /** Read only the installed, enabled extension. Missing routes include older bundled helpers. */
+    const readStatus = async (): Promise<void> => {
+        const before = JSON.stringify(remote);
+
+        try {
+            remote = host.local().url !== undefined && installed() !== undefined && moduleInfo()?.enabled === true
+                ? await api("/api/x/billion-context-pi-pocket/status") as ExtensionStatus
+                : undefined;
+        } catch {
+            remote = undefined;
+        }
+
+        if (JSON.stringify(remote) !== before) {
+            host.changed();
+        }
+    };
+
     const github = async (path: string, accept = "application/vnd.github+json"): Promise<Response> => {
         const response = await host.fetch(`https://api.github.com/repos/${INTEGRATION.repo}${path}`, { accept });
 
@@ -317,6 +343,27 @@ export function setUpBillionContext(host: BillionContextHost) {
 
     /** The newest commit on the integration's branch, and billion-context-pi's version in it. */
     const check = async (): Promise<void> => {
+        if (remote?.updates !== undefined) {
+            try {
+                const answer = await api("/api/x/billion-context-pi-pocket/updates/check", {}) as ExtensionStatus;
+
+                remote = answer;
+                latest = answer.updates?.latest;
+                checkedAt = answer.updates?.checkedAt;
+
+                if (latest === undefined) {
+                    throw new Error(answer.updates?.error ?? "The extension did not return the newest version.");
+                }
+
+                return;
+            } catch (error) {
+                if (!(error instanceof ApiError && error.status === 404)) {
+                    throw error;
+                }
+                // Older extension versions check directly through the GUI.
+            }
+        }
+
         const commit = (await (await github(`/commits/${INTEGRATION.branch}`, "application/vnd.github.sha")).text()).trim();
 
         if (!/^[0-9a-f]{40}$/.test(commit)) {
@@ -560,7 +607,7 @@ export function setUpBillionContext(host: BillionContextHost) {
     };
 
     /** Verify first; keep a durable backup until the replacement loads and the original choice is restored. */
-    const put = async (step: (text: string) => void): Promise<void> => {
+    const put = async (step: (text: string) => void, mode: "explicit" | "auto"): Promise<void> => {
         if (host.local().url === undefined) {
             throw new Error("Start Pi Pocket before installing or turning on the extension.");
         }
@@ -629,11 +676,11 @@ export function setUpBillionContext(host: BillionContextHost) {
             await rename(join(staging, INTEGRATION.file), join(folder(), INTEGRATION.file));
             await settle();
 
-            if (was === undefined || transaction.wasOn) {
+            if (mode === "explicit" || was === undefined || transaction.wasOn) {
                 step("Turning it on…");
                 await setEnabled(true, INTEGRATION.file);
                 step("Installing runtime…");
-                await installRuntime();
+                await installRuntime(mode);
             }
 
             if (was?.layout === LEGACY_INTEGRATION) {
@@ -702,6 +749,7 @@ export function setUpBillionContext(host: BillionContextHost) {
 
             throw error;
         } finally {
+            await readStatus();
             busy = undefined;
             host.changed();
         }
@@ -724,11 +772,77 @@ export function setUpBillionContext(host: BillionContextHost) {
                 await check();
 
                 if (updateAvailable() && host.settings().billionContext.autoUpdate) {
-                    await put(step);
+                    await put(step, "auto");
                 }
             });
         } catch (error) {
             console.error("billion-context-pi-pocket update:", error);
+        }
+    };
+
+    /** A successful first automatic install is offered only once for each real data folder. */
+    const installInitially = async (): Promise<void> => {
+        if (!host.settings().billionContext.autoUpdate || installed() !== undefined || foreign()) {
+            return;
+        }
+
+        const path = join(host.home, "offered.json");
+        const data = realpathSync(host.dataFolder());
+        let folders: string[] = [];
+
+        if (existsSync(path)) {
+            const offered = JSON.parse(await readFile(path, "utf8")) as { folders?: unknown };
+
+            if (!Array.isArray(offered.folders) || offered.folders.some((folder) => typeof folder !== "string")) {
+                throw new Error(`The extension install record is invalid: ${path}`);
+            }
+
+            folders = offered.folders as string[];
+        }
+
+        if (!folders.includes(data)) {
+            await act("Installing Billion context…", async (step) => {
+                await put(step, "auto");
+                await mkdir(host.home, { recursive: true });
+                await writeFile(`${path}.next`, `${JSON.stringify({ folders: [...folders, data] }, null, 4)}\n`);
+                await rename(`${path}.next`, path);
+            });
+        }
+    };
+
+    /** Poll only the extension; a newer local check can trigger the existing automatic update path. */
+    const poll = async (): Promise<void> => {
+        if (busy !== undefined) {
+            return;
+        }
+
+        await readStatus();
+
+        if (remote?.updates?.latest !== undefined && remote.updates.checkedAt !== undefined && remote.updates.checkedAt > (checkedAt ?? 0)) {
+            latest = remote.updates.latest;
+            checkedAt = remote.updates.checkedAt;
+            host.changed();
+        }
+
+        const requested = remote?.updates?.requested;
+
+        if (typeof requested === "number" && requested !== handledRequest && installed()?.commit !== undefined && busy === undefined) {
+            handledRequest = requested;
+            let message: string | undefined;
+
+            try {
+                await act("Updating…", (step) => put(step, "explicit"));
+            } catch (error) {
+                message = (error as Error).message;
+            } finally {
+                await api("/api/x/billion-context-pi-pocket/updates/handled", { requested, ...(message === undefined ? {} : { error: message }) }).catch(() => {});
+            }
+
+            return;
+        }
+
+        if (host.settings().billionContext.autoUpdate && installed()?.commit !== undefined && updateAvailable()) {
+            await checkAndUpdate();
         }
     };
 
@@ -749,11 +863,13 @@ export function setUpBillionContext(host: BillionContextHost) {
                           installed: {
                               file: now.layout.file,
                               version: now.version,
+                              ...(existsSync(join(folder(), now.layout.folder, "bundle.json")) && !existsSync(join(folder(), now.layout.folder, "runtime-lock.json")) ? { bundled: true } : {}),
                               ...(now.commit === undefined ? {} : { commit: now.commit }),
                               ...(module === undefined ? {} : { enabled: module.enabled }),
                               ...(error === undefined ? {} : { error }),
                           },
                       }),
+                ...(remote === undefined ? {} : { extension: remote }),
                 foreign: now === undefined && foreign(),
                 ...(latest === undefined ? {} : { latest }),
                 ...(checkedAt === undefined ? {} : { checkedAt }),
@@ -765,11 +881,21 @@ export function setUpBillionContext(host: BillionContextHost) {
                 command: REMOTE_COMMAND,
             };
         },
-        install: () => act("Installing…", put),
-        update: () => act("Updating…", put),
-        uninstall: () => act("Removing…", remove),
-        enable: () => act("Turning it on…", async (step) => {
+        install: () => act("Installing…", async (step) => {
             checkCopies();
+            try {
+                await check();
+            } catch (error) {
+                if (installed() === undefined) {
+                    throw error;
+                }
+            }
+
+            if (installed() === undefined || (installed()?.commit !== undefined && updateAvailable())) {
+                await put(step, "explicit");
+                return;
+            }
+
             await ask();
             const previous = moduleInfo();
 
@@ -778,9 +904,11 @@ export function setUpBillionContext(host: BillionContextHost) {
             }
 
             try {
-                await setEnabled(true);
+                if (!previous.enabled) {
+                    await setEnabled(true);
+                }
                 step("Installing runtime…");
-                await installRuntime();
+                await installRuntime("explicit");
             } catch (error) {
                 if (!previous.enabled) {
                     try {
@@ -792,28 +920,67 @@ export function setUpBillionContext(host: BillionContextHost) {
                 throw error;
             }
         }),
-        disable: () => act("Turning it off…", async () => {
+        uninstall: () => act("Removing…", async () => {
             checkCopies();
-            await setEnabled(false);
+            await ask();
+            await readStatus();
+
+            if (moduleInfo()?.enabled !== true) {
+                throw new Error("Turn the extension on in Menu → Extensions first.");
+            }
+
+            if (remote !== undefined) {
+                remote = await api("/api/x/billion-context-pi-pocket/runtime/uninstall", {}) as ExtensionStatus;
+                return;
+            }
+
+            const root = join(folder(), installed()!.layout.folder);
+
+            if (existsSync(join(root, "bundle.json")) && !existsSync(join(root, "runtime-lock.json"))) {
+                await remove();
+            } else {
+                throw new Error("The extension's runtime status is unavailable. Try again after it loads.");
+            }
         }),
         check: () =>
-            act("Looking for the newest version…", async () => {
+            act("Looking for the newest version…", async (step) => {
                 await check();
                 await ask().catch(() => {});
+
+                if (host.settings().billionContext.autoUpdate && installed()?.commit !== undefined && updateAvailable()) {
+                    await put(step, "auto");
+                }
             }),
-        /** This computer's Pi Pocket is up: see whether the extension is on, and look for a newer one. */
-        serverReady: (): void => {
-            void act("Checking the extension…", ask)
+        poll,
+        /** This computer's Pi Pocket is up: read its state, offer the first install, and check for updates. */
+        serverReady: (): Promise<void> => {
+            if (timer !== undefined) {
+                clearInterval(timer);
+            }
+            timer = setInterval(() => { void poll().catch((error) => console.error("billion-context-pi-pocket poll:", error)); }, 10_000);
+            timer.unref();
+            return act("Checking the extension…", async () => {
+                await ask();
+                await readStatus();
+            })
+                .then(installInitially)
                 .then(checkAndUpdate)
                 .catch((error) => console.error("billion-context-pi-pocket startup:", error));
         },
         serverDown: (): void => {
+            clearInterval(timer);
+            timer = undefined;
             modules = [];
+            remote = undefined;
             host.changed();
         },
-        /** The person opened Settings: look for a newer version (it does nothing while the server is down). */
+        /** Refresh the installed extension before checking for a newer version. */
         settingsOpened: (): void => {
-            void checkAndUpdate();
+            void (async () => {
+                await ask().catch(() => {});
+                await readStatus();
+                await checkAndUpdate();
+            })();
         },
     };
 }

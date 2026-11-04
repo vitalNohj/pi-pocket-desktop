@@ -40,7 +40,7 @@ export function defaultSettings(): Settings {
         appearance: { translucent: false, opacity: 82, macMaterial: "under-window", windowsMaterial: "acrylic", trayMenu: "windows" },
         dictation: { model: "", live: true, words: [], key: "auto", keyMode: "both" },
         anywhere: { enabled: false, output: "paste", sound: true },
-        billionContext: { autoUpdate: false },
+        billionContext: { autoUpdate: true },
         runner: { enabled: true, confirmSessions: true, allowHttp: false },
     };
 }

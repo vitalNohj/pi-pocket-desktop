@@ -1,11 +1,12 @@
 import { strict as assert } from "node:assert";
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test, type TestContext } from "node:test";
 import { INTEGRATION, LEGACY_INTEGRATION, REMOTE_COMMAND, blobSha, legacySettings, setUpBillionContext, type TreeEntry } from "../main/billion-context/billion-context";
 import { defaultSettings } from "../main/core/settings";
+import type { ExtensionStatus } from "../shared/types";
 
 const COMMIT = "a".repeat(40);
 const OLD_COMMIT = "b".repeat(40);
@@ -18,13 +19,24 @@ function fixture(t: TestContext, layout: "bundled" | "pinned" = "bundled") {
     const data = join(home, "data");
     const root = join(data, "extensions");
     const settings = defaultSettings();
+
+    settings.billionContext.autoUpdate = false;
     const choices = new Map<string, boolean>();
     const calls: { file: string; enabled: boolean }[] = [];
     const activations: { file: string; settings: unknown }[] = [];
     const errors = new Map<string, string>();
-    const faults = { failActivation: 0, corruptDownload: false, offline: false, runtimeStatus: layout === "bundled" ? 404 : 200, runtimeAnswer: { runtime: { installed: true } }, statusState: "missing", statusHttp: 200 };
+    const faults = {
+        failActivation: 0, corruptDownload: false, offline: false, githubStatus: 200,
+        runtimeStatus: layout === "bundled" ? 404 : 200, runtimeAnswer: { runtime: { installed: true } },
+        statusState: "absent" as ExtensionStatus["runtime"]["state"], statusHttp: 200, runtimeUpdateAvailable: false,
+        modernStatus: true, checkStatus: 200, handledStatus: 200,
+    };
+    const updates: NonNullable<ExtensionStatus["updates"]> = { checkedAt: 1000, latest: { commit: COMMIT, version: "0.1.83" }, available: true };
     const runtimeCalls: unknown[] = [];
     const runtimeRequests: string[] = [];
+    const fetches: string[] = [];
+    const handled: { requested: number; error?: string }[] = [];
+    let checks = 0;
     let changed = 0;
     let downloads = 0;
 
@@ -77,6 +89,15 @@ function fixture(t: TestContext, layout: "bundled" | "pinned" = "bundled") {
 
         return { modules };
     };
+    const statusAnswer = (): ExtensionStatus => ({
+        runtime: {
+            state: faults.statusState, installed: faults.statusState === "installed" || faults.statusState === "legacy", managed: true,
+            version: "0.1.83", busy: false, availableVersion: "0.1.83", updateAvailable: faults.runtimeUpdateAvailable, host: "linux-x64",
+            ...(faults.statusState === "error" ? { error: "runtime needs repair" } : {}),
+        },
+        ...(faults.modernStatus ? { extension: { version: "0.1.0", source: "desktop" as const }, updates: { ...updates } } : {}),
+        defaultOffBehavior: "Pi Pocket manages context",
+    });
     const host = {
         home: join(home, "gui"),
         platform: "linux" as const,
@@ -85,6 +106,8 @@ function fixture(t: TestContext, layout: "bundled" | "pinned" = "bundled") {
         local: () => ({ installed: true, url: "http://127.0.0.1:9876" }),
         changed: () => { changed++; },
         fetch: async (url: string) => {
+            fetches.push(url);
+            if (faults.githubStatus !== 200) return Response.json({ error: "GitHub unavailable" }, { status: faults.githubStatus });
             assert.ok(url.includes(INTEGRATION.repo), `unexpected source: ${url}`);
             if (url.includes("/commits/main")) return new Response(COMMIT);
             if (url.includes("/git/trees/")) {
@@ -115,15 +138,44 @@ function fixture(t: TestContext, layout: "bundled" | "pinned" = "bundled") {
                 const isLegacy = existsSync(join(root, activeLayout.folder, "bundle.json")) && !existsSync(join(root, activeLayout.folder, "runtime-lock.json"));
                 const status = isLegacy ? 404 : faults.statusHttp;
 
-                return Response.json(status === 200 ? { runtime: { state: faults.statusState } } : { error: "status failed" }, { status });
+                return Response.json(status === 200 ? statusAnswer() : { error: "status failed" }, { status });
             }
-            if (/\/api\/x\/billion-context-pi-pocket\/runtime\/(install|repair)$/.test(url)) {
+            if (url.endsWith("/api/x/billion-context-pi-pocket/updates/check")) {
                 assert.equal(init.method, "POST");
-                runtimeRequests.push(url.endsWith("/repair") ? "repair" : "install");
+                assert.equal(headers["content-type"], "application/json");
+                assert.deepEqual(JSON.parse(init.body as string), {});
+                checks++;
+                updates.checkedAt = Date.now();
+                return Response.json(faults.checkStatus === 200 ? statusAnswer() : { error: "extension check failed" }, { status: faults.checkStatus });
+            }
+            if (url.endsWith("/api/x/billion-context-pi-pocket/updates/handled")) {
+                assert.equal(init.method, "POST");
+                const body = JSON.parse(init.body as string) as { requested: number; error?: string };
+
+                handled.push(body);
+                if (faults.handledStatus === 200 && body.requested === updates.requested) delete updates.requested;
+                return Response.json({}, { status: faults.handledStatus });
+            }
+            if (/\/api\/x\/billion-context-pi-pocket\/runtime\/(install|repair|uninstall)$/.test(url)) {
+                assert.equal(init.method, "POST");
+                const action = url.split("/").at(-1)!;
+
+                runtimeRequests.push(action);
                 assert.equal(headers["content-type"], "application/json");
                 runtimeCalls.push(JSON.parse(init.body as string));
                 assert.ok(choices.get(INTEGRATION.file) === true || choices.get(LEGACY_INTEGRATION.file) === true, "runtime setup requires an enabled module");
-                return Response.json(faults.runtimeStatus === 200 ? faults.runtimeAnswer : { error: "runtime setup failed" }, { status: faults.runtimeStatus });
+                if (faults.runtimeStatus !== 200) return Response.json({ error: "runtime setup failed" }, { status: faults.runtimeStatus });
+                if (action === "uninstall") {
+                    faults.statusState = "uninstalled";
+                    return Response.json(statusAnswer());
+                }
+                if (faults.runtimeAnswer.runtime.installed) {
+                    faults.statusState = "installed";
+                    faults.runtimeUpdateAvailable = false;
+                }
+                const answer = statusAnswer();
+
+                return Response.json({ ...answer, runtime: { ...answer.runtime, ...faults.runtimeAnswer.runtime } });
             }
             if (init.method === "POST") {
                 const file = decodeURIComponent(new URL(url).pathname.slice("/api/extensions/".length));
@@ -154,10 +206,19 @@ function fixture(t: TestContext, layout: "bundled" | "pinned" = "bundled") {
     const integration = setUpBillionContext(host);
 
     t.after(() => {
+        integration.serverDown();
         rmSync(home, { recursive: true, force: true });
     });
 
-    return { home, data, root, settings, choices, calls, activations, runtimeCalls, runtimeRequests, faults, integration, host, add, write, json, layout, changed: () => changed, downloads: () => downloads };
+    return { home, data, root, settings, choices, calls, activations, runtimeCalls, runtimeRequests, fetches, handled, updates, faults, integration, host, add, write, json, layout, changed: () => changed, downloads: () => downloads, checks: () => checks };
+}
+
+/** An existing route-capable installation, without a download or a saved enabled choice in the GUI. */
+function addPinned(f: ReturnType<typeof fixture>, enabled = true, managed = true, commit = COMMIT): void {
+    f.add(INTEGRATION, enabled, undefined, managed);
+    rmSync(join(f.root, INTEGRATION.folder, "bundle.json"));
+    f.json(join(f.root, INTEGRATION.folder, "runtime-lock.json"), { current: "0.1.83" });
+    if (managed) f.json(join(f.root, INTEGRATION.folder, MARKER), { commit });
 }
 
 function waitForChange(f: ReturnType<typeof fixture>, predicate: () => boolean): Promise<void> {
@@ -224,7 +285,7 @@ test("fresh pinned install enables the module and installs its runtime with an e
     assertNewOnly(f, true);
     assert.equal(f.integration.state().installed?.version, "0.1.83");
     assert.equal(f.integration.state().latest?.version, "0.1.83");
-    assert.deepEqual(f.runtimeRequests, ["status", "install"]);
+    assert.deepEqual(f.runtimeRequests, ["status", "install", "status"]);
     assert.deepEqual(f.runtimeCalls, [{}]);
     assert.equal(existsSync(join(f.root, INTEGRATION.folder, "bundle.json")), false);
 });
@@ -233,7 +294,7 @@ test("the pinned version is only shown for stable numeric versions", async (t) =
     const f = fixture(t, "pinned");
 
     f.add(INTEGRATION, false);
-    await f.integration.update();
+    await f.integration.install();
     assert.equal(f.integration.state().installed?.version, "0.1.83");
     for (const current of ["1.2.3-beta", "01.2.3", "1.2", 123, null]) {
         f.json(join(f.root, INTEGRATION.folder, "runtime-lock.json"), { current });
@@ -246,7 +307,7 @@ test("a bundled install accepts the legacy missing route", async (t) => {
 
     await f.integration.install();
     assertNewOnly(f, true);
-    assert.deepEqual(f.runtimeRequests, ["status"]);
+    assert.deepEqual(f.runtimeRequests, ["status", "status"]);
     assert.deepEqual(f.runtimeCalls, []);
 });
 
@@ -256,10 +317,11 @@ for (const enabled of [true, false]) {
         const config = { extensionName: "custom", stateDir: "custom-state" };
 
         f.add(LEGACY_INTEGRATION, enabled, config);
-        await f.integration.update();
+        f.settings.billionContext.autoUpdate = true;
+        await f.integration.check();
         assertNewOnly(f, enabled);
         assert.deepEqual(f.runtimeCalls, enabled ? [{}] : []);
-        assert.deepEqual(f.runtimeRequests, enabled ? ["status", "install"] : []);
+        assert.deepEqual(f.runtimeRequests, enabled ? ["status", "install", "status"] : []);
         assert.deepEqual(JSON.parse(readFileSync(join(f.root, INTEGRATION.settings), "utf8")), config);
     });
 }
@@ -269,9 +331,9 @@ test("an error runtime status selects repair before completing an enabled update
 
     f.add(INTEGRATION, true);
     f.faults.statusState = "error";
-    await f.integration.update();
+    await f.integration.install();
     assertNewOnly(f, true);
-    assert.deepEqual(f.runtimeRequests, ["status", "repair"]);
+    assert.deepEqual(f.runtimeRequests, ["status", "repair", "status"]);
     assert.deepEqual(f.runtimeCalls, [{}]);
 });
 
@@ -281,8 +343,8 @@ for (const status of [404, 500]) {
 
         f.add(LEGACY_INTEGRATION, true);
         f.faults.statusHttp = status;
-        await assert.rejects(f.integration.update(), /status failed/);
-        assert.deepEqual(f.runtimeRequests, ["status"]);
+        await assert.rejects(f.integration.install(), /status failed/);
+        assert.deepEqual(f.runtimeRequests, ["status", "status"]);
         assert.equal(f.choices.get(LEGACY_INTEGRATION.file), true);
         assert.equal(existsSync(join(f.root, INTEGRATION.file)), false);
         assertStateUnchanged(f);
@@ -296,7 +358,7 @@ for (const status of [404, 500]) {
 
         f.add(LEGACY_INTEGRATION, true, config);
         f.faults.runtimeStatus = status;
-        await assert.rejects(f.integration.update(), /runtime setup failed/);
+        await assert.rejects(f.integration.install(), /runtime setup failed/);
         assert.equal(f.choices.get(LEGACY_INTEGRATION.file), true);
         assert.equal(existsSync(join(f.root, INTEGRATION.file)), false);
         assert.equal(existsSync(join(f.root, INTEGRATION.settings)), false);
@@ -316,27 +378,37 @@ test("a missing runtime confirmation rolls back a fresh install", async (t) => {
     assertStateUnchanged(f);
 });
 
-test("enabling a disabled pinned update installs its runtime", async (t) => {
+test("install on a current disabled pinned installation enables it and installs its runtime", async (t) => {
     const f = fixture(t, "pinned");
 
     f.add(INTEGRATION, false);
-    await f.integration.update();
+    f.settings.billionContext.autoUpdate = true;
+    await f.integration.check();
     assert.deepEqual(f.runtimeCalls, []);
-    await f.integration.enable();
+    f.settings.billionContext.autoUpdate = false;
+    await f.integration.install();
     assert.equal(f.choices.get(INTEGRATION.file), true);
     assert.deepEqual(f.runtimeCalls, [{}]);
+    assert.equal(f.downloads(), 1, "a current installation needs no new extension files");
 });
 
-test("disable and uninstall leave runtime cache and ACP data alone", async (t) => {
+test("runtime uninstall keeps the extension, module choice, cache, settings, and ACP data", async (t) => {
     const f = fixture(t, "pinned");
     const cache = join(f.data, "runtime-cache", "installed-runtime");
 
     f.write(cache, "cached runtime\n");
     await f.integration.install();
-    await f.integration.disable();
-    assert.equal(readFileSync(cache, "utf8"), "cached runtime\n");
-    assertStateUnchanged(f);
+    f.json(join(f.root, INTEGRATION.settings), { stateDir: "custom-state" });
+    const module = readFileSync(join(f.root, INTEGRATION.file), "utf8");
+    const choices = [...f.choices];
+
     await f.integration.uninstall();
+    assert.ok(f.runtimeRequests.includes("uninstall"));
+    assert.equal(f.integration.state().extension?.runtime.state, "uninstalled");
+    assert.equal(readFileSync(join(f.root, INTEGRATION.file), "utf8"), module);
+    assert.ok(existsSync(join(f.root, INTEGRATION.folder, "runtime-lock.json")));
+    assert.deepEqual([...f.choices], choices);
+    assert.deepEqual(JSON.parse(readFileSync(join(f.root, INTEGRATION.settings), "utf8")), { stateDir: "custom-state" });
     assert.equal(readFileSync(cache, "utf8"), "cached runtime\n");
     assertStateUnchanged(f);
 });
@@ -347,20 +419,20 @@ test("runtime setup failure restores the previously enabled current module", asy
     f.add(INTEGRATION, true, { extensionName: "custom", stateDir: "custom-state" });
     const original = readFileSync(join(f.root, INTEGRATION.file), "utf8");
     f.faults.runtimeStatus = 500;
-    await assert.rejects(f.integration.update(), /runtime setup failed/);
+    await assert.rejects(f.integration.install(), /runtime setup failed/);
     assert.equal(readFileSync(join(f.root, INTEGRATION.file), "utf8"), original);
     assert.equal(f.choices.get(INTEGRATION.file), true);
     assert.equal(f.integration.state().installed?.commit, OLD_COMMIT);
     assertStateUnchanged(f);
 });
 
-test("a failed runtime install on enable restores the disabled choice", async (t) => {
+test("a failed runtime install on a current installation restores the disabled choice", async (t) => {
     const f = fixture(t, "pinned");
 
-    f.add(INTEGRATION, false);
-    await f.integration.update();
+    await f.integration.install();
+    f.choices.set(INTEGRATION.file, false);
     f.faults.runtimeStatus = 500;
-    await assert.rejects(f.integration.enable(), /runtime setup failed/);
+    await assert.rejects(f.integration.install(), /runtime setup failed/);
     assert.equal(f.choices.get(INTEGRATION.file), false);
     assert.deepEqual(f.calls.slice(-2), [{ file: INTEGRATION.file, enabled: true }, { file: INTEGRATION.file, enabled: false }]);
     assertStateUnchanged(f);
@@ -376,7 +448,8 @@ for (const enabled of [true, false]) {
         await f.integration.check();
         assert.equal(f.integration.state().installed?.file, LEGACY_INTEGRATION.file);
         assert.equal(f.integration.state().installed?.enabled, enabled);
-        await f.integration.update();
+        f.settings.billionContext.autoUpdate = true;
+        await f.integration.check();
         assertNewOnly(f, enabled);
         assert.deepEqual(JSON.parse(readFileSync(join(f.root, INTEGRATION.settings), "utf8")), { extensionName: "billion-context-pi", stateDir: "billion-context-pi" });
         assert.equal(f.choices.get(LEGACY_INTEGRATION.file), false);
@@ -397,7 +470,7 @@ for (const absolute of [false, true]) {
         f.write(stateFile, savedState);
         const original = readFileSync(join(f.root, LEGACY_INTEGRATION.settings), "utf8");
 
-        await f.integration.update();
+        await f.integration.install();
         assertNewOnly(f, true);
         assert.deepEqual(JSON.parse(readFileSync(join(f.root, INTEGRATION.settings), "utf8")), config);
         assert.equal(readFileSync(join(f.root, LEGACY_INTEGRATION.settings), "utf8"), original);
@@ -417,7 +490,7 @@ for (const nested of [false, true]) {
 
         f.add(LEGACY_INTEGRATION, true, config);
         f.write(stateFile, savedState);
-        await f.integration.update();
+        await f.integration.install();
         assertNewOnly(f, true);
         assert.deepEqual(JSON.parse(readFileSync(join(f.root, INTEGRATION.settings), "utf8")), config);
         assert.equal(readFileSync(stateFile, "utf8"), savedState);
@@ -432,7 +505,8 @@ test("a current installation keeps its settings byte-for-byte and ignores retain
     f.add(INTEGRATION, false);
     f.write(join(f.root, INTEGRATION.settings), config);
     f.json(join(f.root, LEGACY_INTEGRATION.settings), { extensionName: "old", stateDir: "old" });
-    await f.integration.update();
+    f.settings.billionContext.autoUpdate = true;
+    await f.integration.check();
     assertNewOnly(f, false);
     assert.equal(readFileSync(join(f.root, INTEGRATION.settings), "utf8"), config);
 });
@@ -442,7 +516,7 @@ test("conflicting settings stop migration before downloads or API changes", asyn
 
     f.add(LEGACY_INTEGRATION, true, { extensionName: "custom-old", stateDir: "custom-state" });
     f.json(join(f.root, INTEGRATION.settings), { extensionName: "custom-new", stateDir: "custom-state" });
-    await assert.rejects(f.integration.update(), /settings conflict/);
+    await assert.rejects(f.integration.install(), /settings conflict/);
     assert.equal(f.downloads(), 0);
     assert.deepEqual(f.calls, []);
     assert.ok(existsSync(join(f.root, LEGACY_INTEGRATION.file)));
@@ -457,7 +531,7 @@ for (const invalid of ["{broken", "null", '{"stateDir": 3}']) {
 
         f.add(LEGACY_INTEGRATION, true, { extensionName: "custom", stateDir: "custom-state" });
         f.write(join(f.root, INTEGRATION.settings), invalid);
-        await assert.rejects(f.integration.update());
+        await assert.rejects(f.integration.install());
         assert.equal(f.downloads(), 0);
         assert.deepEqual(f.calls, []);
         assert.equal(readFileSync(join(f.root, INTEGRATION.settings), "utf8"), invalid);
@@ -470,7 +544,8 @@ test("equivalent old and new settings can migrate without dropping unknown field
 
     f.add(LEGACY_INTEGRATION, false, { stateDir: "custom-state", extra: { keep: true } });
     f.json(join(f.root, INTEGRATION.settings), { extra: { keep: true }, extensionName: "billion-context-pi", stateDir: "custom-state" });
-    await f.integration.update();
+    f.settings.billionContext.autoUpdate = true;
+    await f.integration.check();
     assertNewOnly(f, false);
     assert.deepEqual(JSON.parse(readFileSync(join(f.root, INTEGRATION.settings), "utf8")), { stateDir: "custom-state", extra: { keep: true }, extensionName: "billion-context-pi" });
 });
@@ -480,7 +555,7 @@ test("duplicate module names are detected and never changed automatically", asyn
 
     f.add(LEGACY_INTEGRATION, true);
     f.add(INTEGRATION, false);
-    for (const action of [f.integration.install, f.integration.update, f.integration.enable, f.integration.disable, f.integration.uninstall]) {
+    for (const action of [f.integration.install, f.integration.uninstall]) {
         await assert.rejects(action(), /Both extension module names exist/);
     }
     assert.match(f.integration.state().installed?.error!, /Both extension module names exist/);
@@ -547,7 +622,7 @@ for (const layout of [INTEGRATION, LEGACY_INTEGRATION]) {
         f.add(layout, false);
         f.json(join(f.root, LEGACY_INTEGRATION.settings), { extensionName: "legacy" });
         f.write(join(f.root, layout.settings), "{invalid");
-        await assert.rejects(f.integration.update(), /JSON/);
+        await assert.rejects(f.integration.install(), /JSON/);
         assert.deepEqual(f.calls, []);
         assert.equal(f.downloads(), 0);
         assert.equal(readFileSync(join(f.root, layout.settings), "utf8"), "{invalid");
@@ -561,7 +636,7 @@ for (const path of [INTEGRATION.folder, LEGACY_INTEGRATION.folder, TRANSACTION])
 
         f.add(LEGACY_INTEGRATION, true, { stateDir });
         f.write(join(f.data, stateDir, "1.jsonl.acp.json"), "do not delete\n");
-        await assert.rejects(f.integration.update(), /configured stateDir is inside|extension copy already exists/);
+        await assert.rejects(f.integration.install(), /configured stateDir is inside|extension copy already exists/);
         await assert.rejects(f.integration.uninstall(), /configured stateDir is inside|extension copy already exists/);
         assert.equal(readFileSync(join(f.data, stateDir, "1.jsonl.acp.json"), "utf8"), "do not delete\n");
         assert.deepEqual(f.calls, []);
@@ -575,7 +650,7 @@ test("a state path through a linked parent is protected even before its final di
 
     f.add(LEGACY_INTEGRATION, true, { stateDir: join(alias, "not-created-yet") });
     symlinkSync(join(f.root, LEGACY_INTEGRATION.folder), alias, "dir");
-    await assert.rejects(f.integration.update(), /configured stateDir is inside/);
+    await assert.rejects(f.integration.install(), /configured stateDir is inside/);
     assert.deepEqual(f.calls, []);
     assert.ok(existsSync(join(f.root, LEGACY_INTEGRATION.folder, "old-runtime.js")));
 });
@@ -656,7 +731,7 @@ test("a failed download leaves the enabled legacy installation and settings unto
 
     f.add(LEGACY_INTEGRATION, true, { extensionName: "custom", stateDir: "custom-state" });
     f.faults.corruptDownload = true;
-    await assert.rejects(f.integration.update(), /failed verification/);
+    await assert.rejects(f.integration.install(), /failed verification/);
     assert.deepEqual(f.calls, []);
     assert.equal(f.choices.get(LEGACY_INTEGRATION.file), true);
     assert.equal(existsSync(join(f.root, INTEGRATION.file)), false);
@@ -680,7 +755,7 @@ test("a lost response after disabling the legacy module still restores its enabl
         }
         return response;
     };
-    await assert.rejects(f.integration.update(), /connection lost after choice saved/);
+    await assert.rejects(f.integration.install(), /connection lost after choice saved/);
     assert.equal(f.choices.get(LEGACY_INTEGRATION.file), true);
     assert.equal(f.integration.state().installed?.commit, OLD_COMMIT);
     assert.equal(existsSync(join(f.root, INTEGRATION.file)), false);
@@ -698,7 +773,7 @@ for (const layout of [LEGACY_INTEGRATION, INTEGRATION]) {
         const settings = readFileSync(join(f.root, layout.settings), "utf8");
 
         f.faults.failActivation = 1;
-        await assert.rejects(f.integration.update(), /new module failed to load/);
+        await assert.rejects(f.integration.install(), /new module failed to load/);
         assert.equal(readFileSync(join(f.root, layout.file), "utf8"), original);
         assert.equal(readFileSync(join(f.root, layout.settings), "utf8"), settings);
         assert.equal(f.choices.get(layout.file), true);
@@ -714,15 +789,13 @@ for (const layout of [LEGACY_INTEGRATION, INTEGRATION]) {
 }
 
 for (const layout of [LEGACY_INTEGRATION, INTEGRATION]) {
-    test(`enable, disable, and uninstall manage ${layout.file} and retain all user data`, async (t) => {
+    test(`install and bundled uninstall manage ${layout.file} and retain all user data`, async (t) => {
         const f = fixture(t);
         const config = { extensionName: "custom", stateDir: "custom-state" };
 
-        f.add(layout, false, config);
-        await f.integration.enable();
+        f.add(layout, false, config, false);
+        await f.integration.install();
         assert.equal(f.integration.state().installed?.enabled, true);
-        await f.integration.disable();
-        assert.equal(f.integration.state().installed?.enabled, false);
         await f.integration.uninstall();
         assert.equal(f.integration.state().installed, undefined);
         assert.equal(existsSync(join(f.root, layout.file)), false);
@@ -832,3 +905,387 @@ test("a committed recovery record only removes backups, never restores the old m
     assert.equal(existsSync(join(f.root, LEGACY_INTEGRATION.file)), false);
     assert.deepEqual(f.calls, []);
 });
+
+
+test("the initial automatic install runs once for each real data folder, even after its files are removed", async (t) => {
+    const f = fixture(t, "pinned");
+    const second = fixture(t, "pinned");
+
+    f.settings.billionContext.autoUpdate = true;
+    second.settings.billionContext.autoUpdate = true;
+    second.host.home = f.host.home;
+    await f.integration.serverReady();
+    assert.equal(f.downloads(), 1);
+    assert.equal(f.integration.state().installed?.enabled, true);
+    await second.integration.serverReady();
+    assert.equal(second.downloads(), 1);
+    assert.deepEqual(JSON.parse(readFileSync(join(f.host.home, "offered.json"), "utf8")), {
+        folders: [realpathSync(f.data), realpathSync(second.data)],
+    });
+    f.integration.serverDown();
+    rmSync(join(f.root, INTEGRATION.file));
+    rmSync(join(f.root, INTEGRATION.folder), { recursive: true });
+    const alias = join(f.home, "data-alias");
+
+    symlinkSync(f.data, alias);
+    f.host.dataFolder = () => alias;
+    await f.integration.serverReady();
+    assert.equal(f.downloads(), 1, "removing the extension must not offer it again, including through a folder alias");
+    assert.equal(f.integration.state().installed, undefined);
+});
+
+test("the initial automatic install does not run when automatic installation is off", async (t) => {
+    const f = fixture(t, "pinned");
+
+    f.settings.billionContext.autoUpdate = false;
+    await f.integration.serverReady();
+    assert.equal(f.downloads(), 0);
+    assert.equal(f.integration.state().installed, undefined);
+    assert.equal(existsSync(join(f.host.home, "offered.json")), false);
+});
+
+test("a failed initial install is not recorded and can succeed on the next start", async (t) => {
+    const f = fixture(t, "pinned");
+
+    f.settings.billionContext.autoUpdate = true;
+    f.faults.corruptDownload = true;
+    await f.integration.serverReady();
+    assert.equal(existsSync(join(f.host.home, "offered.json")), false);
+    assert.equal(f.integration.state().installed, undefined);
+    f.faults.corruptDownload = false;
+    await f.integration.serverReady();
+    assert.equal(f.downloads(), 2);
+    assert.deepEqual(JSON.parse(readFileSync(join(f.host.home, "offered.json"), "utf8")), { folders: [realpathSync(f.data)] });
+});
+
+for (const state of ["uninstalled", "installed"] as const) {
+    test(`auto update does not install the runtime when its state is ${state} and no runtime update is available`, async (t) => {
+        const f = fixture(t, "pinned");
+
+        addPinned(f, true, true, OLD_COMMIT);
+        f.settings.billionContext.autoUpdate = true;
+        f.faults.statusState = state;
+        await f.integration.serverReady();
+        assert.equal(f.downloads(), 1, "the extension files can still update");
+        assert.equal(f.integration.state().installed?.commit, COMMIT);
+        assert.equal(f.integration.state().extension?.runtime.state, state);
+        assert.equal(f.choices.get(INTEGRATION.file), true);
+        assert.deepEqual(f.runtimeRequests.filter((request) => request !== "status"), []);
+    });
+}
+
+test("explicit reinstall repairs the current installed runtime and keeps the history", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f);
+    f.faults.statusState = "installed";
+    await f.integration.install();
+    assert.equal(f.downloads(), 0);
+    assert.deepEqual(f.runtimeRequests.filter((request) => request !== "status"), ["repair"]);
+    assertStateUnchanged(f);
+});
+
+test("explicit install uses install when a runtime update is available", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f);
+    f.faults.statusState = "installed";
+    f.faults.runtimeUpdateAvailable = true;
+    await f.integration.install();
+    assert.equal(f.downloads(), 0);
+    assert.deepEqual(f.runtimeRequests.filter((request) => request !== "status"), ["install"]);
+});
+
+test("explicit file replacement enables an extension that was off", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f, false, true, OLD_COMMIT);
+    await f.integration.install();
+    assert.equal(f.downloads(), 1);
+    assert.equal(f.choices.get(INTEGRATION.file), true);
+    assert.deepEqual(f.runtimeCalls, [{}]);
+});
+
+test("uninstall requires the module to be on and does not remove disabled files", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f, false);
+    await assert.rejects(f.integration.uninstall(), /Turn the extension on in Menu → Extensions first\./);
+    assert.ok(existsSync(join(f.root, INTEGRATION.file)));
+    assert.equal(f.choices.get(INTEGRATION.file), false);
+    assert.deepEqual(f.runtimeRequests, []);
+});
+
+test("uninstall does not remove a pinned helper when its status route fails", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f);
+    f.faults.statusHttp = 502;
+    await assert.rejects(f.integration.uninstall(), /runtime status is unavailable/);
+    assert.ok(existsSync(join(f.root, INTEGRATION.file)));
+    assert.ok(existsSync(join(f.root, INTEGRATION.folder, "runtime-lock.json")));
+    assert.equal(f.choices.get(INTEGRATION.file), true);
+});
+
+test("check uses the extension update route when the extension exposes updates", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f);
+    await f.integration.serverReady();
+    const before = f.fetches.length;
+    const checks = f.checks();
+
+    await f.integration.check();
+    assert.equal(f.checks(), checks + 1);
+    assert.equal(f.fetches.length, before, "the GUI must not check GitHub too");
+    assert.deepEqual(f.integration.state().latest, f.updates.latest);
+    assert.equal(f.integration.state().checkedAt, f.updates.checkedAt);
+});
+
+test("check falls back to GitHub only when the extension check route returns 404", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f);
+    await f.integration.serverReady();
+    f.faults.checkStatus = 404;
+    const before = f.fetches.length;
+
+    await f.integration.check();
+    assert.equal(f.fetches.length, before + 3);
+    assert.ok(f.fetches.slice(before).some((url) => url.includes("/commits/")));
+    assert.equal(f.integration.state().latest?.commit, COMMIT);
+});
+
+test("check shows a non-404 extension error and does not fall back to GitHub", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f);
+    await f.integration.serverReady();
+    f.faults.checkStatus = 502;
+    const before = f.fetches.length;
+
+    await assert.rejects(f.integration.check(), /extension check failed/);
+    assert.equal(f.fetches.length, before);
+    assert.equal(f.integration.state().message, "extension check failed");
+    assert.ok(f.integration.state().extension);
+});
+
+test("check shows the extension error when its answer has no latest commit", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f);
+    await f.integration.serverReady();
+    delete f.updates.latest;
+    f.updates.error = "Cannot read the runtime lock";
+    const before = f.fetches.length;
+
+    await assert.rejects(f.integration.check(), /Cannot read the runtime lock/);
+    assert.equal(f.fetches.length, before);
+    assert.equal(f.integration.state().latest, undefined);
+});
+
+test("an older route-capable extension without updates still checks GitHub", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f);
+    f.faults.modernStatus = false;
+    await f.integration.serverReady();
+    assert.equal(f.checks(), 0);
+    assert.ok(f.fetches.some((url) => url.includes("/commits/")));
+    assert.equal(f.integration.state().extension?.updates, undefined);
+});
+
+for (const automatic of [false, true]) {
+    test(`poll adopts a newer extension check and ${automatic ? "applies" : "does not apply"} the update with autoUpdate=${automatic}`, async (t) => {
+        const f = fixture(t, "pinned");
+
+        addPinned(f);
+        f.faults.statusState = "installed";
+        await f.integration.serverReady();
+        const checkedAt = f.integration.state().checkedAt! + 1000;
+        const latest = { commit: "c".repeat(40), version: "0.1.84" };
+        const before = f.fetches.length;
+        const checks = f.checks();
+
+        f.updates.latest = latest;
+        f.updates.checkedAt = checkedAt;
+        f.faults.runtimeUpdateAvailable = true;
+        f.settings.billionContext.autoUpdate = automatic;
+        await f.integration.poll();
+        assert.deepEqual(f.integration.state().latest, latest);
+        assert.equal(f.downloads(), automatic ? 1 : 0);
+        assert.equal(f.integration.state().installed?.commit, automatic ? latest.commit : COMMIT);
+        assert.equal(f.fetches.slice(before).some((url) => url.includes("/commits/")), false, "poll must not check GitHub");
+        if (automatic) {
+            assert.equal(f.checks(), checks + 2, "the update path checks the extension before it downloads files");
+        } else {
+            assert.equal(f.integration.state().checkedAt, checkedAt);
+            assert.equal(f.fetches.length, before);
+            assert.equal(f.checks(), checks);
+        }
+    });
+}
+
+test("poll does not replace a newer GUI check result with an older extension result", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f);
+    await f.integration.serverReady();
+    const checkedAt = f.integration.state().checkedAt;
+    const latest = f.integration.state().latest;
+
+    f.updates.checkedAt = checkedAt! - 1;
+    f.updates.latest = { commit: "c".repeat(40) };
+    await f.integration.poll();
+    assert.equal(f.integration.state().checkedAt, checkedAt);
+    assert.deepEqual(f.integration.state().latest, latest);
+    assert.equal(f.downloads(), 0);
+});
+
+test("poll does not notify the renderer when the remote status has not changed", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f);
+    await f.integration.serverReady();
+    const changed = f.changed();
+
+    await f.integration.poll();
+    await f.integration.poll();
+    assert.equal(f.changed(), changed);
+});
+
+test("poll does nothing while an action is busy", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f);
+    await f.integration.serverReady();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const request = f.host.request;
+
+    f.host.request = async (url, init) => {
+        if (url.endsWith("/updates/check")) await gate;
+        return request(url, init);
+    };
+    const action = f.integration.check();
+    const before = f.runtimeRequests.length;
+
+    await f.integration.poll();
+    assert.equal(f.runtimeRequests.length, before);
+    release();
+    await action;
+});
+
+test("an extension update request updates once with autoUpdate off and acknowledges its timestamp", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f);
+    f.faults.statusState = "installed";
+    await f.integration.serverReady();
+    f.updates.requested = 123456;
+    f.faults.handledStatus = 502;
+    await f.integration.poll();
+    assert.equal(f.settings.billionContext.autoUpdate, false);
+    assert.equal(f.downloads(), 1);
+    assert.deepEqual(f.handled, [{ requested: 123456 }]);
+    assert.deepEqual(f.runtimeRequests.filter((request) => request !== "status"), ["repair"]);
+    await f.integration.poll();
+    assert.equal(f.downloads(), 1, "the same request must not run again even when acknowledgement fails");
+    assert.equal(f.handled.length, 1);
+    f.faults.handledStatus = 200;
+    f.updates.requested = 123457;
+    await f.integration.poll();
+    assert.equal(f.downloads(), 2);
+    assert.deepEqual(f.handled[1], { requested: 123457 });
+});
+
+test("a failed extension update request acknowledges its timestamp and error only once", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f);
+    await f.integration.serverReady();
+    f.updates.requested = 987654;
+    f.faults.corruptDownload = true;
+    f.faults.handledStatus = 502;
+    await f.integration.poll();
+    assert.equal(f.downloads(), 1);
+    assert.equal(f.handled.length, 1);
+    const handled = f.handled[0];
+
+    assert.ok(handled);
+    assert.equal(handled.requested, 987654);
+    assert.match(handled.error!, /failed verification/);
+    assert.equal(handled.error, f.integration.state().message);
+    assert.equal(f.integration.state().installed?.commit, COMMIT);
+    assert.equal(f.choices.get(INTEGRATION.file), true);
+    await f.integration.poll();
+    assert.equal(f.downloads(), 1);
+    assert.equal(f.handled.length, 1);
+    assertStateUnchanged(f);
+});
+
+test("an extension update request does not replace files that the GUI did not install", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f, true, false);
+    f.settings.billionContext.autoUpdate = true;
+    await f.integration.serverReady();
+    f.updates.requested = 123456;
+    const before = f.fetches.length;
+
+    await f.integration.poll();
+    assert.equal(f.integration.state().installed?.commit, undefined);
+    assert.equal(f.downloads(), 0);
+    assert.equal(f.fetches.length, before);
+    assert.deepEqual(f.handled, []);
+});
+
+test("install can restore the runtime of an existing installation when its update check fails", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f, false);
+    f.faults.githubStatus = 502;
+    await f.integration.install();
+    assert.equal(f.downloads(), 0);
+    assert.equal(f.choices.get(INTEGRATION.file), true);
+    assert.deepEqual(f.runtimeRequests.filter((request) => request !== "status"), ["install"]);
+});
+
+test("install fails without changing files when the first update check fails", async (t) => {
+    const f = fixture(t, "pinned");
+
+    f.faults.githubStatus = 502;
+    await assert.rejects(f.integration.install(), /GitHub answered HTTP 502/);
+    assert.equal(f.integration.state().installed, undefined);
+    assert.equal(f.downloads(), 0);
+    assert.deepEqual(f.calls, []);
+});
+
+test("opening Settings refreshes an extension that was turned off in its menu", async (t) => {
+    const f = fixture(t, "pinned");
+
+    addPinned(f, true, false);
+    await f.integration.serverReady();
+    assert.ok(f.integration.state().extension);
+    f.choices.set(INTEGRATION.file, false);
+    const refreshed = waitForChange(f, () => f.integration.state().installed?.enabled === false);
+
+    f.integration.settingsOpened();
+    await refreshed;
+    assert.equal(f.integration.state().extension, undefined);
+    assert.equal(f.downloads(), 0);
+});
+
+for (const helper of [INTEGRATION.folder, LEGACY_INTEGRATION.folder]) {
+    test(`the initial automatic install does not adopt a foreign ${helper} helper`, async (t) => {
+        const f = fixture(t, "pinned");
+
+        f.settings.billionContext.autoUpdate = true;
+        f.write(join(f.root, helper, "runtime.mjs"), "foreign helper\n");
+        await f.integration.serverReady();
+        assert.equal(f.integration.state().foreign, true);
+        assert.equal(f.downloads(), 0);
+        assert.deepEqual(f.calls, []);
+        assert.equal(existsSync(join(f.host.home, "offered.json")), false);
+    });
+}

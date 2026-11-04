@@ -255,7 +255,7 @@ export async function start(): Promise<void> {
             appState.gui?.runner?.runtimeChanged();
         },
         ready: (url, loginPath) => {
-            appState.gui?.billionContext?.serverReady();
+            void appState.gui?.billionContext?.serverReady();
             localReady(url, loginPath);
         },
         down: (why) => {

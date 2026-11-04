@@ -129,7 +129,7 @@ export interface Settings {
         sound: boolean;
     };
     billionContext: {
-        /** Install newer versions of billion-context-pi-pocket in this computer's Pi Pocket without asking. */
+        /** Install billion-context-pi-pocket once per data folder, and apply newer versions without asking. */
         autoUpdate: boolean;
     };
     /** This computer as a runner for a Pi Pocket server (src/main/runner/runner.ts). */
@@ -223,6 +223,33 @@ export interface DictationState {
     downloading: boolean;
 }
 
+/** State returned by the installed extension's owner API. Older versions omit extension and updates. */
+export interface ExtensionStatus {
+    runtime: {
+        state: "absent" | "uninstalled" | "installed" | "legacy" | "error";
+        installed: boolean;
+        managed: boolean;
+        version?: string;
+        busy: boolean;
+        error?: string;
+        availableVersion: string;
+        updateAvailable: boolean;
+        downloadBytes?: number;
+        diskBytes?: number;
+        host: string;
+    };
+    extension?: { version: string; source: "desktop" | "gallery" | "manual"; commit?: string };
+    updates?: {
+        checkedAt?: number;
+        latest?: { commit: string; version?: string };
+        available: boolean;
+        error?: string;
+        /** An update requested in the extension page, acknowledged by the desktop app. */
+        requested?: number;
+    };
+    defaultOffBehavior: string;
+}
+
 /** billion-context-pi-pocket in this computer's Pi Pocket (src/main/billion-context/billion-context.ts). */
 export interface BillionContextState {
     /** Where Pi Pocket runs: another server (instructions only), or this computer's, not installed, stopped, or running. */
@@ -232,6 +259,8 @@ export interface BillionContextState {
         file: string;
         /** billion-context-pi's version. */
         version: string;
+        /** A route-free helper that contains its runtime, without runtime-lock.json. */
+        bundled?: boolean;
         /** The integration's commit, when the app installed it. */
         commit?: string;
         /** On in Pi Pocket; unknown while Pi Pocket is not running. */
@@ -239,6 +268,8 @@ export interface BillionContextState {
         /** Pi Pocket could not load it. */
         error?: string;
     };
+    /** The running extension's runtime and update state, when its routes are available. */
+    extension?: ExtensionStatus;
     /** A helper folder is there, installed outside the app (under another module name). */
     foreign: boolean;
     /** The newest commit on the integration's main branch, once looked up. */
@@ -256,7 +287,7 @@ export interface BillionContextState {
     command: string;
 }
 
-export type BillionContextAction = "install" | "update" | "uninstall" | "check" | "enable" | "disable" | "show-folder" | "open-page";
+export type BillionContextAction = "install" | "uninstall" | "check" | "show-folder" | "open-page";
 
 export interface DictationAction {
     type: "download" | "cancel" | "remove" | "use";

@@ -1241,7 +1241,8 @@ function renderBillionContext(next: ConfigState): void {
     const extension = next.billionContext;
     const remote = extension.server === "remote";
     const installed = extension.installed;
-    const busy = extension.busy !== undefined;
+    const runtime = extension.extension?.runtime;
+    const busy = extension.busy !== undefined || runtime?.busy === true;
     const running = extension.server === "running";
     const message = element("bc-message");
     const shown = (id: string, visible: boolean): void => {
@@ -1258,13 +1259,18 @@ function renderBillionContext(next: ConfigState): void {
     message.hidden = extension.message === undefined;
     message.textContent = extension.message ?? "";
 
-    const latest = extension.latest?.version === undefined ? "" : ` ${extension.latest.version}`;
-    const checked = extension.checkedAt === undefined ? "" : ` Checked ${new Date(extension.checkedAt).toLocaleString()}.`;
+    const updates = extension.extension?.updates;
+    const available = extension.updateAvailable || runtime?.updateAvailable === true || updates?.available === true;
+    const checkedAt = updates?.checkedAt ?? extension.checkedAt;
+    const version = runtime?.version ?? installed?.version ?? "?";
+    const bundled = installed?.bundled === true;
     let status: string;
-    let detail: string;
+    let detail = extension.message ?? updates?.error ?? (available
+        ? `Update available: BCP ${updates?.latest?.version ?? extension.latest?.version ?? runtime?.availableVersion ?? "?"}`
+        : checkedAt === undefined ? "" : `Up to date · checked ${new Date(checkedAt).toLocaleString()}`);
 
     if (installed === undefined) {
-        status = extension.foreign ? "Installed outside the app" : "Not installed";
+        status = "Not installed";
         detail = extension.foreign
             ? "Installed under another name. Manage it in Menu → Extensions, or remove that copy before installing here."
             : extension.server === "absent"
@@ -1272,44 +1278,36 @@ function renderBillionContext(next: ConfigState): void {
               : extension.server === "stopped"
                 ? "Start Pi Pocket before installing or turning on the extension."
                 : "Download the extension, turn it on, and install its pinned runtime.";
+    } else if (installed.enabled === false) {
+        status = "Off in Menu → Extensions";
+    } else if (runtime?.state === "error" || installed.error !== undefined) {
+        status = "Needs repair";
+        detail = runtime?.error ?? installed.error ?? "";
+    } else if (runtime?.state === "installed") {
+        status = `Active · BCP ${version}`;
+    } else if (runtime?.state === "legacy" || (bundled && installed.enabled === true)) {
+        status = `Active · BCP ${version} (bundled copy)`;
+    } else if (runtime?.state === "uninstalled") {
+        status = "Program uninstalled · Pi Pocket manages context";
     } else {
-        const state = installed.error !== undefined ? "failed to load" : installed.enabled === true ? "on" : installed.enabled === false ? "off" : "";
+        status = "Program not installed";
+    }
 
-        status = `Supported BCP ${installed.version}${state === "" ? "" : ` · ${state}`}`;
-        detail = installed.error ?? (
-            installed.commit === undefined
-                ? "Installed outside the app. Update it manually."
-                : extension.updateAvailable
-                  ? `Update available${latest}.${checked}`
-                  : extension.checkedAt === undefined
-                    ? ""
-                    : `Up to date.${checked}`
-        );
-
-        if (installed.enabled === false) {
-            detail = `${detail} The pinned runtime might not be installed. Enable the extension to install it.`.trim();
-        }
-        if (!running) {
-            detail = `${detail} Start Pi Pocket to turn it on or off.`.trim();
-        }
+    if (installed !== undefined && !running) {
+        detail = `${detail} Start Pi Pocket to turn it on or off.`.trim();
     }
 
     element("bc-status").textContent = extension.busy ?? status;
     element("bc-detail").textContent = detail;
-    shown("bc-install", installed === undefined && !extension.foreign && running);
-    shown("bc-update", installed?.commit !== undefined && extension.updateAvailable && running);
-    shown("bc-enable", installed !== undefined && installed.enabled === false && running);
-    shown("bc-disable", installed !== undefined && installed.enabled === true && running);
-    shown("bc-check", installed?.commit !== undefined);
-    shown("bc-uninstall", installed !== undefined);
-    element("bc-auto-row").classList.toggle("off", installed?.commit === undefined);
+    element("bc-install").textContent = installed === undefined || runtime?.state === "absent" || runtime?.state === "uninstalled"
+        ? "Install" : extension.updateAvailable || runtime?.updateAvailable === true ? "Update" : "Reinstall";
+    shown("bc-install", !extension.foreign && running);
+    shown("bc-check", installed !== undefined);
+    shown("bc-uninstall", running && (bundled || runtime?.state === "installed" || runtime?.state === "legacy" || runtime?.state === "error"));
 }
 
 for (const [id, action] of [
     ["bc-install", "install"],
-    ["bc-update", "update"],
-    ["bc-enable", "enable"],
-    ["bc-disable", "disable"],
     ["bc-check", "check"],
     ["bc-uninstall", "uninstall"],
     ["bc-show-folder", "show-folder"],
