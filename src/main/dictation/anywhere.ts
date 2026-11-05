@@ -26,7 +26,7 @@ import {
 import type { AnywhereState, Settings, ThemeColors } from "../../shared/types";
 import { APP_ORIGIN, serveAppPages } from "../settings-screen/config-protocol";
 import { preloadPath } from "../core/paths";
-import { KEY, keptType, pasteText, pillPlace } from "./anywhere-keys";
+import { KEY, keptType, pasteText, PILL, pillPlace, pillWindowOptions } from "./anywhere-keys";
 import { comboOf } from "./key-combo";
 import { resetAccessibility } from "./mac-accessibility";
 import { diagnose } from "../diagnostics/stall-watchdog";
@@ -78,7 +78,7 @@ export interface AnywhereHost {
 
 const PARTITION = "gui-anywhere";
 const PILL_URL = `${APP_ORIGIN}/anywhere/index.html`;
-const PILL = { width: 340, height: 72 };
+
 /** A recording ends by itself after this long. */
 const LONGEST_MS = 5 * 60 * 1000;
 /** How long "Pasted" stays, and the clipboard keeps the words before it gets back what it held. */
@@ -172,22 +172,7 @@ export function setUpAnywhere(host: AnywhereHost) {
         }
 
         const window = new BrowserWindow({
-            ...PILL,
-            show: false,
-            frame: false,
-            transparent: true,
-            resizable: false,
-            movable: false,
-            minimizable: false,
-            maximizable: false,
-            fullscreenable: false,
-            // Never takes focus: the app you type in keeps it, and gets the words.
-            focusable: false,
-            skipTaskbar: true,
-            alwaysOnTop: true,
-            hasShadow: false,
-            backgroundColor: "#00000000",
-            ...(host.platform === "darwin" ? { type: "panel" } : {}),
+            ...pillWindowOptions(host.platform),
             webPreferences: {
                 session: anywhereSession(),
                 preload: preloadPath("anywhere"),
@@ -199,6 +184,9 @@ export function setUpAnywhere(host: AnywhereHost) {
             },
         });
 
+        // Window managers judge a window by its title too (see pillWindowOptions): the page's title must not reach it.
+        window.on("page-title-updated", (event) => event.preventDefault());
+        window.setTitle("");
         window.setAlwaysOnTop(true, "screen-saver");
         // On macOS, Electron would otherwise hide and show the app's dock icon to float over full-screen apps, and that
         // switch can bring Pi Pocket's window to the front. A panel floats over them already.

@@ -196,3 +196,31 @@ export function pillPlace(
         ? { x, y: Math.round(area.y + PILL_MARGIN), edge: "top" }
         : { x, y: Math.round(area.y + area.height - size.height - PILL_MARGIN), edge: "bottom" };
 }
+
+export const PILL = { width: 340, height: 72 };
+
+/**
+ * The pill's window: frameless, see-through, never focused, over everything. Tiling window managers on macOS (AeroSpace)
+ * must take it for a popup, not a window, or they give it a workspace and move it there each time it shows. They do so
+ * for a window with no title and no window buttons. A frameless macOS window keeps hidden close, minimize, and zoom
+ * buttons unless its corners are square: roundedCorners false makes it borderless. The pill draws its own round corners.
+ */
+export const pillWindowOptions = (platform: NodeJS.Platform) => ({
+    ...PILL,
+    show: false,
+    title: "",
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    // Never takes focus: the app you type in keeps it, and gets the words.
+    focusable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    hasShadow: false,
+    backgroundColor: "#00000000",
+    ...(platform === "darwin" ? { type: "panel", roundedCorners: false } : {}),
+});
