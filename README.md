@@ -234,7 +234,7 @@ The app writes a diagnostics log. It records page hangs and crashes, failed load
 
 **Settings → Updates** manages the desktop app, not the server. The app checks at startup and each time you open Settings, so what Settings shows is current. There is no timed check. Choose **Check now** to check again. Server updates are under **Settings → Server → This computer → Server updates**.
 
-- **Windows and the AppImage** download it and install it when the app restarts. The app asks first.
+- **Windows and the AppImage** download it and install it when the app restarts. The app asks first. On Windows the installer runs without its window: it keeps your earlier choice (only for you, or for everyone) and folder, and asks for administrator rights only for an install for everyone. Then the app opens again.
 - **macOS:** until the app is signed by Apple, macOS will not let it replace itself. It downloads the new disk image to Downloads, checked against GitHub's checksum, then quits and opens it (macOS cannot replace an app that is running): drag the app into Applications over the old one, then open it again. Your settings and sign-in stay.
 - **The .deb** opens the release page: install the new .deb the same way.
 
