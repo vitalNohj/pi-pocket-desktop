@@ -592,8 +592,20 @@ export function setUpAnywhere(host: AnywhereHost) {
     };
 
     let accessibilityTimer: NodeJS.Timeout | undefined;
-    /** macOS was asked for Accessibility in this run of the app: once, or again with Ask again. */
+    /** macOS was asked for Accessibility in this run of the app: once, or again with Ask again (or after off and on). */
     let asked = false;
+    /** Counts requests: one queued for after the window shows is dropped when a newer one, or turning it off, came since. */
+    let askNumber = 0;
+
+    /** Dictate anywhere is on and would use the hook: it still wants the permission. */
+    const wantsHook = (): boolean =>
+        host.settings().anywhere.enabled && comboOf(host.settings().dictation.key, host.platform) !== undefined && !copyOnly;
+
+    /** Drops a request not yet made, so turning Dictate anywhere on again asks anew. */
+    const cancelAsk = (): void => {
+        askNumber += 1;
+        asked = false;
+    };
 
     /**
      * Asks macOS for Accessibility, after the window shows. An entry from an earlier build makes macOS refuse this one and
@@ -605,9 +617,13 @@ export function setUpAnywhere(host: AnywhereHost) {
         }
 
         asked = true;
+        const number = ++askNumber;
+        // Still this request, still wanted, still refused: else nothing is removed and nothing asked.
+        const current = (): boolean => number === askNumber && wantsHook() && !systemPreferences.isTrustedAccessibilityClient(false);
+
         host.afterWindow(() => {
             void (async () => {
-                if (systemPreferences.isTrustedAccessibilityClient(false)) {
+                if (!current()) {
                     return;
                 }
 
@@ -615,7 +631,7 @@ export function setUpAnywhere(host: AnywhereHost) {
 
                 diagnose(`dictate anywhere: asking macOS for Accessibility (old entry ${removed ? "removed" : "not removed"})`);
 
-                if (!systemPreferences.isTrustedAccessibilityClient(false)) {
+                if (current()) {
                     systemPreferences.isTrustedAccessibilityClient(true);
                 }
             })();
@@ -638,6 +654,7 @@ export function setUpAnywhere(host: AnywhereHost) {
         refused = false;
 
         if (!settings.enabled) {
+            cancelAsk();
             stop(true);
             setStatus("off");
             pill?.destroy();
@@ -648,6 +665,7 @@ export function setUpAnywhere(host: AnywhereHost) {
         }
 
         if (comboOf(key, host.platform) === undefined) {
+            cancelAsk();
             problem = "Choose a dictation key above: it is the key that starts Dictate anywhere.";
             setStatus("error");
 
@@ -719,7 +737,7 @@ export function setUpAnywhere(host: AnywhereHost) {
             const removed = await resetAccessibility(host.platform);
 
             if (removed) {
-                asked = false;
+                cancelAsk();
                 apply();
             }
 
