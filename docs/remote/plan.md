@@ -224,6 +224,70 @@ How:
 - **Later (problem 1 below):** a request log on the runner that a restarted server can read, so a server restart
   loses nothing either. It can be added without changing the rest.
 
+## Approvals, expiry, and TOTP (proposed 2026-11-04, not yet confirmed)
+
+A draft for review. Nothing here is decided until it is said back and confirmed.
+
+### The rule: the computer's protections stay on the computer
+
+Each protection exists for the case where the server is compromised. So the server never loosens one by itself:
+
+- **Approval at the computer stays the default.** Its dialog (desktop app) or its terminal question (`pi-pocket runner`) asks, as now.
+- **TOTP is the only way the server proves a person is there.** The secret is made and kept on the computer; only the runner checks a code. The server passes a code along and never stores it.
+- **Revoking is always allowed from the server** (an owner): it only takes permissions away.
+- **Loosening needs the computer or a TOTP code.** Without TOTP set up, those switches in Pi Pocket's Runners are greyed out (read-only), with "Change it on <computer>, or set up an authenticator there". With TOTP, changing one opens a TOTP prompt; the runner checks the code and applies the change.
+
+### Expiry
+
+- One idle expiry, shared by saved folders and approved sessions: **3 days** by default, a runner setting.
+- An approval lapses after that long with no work in its folder; any request from a session there renews it.
+- After it lapses: a new session there asks again, and an existing session's next request is held until it is approved again (it waits, as offline does; the session shows the prompt).
+- Folders already saved start their idle clock on the update.
+
+### Broad folders
+
+- A root (`/`, `C:\`), the home folder, and folders that contain it, as now.
+- Never saved by Allow; the dialog offers **Allow this session only**.
+- A broad folder found in the saved list (edited by hand, or a bug) is ignored, and `runner folders` says so.
+
+### When the computer says no (an expired or new approval)
+
+The server shows a prompt in the session: **"<computer> needs your approval: approve it there, or enter the code from your authenticator."** Whichever comes first wins. The computer's own dialog or terminal question shows at the same time.
+
+### What a TOTP code can approve
+
+| Approval | Default |
+|---|---|
+| Renew an expired session | On, once TOTP is set up |
+| Renew an expired saved folder | On, once TOTP is set up |
+| A new session in a new folder (saving it) | Off (switch) |
+| A broad folder, this session only | Off (switch) |
+
+### Runner settings (all on the computer; Runners shows them)
+
+| Setting | Default | Loosen from the server |
+|---|---|---|
+| Ask before new sessions | On | With a TOTP code |
+| Folder checks (allowed folders) | On | With a TOTP code |
+| Idle expiry | 3 days | Longer: with a TOTP code. Shorter: no code |
+| TOTP | Off | Set up only at the computer |
+| TOTP for new folders | Off | With a TOTP code |
+| TOTP for broad folders | Off | With a TOTP code |
+
+Revoke one saved folder, one approved session, or all of them: any owner, from Runners, no code.
+
+### TOTP itself
+
+- RFC 6238: 6 digits, 30 s steps, HMAC-SHA1, the current step and one either side. A code works once. Failed tries are limited.
+- Setup at the computer: `pi-pocket runner totp setup` prints the `otpauth://` link and a QR code in the terminal; the desktop app's Runner card shows the same QR code. `totp off` turns it off, only at the computer.
+- The secret is kept in the runner's settings file, mode 0600, next to the link key.
+- The time to answer: 5 minutes when TOTP is on, 2 minutes otherwise.
+
+### Where it is built
+
+- **Pi Pocket** (branch `feat/runners-beta`, PR #15): the runner (expiry, settings, TOTP check, `totp` commands, generic stdio questions), the server (pass-through of codes, the prompt in the session, Runners showing settings and permissions with revoke), docs.
+- **Desktop app** (a branch into `main`, released to test): the Runner card's switches and QR code, and its dialog for the new questions. Pi Pocket names no desktop app in code; the runner's docs say "a program that runs the runner, such as the desktop app".
+
 ## Problems and solutions
 
 ★ marks the chosen solution.
