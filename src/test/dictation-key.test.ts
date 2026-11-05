@@ -20,6 +20,7 @@ function world(options: { page?: boolean; mic?: boolean; anywhere?: boolean; hoo
     const place = { page: options.page ?? true };
     const mic = { found: options.mic ?? true, listening: false };
     let recording = false;
+    const permits = { count: 0 };
 
     const key = setUpDictationKey({
         platform: "linux",
@@ -49,13 +50,16 @@ function world(options: { page?: boolean; mic?: boolean; anywhere?: boolean; hoo
                 calls.push(drop ? "anywhere drop" : "anywhere stop");
             },
             tap: (code) => calls.push(`tap ${code}`),
+            permit: () => {
+                permits.count++;
+            },
         }),
         grab: (accelerator) => {
             grabbed.value = accelerator;
         },
     });
 
-    return { key, calls, place, mic, settings, grabbed };
+    return { key, calls, place, mic, settings, grabbed, permits };
 }
 
 const input = (type: "keyDown" | "keyUp", code = "ControlRight"): Input => ({ type, code, key: code, isAutoRepeat: false }) as Input;
@@ -297,4 +301,19 @@ test("modifiers alone: Left Ctrl + Left Alt held dictates; with another key it i
     key.fromHook("up", 56);
     key.fromHook("up", 29);
     assert.deepEqual(calls, ["anywhere start", "anywhere stop", "anywhere start", "anywhere drop"]);
+});
+
+test("each press that starts dictation where the app sees it asks for a missing permission (macOS)", async () => {
+    const { key, permits } = world();
+
+    key.fromWindow(input("keyDown"));
+    key.fromWindow(input("keyUp"));
+    await settle();
+    assert.equal(permits.count, 1);
+
+    // The press that stops it does not ask.
+    key.fromWindow(input("keyDown"));
+    key.fromWindow(input("keyUp"));
+    await settle();
+    assert.equal(permits.count, 1);
 });

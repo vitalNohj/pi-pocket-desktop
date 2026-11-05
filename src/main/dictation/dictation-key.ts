@@ -32,6 +32,8 @@ export interface DictationKeyHost {
               start(): void;
               stop(drop: boolean): void;
               tap(code: number): void;
+              /** macOS: asks again for Accessibility if it went missing. */
+              permit(): void;
           }
         | undefined;
 }
@@ -184,6 +186,9 @@ export function setUpDictationKey(host: DictationKeyHost) {
     const act = (action: TriggerAction, at: number): void => {
         switch (action) {
             case "start":
+                // Pressed where the app sees it while macOS took its permission away: ask again now.
+                host.anywhere()?.permit();
+
                 // Alt or the Windows key alone opens a menu off macOS: a Ctrl tap makes this press a combination.
                 if (chord !== undefined && needsMask(chord.combo, host.platform)) {
                     host.anywhere()?.tap(KEY.Ctrl);

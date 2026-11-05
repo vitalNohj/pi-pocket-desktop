@@ -20,6 +20,7 @@ import {
     Notification,
     screen,
     session,
+    shell,
     systemPreferences,
     type IpcMainEvent,
 } from "electron";
@@ -82,6 +83,8 @@ const LONGEST_MS = 5 * 60 * 1000;
 /** How long "Pasted" stays, and the clipboard keeps the words before it gets back what it held. */
 const DONE_MS = 900;
 const RESTORE_MS = 1500;
+/** How often macOS's Accessibility permission is checked while the hook runs, as it can be taken away. */
+const WATCH_MS = 15_000;
 
 type PillMessage =
     | { type: "record"; title: string; colors: Record<string, string>; mode: "dark" | "light"; sound: boolean }
@@ -101,7 +104,7 @@ export function hookProblem(error: unknown, platform: string): string {
     const text = error instanceof Error ? error.message : String(error);
 
     if (platform === "darwin" || /AXAPI/.test(text)) {
-        return "macOS has not let Pi Pocket see keys yet. In System Settings → Privacy & Security, turn Pi Pocket on under Accessibility (and Input Monitoring if it is listed), then turn Dictate anywhere off and on.";
+        return "macOS does not let Pi Pocket see keys in other apps. In System Settings → Privacy & Security → Accessibility, turn Pi Pocket on. After an update, remove it with − and add it again. Dictate anywhere starts by itself once it is allowed.";
     }
 
     if (/X_OPEN_DISPLAY|X_RECORD|XRECORD/i.test(text)) {
@@ -314,10 +317,35 @@ export function setUpAnywhere(host: AnywhereHost) {
         return { colors: { ...current.colors }, mode: current.mode };
     };
 
+    // ——— macOS's Accessibility permission ———
+
+    /** The hook (keys in other apps, and the paste) needs Accessibility on macOS. Asking needs no prompt. */
+    const trusted = (): boolean => host.platform !== "darwin" || systemPreferences.isTrustedAccessibilityClient(false);
+    /** Asked once since the permission went missing: the next use asks again only after it came back and went. */
+    let asked = false;
+
+    /**
+     * Dictation is used where the app sees it (the key in its own window, the tray) while the permission is missing:
+     * ask for it now. macOS shows no prompt of its own when an older build of the app is still in its list, so its
+     * Accessibility settings open too. Once a loss, so further presses only dictate.
+     */
+    const permit = (): void => {
+        if (host.platform !== "darwin" || !host.settings().anywhere.enabled || asked || trusted()) {
+            return;
+        }
+
+        asked = true;
+        systemPreferences.isTrustedAccessibilityClient(true);
+        void shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility").catch(() => undefined);
+    };
+
     const start = async (): Promise<void> => {
         if (take !== undefined) {
             return;
         }
+
+        // Without Accessibility it still records, and the words are copied instead of pasted.
+        permit();
 
         const dictation = host.dictation();
 
@@ -597,9 +625,13 @@ export function setUpAnywhere(host: AnywhereHost) {
 
     let accessibilityTimer: NodeJS.Timeout | undefined;
 
+    /** Dictate anywhere was just turned on in the settings (or its key changed): ask for what it needs now. */
+    let turnedOn = false;
+
     /** Starts or stops watching the key, as the settings say. */
     const apply = (): void => {
         applyHook();
+        turnedOn = false;
         host.hookChanged();
     };
 
@@ -636,19 +668,26 @@ export function setUpAnywhere(host: AnywhereHost) {
             return;
         }
 
-        // macOS: the hook needs Accessibility. Ask once, then wait for it to be given.
-        if (host.platform === "darwin" && !systemPreferences.isTrustedAccessibilityClient(false)) {
-            systemPreferences.isTrustedAccessibilityClient(true);
+        // macOS: the hook needs Accessibility. When turned on, ask; otherwise (it went missing, as after an update) wait
+        // quietly, and ask at the next use the app can see (permit). It starts by itself once allowed.
+        if (!trusted()) {
+            if (turnedOn) {
+                asked = false;
+                permit();
+            }
+
             problem = hookProblem(new Error("AXAPI"), host.platform);
             setStatus("error");
             accessibilityTimer = setInterval(() => {
-                if (systemPreferences.isTrustedAccessibilityClient(false)) {
+                if (trusted()) {
                     apply();
                 }
             }, 2000);
 
             return;
         }
+
+        asked = false;
 
         try {
             const loaded = loadHook();
@@ -659,6 +698,16 @@ export function setUpAnywhere(host: AnywhereHost) {
             hookRunning = true;
             pillWindow();
             setStatus("ready");
+
+            // macOS can take the permission away while the app runs (an update, a change in its settings): the hook then
+            // hears nothing. Check quietly, and wait for it again.
+            if (host.platform === "darwin") {
+                accessibilityTimer = setInterval(() => {
+                    if (!trusted() && take === undefined) {
+                        apply();
+                    }
+                }, WATCH_MS);
+            }
         } catch (error) {
             stopHook();
             problem = hookProblem(error, host.platform);
@@ -686,6 +735,7 @@ export function setUpAnywhere(host: AnywhereHost) {
             const next = applying();
 
             if (next !== applied) {
+                turnedOn = host.settings().anywhere.enabled && !(JSON.parse(applied) as [Settings["anywhere"]])[0].enabled;
                 applied = next;
                 apply();
             }
@@ -699,6 +749,8 @@ export function setUpAnywhere(host: AnywhereHost) {
             }
         },
         recording: (): boolean => take !== undefined,
+        /** The dictation key was used where the app sees it: ask for Accessibility if it went missing (macOS). */
+        permit,
         /** Dictate anywhere can record now (it is on, and not Wayland's tray-only kind). */
         usable: (): boolean => host.settings().anywhere.enabled && status !== "off",
         /** The keyboard hook runs: it hears the key in every app, the app's own window too. */
