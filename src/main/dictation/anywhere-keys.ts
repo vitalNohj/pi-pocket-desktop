@@ -233,3 +233,30 @@ export function pasteText(phrases: readonly string[]): string {
 export function keptType(type: string): boolean {
     return !/format="(TARGETS|TIMESTAMP|MULTIPLE|SAVE_TARGETS|DELETE|INCR|application\/vnd\.portal\.[^"]*)"/.test(type);
 }
+
+interface Rect {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+/** Room left between the pill and the screen's edge. */
+const PILL_MARGIN = 40;
+
+/**
+ * Where Dictate anywhere's pill goes on the screen: centred, at the bottom, or at the top when the pointer is in the
+ * lower half, where the pill could cover what you type.
+ */
+export function pillPlace(
+    area: Rect,
+    pointer: { x: number; y: number },
+    size: { width: number; height: number },
+): { x: number; y: number; edge: "top" | "bottom" } {
+    const x = Math.round(area.x + (area.width - size.width) / 2);
+    const top = pointer.y >= area.y + area.height / 2;
+
+    return top
+        ? { x, y: Math.round(area.y + PILL_MARGIN), edge: "top" }
+        : { x, y: Math.round(area.y + area.height - size.height - PILL_MARGIN), edge: "bottom" };
+}

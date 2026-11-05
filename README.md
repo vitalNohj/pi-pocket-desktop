@@ -117,9 +117,9 @@ One key turns dictation on, set in **GUI Settings → Dictation**: Right Option 
 
 ### Dictate anywhere
 
-The dictation key in every app, not only Pi Pocket: turn on **Dictate anywhere** in **GUI Settings → Dictation**, then press the key wherever you type. A small pill at the bottom of the screen shows that it listens (its dot grows with your voice), the tray's π turns red, and the words are pasted where your cursor is when you stop. The clipboard gets back what it held a moment later.
+The dictation key in every app, not only Pi Pocket: turn on **Dictate anywhere** in **GUI Settings → Dictation**, then press the key wherever you type. A small pill shows that it listens, with the words so far (its dot grows with your voice). It sits at the bottom of the screen, or at the top when your pointer is in the lower half, so it does not cover where you type. The tray's π turns red, and the words are pasted where your cursor is when you stop. The clipboard gets back what it held a moment later.
 
-- **Where it goes:** with Pi Pocket's window in front, the key still turns on the session's mic; in any other app, it pastes. In Pi Pocket with no message box showing (a sheet open), it pastes too. A recording ends where it started, even if you switch apps meanwhile. GUI Settings ignores the key.
+- **Where it goes:** with Pi Pocket's window in front, the key still turns on the session's mic; in any other app, it pastes. In Pi Pocket with no message box showing (a sheet open), it pastes too. A recording ends where it started, even if you switch apps meanwhile. In GUI Settings it dictates anywhere too, so the words go into the box you are typing in.
 - **Esc** drops a recording. **Words go** where the cursor is, or only to the clipboard. The tray menu's **Dictate** starts and stops it too.
 - **macOS** asks once for Accessibility (to see the key and press ⌘V) and the microphone. The app is not signed, so macOS may ask again after an update.
 - **Windows** keeps apps run as administrator apart: to dictate into those, run Pi Pocket as administrator too. On many keyboards Right Alt is AltGr; pick another key if you type with it.

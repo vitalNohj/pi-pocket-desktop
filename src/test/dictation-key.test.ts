@@ -8,7 +8,7 @@ import type { PageMicAnswer } from "../main/dictation/page-mic";
 import type { Settings } from "../shared/types";
 
 /** A world for the key: where the focus is, the page's mic, and Dictate anywhere, with what each was asked. */
-function world(options: { page?: boolean; settings?: boolean; mic?: boolean; anywhere?: boolean; hooked?: boolean; mode?: Settings["dictation"]["keyMode"] } = {}) {
+function world(options: { page?: boolean; mic?: boolean; anywhere?: boolean; hooked?: boolean; mode?: Settings["dictation"]["keyMode"] } = {}) {
     const settings = defaultSettings();
 
     settings.dictation.key = "CtrlRight";
@@ -16,7 +16,7 @@ function world(options: { page?: boolean; settings?: boolean; mic?: boolean; any
     settings.anywhere.enabled = options.anywhere ?? false;
 
     const calls: string[] = [];
-    const place = { page: options.page ?? true, settings: options.settings ?? false };
+    const place = { page: options.page ?? true };
     const mic = { found: options.mic ?? true, listening: false };
     let recording = false;
 
@@ -24,7 +24,6 @@ function world(options: { page?: boolean; settings?: boolean; mic?: boolean; any
         platform: "linux",
         settings: () => settings,
         pageInFront: () => place.page,
-        settingsInFront: () => place.settings,
         pageMic: async (action): Promise<PageMicAnswer> => {
             calls.push(`page ${action}`);
 
@@ -168,14 +167,22 @@ test("a recording belongs to where it started: switching into the window, the ke
     assert.deepEqual(calls, ["anywhere start", "anywhere stop"]);
 });
 
-test("GUI Settings in front: the key does nothing", () => {
-    const { key, calls, place } = world({ anywhere: true, hooked: true });
+test("GUI Settings in front: the key dictates anywhere, heard by the hook or by the window", () => {
+    const hooked = world({ anywhere: true, hooked: true });
 
-    place.page = false;
-    place.settings = true;
-    key.fromHook("down", 3613);
-    key.fromHook("up", 3613);
-    assert.deepEqual(calls, []);
+    hooked.place.page = false;
+    hooked.key.fromHook("down", 3613);
+    hooked.key.fromHook("up", 3613);
+    hooked.key.fromHook("down", 3613);
+    hooked.key.fromHook("up", 3613);
+    assert.deepEqual(hooked.calls, ["anywhere start", "anywhere stop"]);
+
+    const unhooked = world({ anywhere: true, hooked: false });
+
+    unhooked.place.page = false;
+    unhooked.key.fromWindow(input("keyDown"));
+    unhooked.key.fromWindow(input("keyUp"));
+    assert.deepEqual(unhooked.calls, ["anywhere start"]);
 });
 
 test("Escape drops a recording anywhere; the tray's recording ends with the key", () => {
@@ -210,7 +217,6 @@ test("no key: nothing is taken", () => {
         platform: "linux",
         settings: () => settings,
         pageInFront: () => true,
-        settingsInFront: () => false,
         pageMic: async () => ({ found: true, listening: false }),
         anywhere: () => undefined,
     });

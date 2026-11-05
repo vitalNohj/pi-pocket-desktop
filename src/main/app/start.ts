@@ -526,7 +526,6 @@ export async function start(): Promise<void> {
         platform: process.platform,
         settings: () => appState.gui!.settings,
         pageInFront: () => window.isFocused() && appState.gui?.showing === "server" && appState.gui.loadedUrl !== undefined && !appState.gui.unverified,
-        settingsInFront: () => window.isFocused() && appState.gui?.showing === "config",
         pageMic,
         anywhere: () => appState.gui?.anywhere,
     });

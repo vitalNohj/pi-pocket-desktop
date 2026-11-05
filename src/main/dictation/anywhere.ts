@@ -26,7 +26,7 @@ import {
 import type { AnywhereState, Settings, ThemeColors } from "../../shared/types";
 import { APP_ORIGIN, serveAppPages } from "../settings-screen/config-protocol";
 import { preloadPath } from "../core/paths";
-import { KEY, keptType, keyLabel, pasteText } from "./anywhere-keys";
+import { KEY, keptType, pasteText, pillPlace } from "./anywhere-keys";
 import type { Listening, PageMessage } from "./dictation";
 
 /** uiohook-napi, as used here. Loaded only once Dictate anywhere is turned on. */
@@ -85,6 +85,7 @@ type PillMessage =
     | { type: "stop" }
     | { type: "show"; state: "working" | "done" | "error"; title: string; detail?: string }
     | { type: "words"; text: string }
+    | { type: "edge"; edge: "top" | "bottom" }
     | { type: "hide" };
 
 /** Wayland lets no app hear keys pressed in other apps, or type into them. */
@@ -233,16 +234,20 @@ export function setUpAnywhere(host: AnywhereHost) {
         }
     };
 
-    /** Shows the pill without focus, at the bottom of the screen the pointer is on. */
+    /**
+     * Shows the pill without focus on the screen the pointer is on: at its bottom, or at its top when the pointer is in
+     * the lower half, so it does not cover where you type. It stays where it is until the recording's pill hides.
+     */
     const showPill = (): void => {
         const window = pillWindow();
-        const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
 
-        window.setBounds({
-            x: Math.round(area.x + (area.width - PILL.width) / 2),
-            y: Math.round(area.y + area.height - PILL.height - 40),
-            ...PILL,
-        });
+        if (!window.isVisible()) {
+            const pointer = screen.getCursorScreenPoint();
+            const place = pillPlace(screen.getDisplayNearestPoint(pointer).workArea, pointer, PILL);
+
+            window.setBounds({ x: place.x, y: place.y, ...PILL });
+            toPill({ type: "edge", edge: place.edge });
+        }
 
         if (!window.isVisible()) {
             window.showInactive();
@@ -372,16 +377,9 @@ export function setUpAnywhere(host: AnywhereHost) {
             return;
         }
 
-        const { key, keyMode } = host.settings().dictation;
-        const byKey = key !== "off" && host.keyHeld();
-
         toPill({
             type: "record",
-            title: !byKey
-                ? `Listening · ${key === "off" ? "Dictate again" : keyLabel(key, host.platform)} to stop`
-                : keyMode === "toggle"
-                  ? `Listening · ${keyLabel(key, host.platform)} to stop`
-                  : `Listening · let go of ${keyLabel(key, host.platform)}`,
+            title: "Listening",
             sound: host.settings().anywhere.sound,
             ...theme(),
         });
@@ -410,7 +408,7 @@ export function setUpAnywhere(host: AnywhereHost) {
             setStatus(problem === undefined ? "ready" : "error");
         } else {
             setStatus("working");
-            toPill({ type: "show", state: "working", title: "Recognising…" });
+            toPill({ type: "show", state: "working", title: "Transcribing…" });
         }
     };
 
@@ -483,7 +481,7 @@ export function setUpAnywhere(host: AnywhereHost) {
         void deliver(text).then(
             (pasted) => {
                 showPill();
-                toPill({ type: "show", state: "done", title: pasted ? "Pasted" : "Copied: paste it with " + (host.platform === "darwin" ? "⌘V" : "Ctrl+V"), detail: text });
+                toPill({ type: "show", state: "done", title: pasted ? "Pasted" : "Copied · " + (host.platform === "darwin" ? "⌘V" : "Ctrl+V") + " to paste", detail: text });
                 hidePillSoon(pasted ? DONE_MS : 2500);
             },
             (error: unknown) => {
