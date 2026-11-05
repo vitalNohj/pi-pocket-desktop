@@ -321,6 +321,8 @@ export function registerIpc(): void {
         return done;
     });
 
+    handle("config:reset-accessibility", () => appState.gui!.anywhere?.resetPermission() ?? false);
+
     handle("config:show-dictation-folder", () => {
         const folder = appState.gui!.dictation!.state().folder;
 

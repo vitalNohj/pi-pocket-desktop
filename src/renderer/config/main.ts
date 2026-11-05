@@ -1194,6 +1194,7 @@ function renderAnywhere(next: ConfigState): void {
 
     message.hidden = anywhere.message === undefined;
     message.textContent = anywhere.message ?? "";
+    element("anywhere-permission").hidden = !(mac && settings.enabled && anywhere.permission === true);
     element("anywhere-status").textContent = !settings.enabled
         ? "Off"
         : anywhere.status === "recording"
@@ -1228,6 +1229,18 @@ function renderAnywhere(next: ConfigState): void {
             ? "Tip: Windows keeps apps run as administrator apart. To dictate into those, run Pi Pocket as administrator too."
             : "macOS asks once to let Pi Pocket use Accessibility (to see the key and paste) and the microphone.";
 }
+
+element("anywhere-reset").addEventListener("click", () => {
+    const button = element<HTMLButtonElement>("anywhere-reset");
+
+    button.disabled = true;
+    void gui.resetAccessibility().then((removed) => {
+        button.disabled = false;
+        element("anywhere-permission-note").textContent = removed
+            ? "Asked: allow Pi Pocket in the window macOS shows."
+            : "Could not remove it. In System Settings → Privacy & Security → Accessibility, remove Pi Pocket with −, then turn Dictate anywhere off and on.";
+    });
+});
 
 element("dictation-show-folder").addEventListener("click", () => {
     void gui.showDictationFolder();

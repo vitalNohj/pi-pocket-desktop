@@ -19,6 +19,7 @@ import { join } from "node:path";
 import { app, dialog, net, Notification, shell, type BaseWindow } from "electron";
 import type { Settings, UpdateState } from "../../shared/types";
 import { downloadChecked } from "../core/download";
+import { resetAccessibility } from "../dictation/mac-accessibility";
 import {
     CheckGenerations,
     isNewer,
@@ -206,6 +207,16 @@ export function setUpUpdates(host: UpdateHost): {
         return autoUpdater;
     };
 
+    /**
+     * The new build gets no Accessibility from macOS while this build's entry is in its list, and is not asked either:
+     * remove the entry, so macOS asks the new build at its first start (src/main/dictation/mac-accessibility.ts).
+     */
+    const beforeInstall = async (): Promise<void> => {
+        if (process.platform === "darwin" && host.settings().anywhere.enabled) {
+            await resetAccessibility();
+        }
+    };
+
     const askToRestart = async (version: string): Promise<void> => {
         const { response } = await dialog.showMessageBox(host.window(), {
             type: "info",
@@ -220,6 +231,7 @@ export function setUpUpdates(host: UpdateHost): {
         // A newer version may have replaced this one while the question was open: never install the older one.
         if (response === 0 && readyVersion === version) {
             host.quitting();
+            await beforeInstall();
             updater?.quitAndInstall();
         }
     };
@@ -245,6 +257,7 @@ export function setUpUpdates(host: UpdateHost): {
         }
 
         host.quitting();
+        await beforeInstall();
         app.quit();
         // A window or a handler that holds the quit must not keep the old app running under the person's drag.
         setTimeout(() => app.exit(0), QUIT_LIMIT_MS).unref();
