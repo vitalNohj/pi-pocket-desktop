@@ -74,6 +74,8 @@ export interface AnywhereHost {
     ended: () => void;
     /** The keyboard hook started or stopped. */
     hookChanged: () => void;
+    /** Runs `then` once the app's window is on screen: macOS's question must not open behind it. */
+    afterWindow: (then: () => void) => void;
 }
 
 const PARTITION = "gui-anywhere";
@@ -105,7 +107,7 @@ export function hookProblem(error: unknown, platform: string): string {
     const text = error instanceof Error ? error.message : String(error);
 
     if (/AXAPI/.test(text)) {
-        return "macOS does not let Pi Pocket see keys in other apps. If System Settings already shows Pi Pocket on under Accessibility, that permission belongs to an earlier version: use Ask again below, then allow it.";
+        return "macOS does not let Pi Pocket see keys in other apps. macOS asks for Accessibility: allow Pi Pocket there. If System Settings already shows Pi Pocket on, that switch belongs to an earlier version: use Ask again below.";
     }
 
     if (/X_OPEN_DISPLAY|X_RECORD|XRECORD/i.test(text)) {
@@ -590,6 +592,51 @@ export function setUpAnywhere(host: AnywhereHost) {
     };
 
     let accessibilityTimer: NodeJS.Timeout | undefined;
+    /** macOS was asked for Accessibility in this run of the app: once, or again with Ask again (or after off and on). */
+    let asked = false;
+    /** Counts requests: one queued for after the window shows is dropped when a newer one, or turning it off, came since. */
+    let askNumber = 0;
+
+    /** Dictate anywhere is on and would use the hook: it still wants the permission. */
+    const wantsHook = (): boolean =>
+        host.settings().anywhere.enabled && comboOf(host.settings().dictation.key, host.platform) !== undefined && !copyOnly;
+
+    /** Drops a request not yet made, so turning Dictate anywhere on again asks anew. */
+    const cancelAsk = (): void => {
+        askNumber += 1;
+        asked = false;
+    };
+
+    /**
+     * Asks macOS for Accessibility, after the window shows. An entry from an earlier build makes macOS refuse this one and
+     * not ask: the entry is removed first (it is on for an older build, or off), so macOS asks as it does the first time.
+     */
+    const askAccessibility = (): void => {
+        if (asked) {
+            return;
+        }
+
+        asked = true;
+        const number = ++askNumber;
+        // Still this request, still wanted, still refused: else nothing is removed and nothing asked.
+        const current = (): boolean => number === askNumber && wantsHook() && !systemPreferences.isTrustedAccessibilityClient(false);
+
+        host.afterWindow(() => {
+            void (async () => {
+                if (!current()) {
+                    return;
+                }
+
+                const removed = await resetAccessibility(host.platform);
+
+                diagnose(`dictate anywhere: asking macOS for Accessibility (old entry ${removed ? "removed" : "not removed"})`);
+
+                if (current()) {
+                    systemPreferences.isTrustedAccessibilityClient(true);
+                }
+            })();
+        });
+    };
 
     /** Starts or stops watching the key, as the settings say. */
     const apply = (): void => {
@@ -607,6 +654,7 @@ export function setUpAnywhere(host: AnywhereHost) {
         refused = false;
 
         if (!settings.enabled) {
+            cancelAsk();
             stop(true);
             setStatus("off");
             pill?.destroy();
@@ -617,6 +665,7 @@ export function setUpAnywhere(host: AnywhereHost) {
         }
 
         if (comboOf(key, host.platform) === undefined) {
+            cancelAsk();
             problem = "Choose a dictation key above: it is the key that starts Dictate anywhere.";
             setStatus("error");
 
@@ -633,7 +682,7 @@ export function setUpAnywhere(host: AnywhereHost) {
 
         // macOS: the hook needs Accessibility. Ask once, then wait for it to be given.
         if (host.platform === "darwin" && !systemPreferences.isTrustedAccessibilityClient(false)) {
-            systemPreferences.isTrustedAccessibilityClient(true);
+            askAccessibility();
             problem = hookProblem(new Error("AXAPI"), host.platform);
             refused = true;
             setStatus("error");
@@ -688,6 +737,7 @@ export function setUpAnywhere(host: AnywhereHost) {
             const removed = await resetAccessibility(host.platform);
 
             if (removed) {
+                cancelAsk();
                 apply();
             }
 

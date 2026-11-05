@@ -270,7 +270,7 @@ export function setUpUpdates(host: UpdateHost): {
             title: "Pi Pocket",
             message: `Pi Pocket ${version} is downloaded.`,
             detail: "Pi Pocket quits and opens the disk image. Drag Pi Pocket into Applications over the old one, then open it again. Your settings and sign-in stay.",
-            buttons: ["Quit and open", "Later"],
+            buttons: ["Quit and install", "Later"],
             defaultId: 0,
             cancelId: 1,
         });
