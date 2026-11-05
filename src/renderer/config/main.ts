@@ -846,7 +846,8 @@ function read(settings: Settings, key: string): unknown {
 
 function renderSettings(next: ConfigState): void {
     for (const input of settingInputs) {
-        if (input === document.activeElement) {
+        // Being typed in, or set by a button and not saved yet (the dictation key): keep what the person chose.
+        if (input === document.activeElement || input.dataset.pending === "true") {
             continue;
         }
 
@@ -918,7 +919,15 @@ function scheduleSave(): void {
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
         void (async () => {
+            const sent = new Map(settingInputs.map((input) => [input, input.value]));
             const next = await gui.save(collect());
+
+            // Saved now, unless changed again while this save was on its way.
+            for (const input of settingInputs) {
+                if (sent.get(input) === input.value) {
+                    delete input.dataset.pending;
+                }
+            }
 
             render(next);
             saved.textContent = next.problems.length === 0 ? "Saved" : "Saved. Check the values above.";
@@ -1536,7 +1545,10 @@ function keyRecordEnd(): void {
 }
 
 function setDictationKey(value: string): void {
-    element<HTMLInputElement>("dictation-key").value = value;
+    const input = element<HTMLInputElement>("dictation-key");
+
+    input.value = value;
+    input.dataset.pending = "true";
     scheduleSave();
 }
 

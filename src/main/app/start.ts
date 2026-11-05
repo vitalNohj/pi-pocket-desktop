@@ -524,7 +524,11 @@ export async function start(): Promise<void> {
     // The dictation key's combination, taken as the app's shortcut while the hook hears it (src/main/dictation/dictation-key.ts).
     let grabbed: string | undefined;
     const grabDictationShortcut = (accelerator: string | undefined, pressed: () => void): void => {
-        if (grabbed !== undefined && globalShortcut.isRegistered(grabbed)) {
+        // After the settings re-registered every shortcut, the window's hotkey may now hold the same keys: not ours.
+        const windowSettings = appState.gui?.settings.window;
+        const taken = windowSettings?.hotkeyEnabled === true && windowSettings.hotkey === grabbed;
+
+        if (grabbed !== undefined && !taken && globalShortcut.isRegistered(grabbed)) {
             globalShortcut.unregister(grabbed);
         }
 
