@@ -13,6 +13,7 @@ import {
     nativeImage,
     nativeTheme,
     Notification,
+    powerMonitor,
     systemPreferences,
     type BaseWindow,
     type IpcMainEvent,
@@ -27,6 +28,7 @@ import { cornerDot, dotBitmap, paintDot, tint } from "./badge-image";
 import { readTheme, rgbOf } from "../window/theme";
 import { pinLabel, readBadge, readNotification, readPinned } from "./bridge-input";
 import { offersAllow, showCall } from "./notice-text";
+import { FinishNotices, IDLE_SECONDS, isFinish, type Notice } from "./notice-group";
 import { buildTrayMenu, readAccent } from "../tray/tray-menu";
 import { setUpTrayPopup } from "../tray/tray-popup";
 import { type NewSessionView, PendingNewSession, readPageEvents } from "./new-session";
@@ -83,6 +85,9 @@ function originOf(url: string): string | undefined {
 
 /** Notifications that show now, by tag: Electron drops a notification's events once nothing holds it. */
 const shown = new Map<string, Notification>();
+/** The one notification for sessions that finished (src/main/bridge/notice-group.ts): its id, and the one that shows. */
+const FINISHED_ID = "pi-finished";
+let finished: Notification | undefined;
 let pins: PinnedSession[] = [];
 let badge = 0;
 let lastVisible: boolean | undefined;
@@ -126,6 +131,9 @@ export function setUpDesktop(host: DesktopHost): {
 
         return window.isVisible() && !window.isMinimized() && host.showingServer();
     };
+
+    /** The person looks at Pi Pocket: its window shows it, in front. */
+    const looking = (): boolean => visible() && host.window().isFocused();
 
     const send = (event: HostEvent): void => {
         const contents = host.contents();
@@ -308,10 +316,84 @@ export function setUpDesktop(host: DesktopHost): {
         refreshTray();
     };
 
+    /** The one "Pi finished" notification shows this, in place of what it said before. */
+    const showFinished = (notice: Notice): void => {
+        const settings = host.settings().notifications;
+
+        // Notifications were turned off while finishes waited for the person.
+        if (!settings.enabled || !Notification.isSupported()) {
+            return;
+        }
+
+        const notification = new Notification({
+            title: notice.title,
+            body: notice.body,
+            silent: !settings.sound,
+            icon: join(host.assets, "icon-192.png"),
+            id: FINISHED_ID,
+            groupId: "pi-pocket",
+        });
+
+        // The one it replaces goes first: on macOS a close removes what shows with its id, so after the show it would
+        // remove the new one. Its close event then finds that it is no longer the one that shows.
+        const before = finished;
+        finished = notification;
+        before?.close();
+
+        notification.on("click", () => {
+            if (finished === notification) {
+                finished = undefined;
+                finishes.seen();
+            }
+
+            open(notice.url);
+        });
+        notification.on("close", (event) => {
+            // On Windows a banner that times out moves to the Action Center: it is still there to see.
+            if (finished === notification && event.reason !== "timedOut") {
+                finished = undefined;
+                finishes.seen();
+            }
+        });
+        notification.on("failed", () => {
+            if (finished === notification) {
+                finished = undefined;
+            }
+        });
+        activity("notification show");
+        notification.show();
+    };
+
+    const finishes = new FinishNotices({
+        idle: () => powerMonitor.getSystemIdleState(IDLE_SECONDS),
+        show: showFinished,
+        setTimer: (run, ms) => setTimeout(run, ms),
+        clearTimer: (timer) => clearTimeout(timer as NodeJS.Timeout),
+    });
+
+    // Sleep and the lock screen: finishes wait for the person, and show as one when they are back.
+    powerMonitor.on("suspend", () => finishes.asleep(true));
+    powerMonitor.on("lock-screen", () => finishes.asleep(true));
+    powerMonitor.on("user-did-resign-active", () => finishes.asleep(true));
+    powerMonitor.on("resume", () => finishes.asleep(false));
+    powerMonitor.on("unlock-screen", () => finishes.asleep(false));
+    powerMonitor.on("user-did-become-active", () => finishes.asleep(false));
+
     const notify = (message: HostNotification): void => {
         const settings = host.settings().notifications;
 
         if (!settings.enabled || !Notification.isSupported()) {
+            return;
+        }
+
+        if (isFinish(message)) {
+            // The person looks at Pi Pocket now: the finishes before this one were seen there.
+            if (looking() && !finishes.away()) {
+                finishes.seen();
+            }
+
+            finishes.add(message);
+
             return;
         }
 
@@ -452,6 +534,11 @@ export function setUpDesktop(host: DesktopHost): {
             if (now !== lastVisible) {
                 lastVisible = now;
                 send({ type: "visibility", visible: now });
+            }
+
+            // The person looks at Pi Pocket: the sessions that finished are there to see. Their notification stays.
+            if (looking()) {
+                finishes.seen();
             }
         },
         refreshTray,
