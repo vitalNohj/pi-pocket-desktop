@@ -43,6 +43,8 @@ import { applyDesktopSettings } from "../settings-screen/apply";
 import { scheduleRetry } from "../connection/retry";
 
 const CONFIG_PARTITION = "gui-config";
+/** How long after the window shows macOS is asked for Accessibility: its question must open over the window. */
+const ASK_AFTER_SHOW_MS = 1500;
 
 export async function start(): Promise<void> {
     await app.whenReady();
@@ -519,6 +521,14 @@ export async function start(): Promise<void> {
         keyHeld: () => appState.gui?.dictationKey?.held() === true,
         ended: () => appState.gui?.dictationKey?.ended(),
         hookChanged: () => appState.gui?.dictationKey?.hookChanged(),
+        afterWindow: (then) => {
+            // A moment after it shows: the window takes the front as it opens, and would cover macOS's question.
+            if (window.isVisible()) {
+                setTimeout(then, ASK_AFTER_SHOW_MS);
+            } else {
+                window.once("show", () => setTimeout(then, ASK_AFTER_SHOW_MS));
+            }
+        },
     });
 
     // The dictation key's combination, taken as the app's shortcut while the hook hears it (src/main/dictation/dictation-key.ts).

@@ -374,7 +374,7 @@ function renderUpdate(next: ConfigState): void {
     const when = update.checkedAt === undefined ? "" : `Checked ${new Date(update.checkedAt).toLocaleString()}.`;
     const how: Record<typeof update.method, string> = {
         install: "Updates download automatically. Restart the app to install them.",
-        download: "This unsigned macOS app cannot update itself. Download the update, then choose Quit and open. Replace the app in Applications and reopen it.",
+        download: "This unsigned macOS app cannot update itself. Download the update, then choose Quit and install: Pi Pocket quits and opens the disk image. Drag Pi Pocket into Applications over the old one, then open it.",
         page: "Open the release page and install the new version.",
         source: "Running from source. Use git pull to update the app.",
     };
@@ -397,7 +397,7 @@ function renderUpdate(next: ConfigState): void {
             break;
         case "ready":
             status = update.method === "install" ? `Desktop app ${update.version ?? ""} is ready` : `Desktop app ${update.version ?? ""} downloaded`;
-            label = update.method === "install" ? "Restart app" : "Quit and open";
+            label = update.method === "install" ? "Restart app" : "Quit and install";
             break;
         case "error":
             status = "Update check failed";
