@@ -2,8 +2,11 @@
 # Every push to main and every manual run keeps the files as the run's artifacts (Actions → the run → Artifacts).
 # A tag like v0.1.0 also publishes them as a GitHub release.
 #
-# The builds are not signed with an Apple or Microsoft certificate yet. The macOS app is signed ad hoc, which Apple
-# Silicon needs to run it at all; Gatekeeper still asks the first time (README.md says how to open it).
+# The builds are not signed with an Apple or Microsoft certificate yet. The macOS app is signed with the project's own
+# certificate (secrets MAC_SIGN_P12, base64 of a .p12, and MAC_SIGN_PASSWORD): the same one for every release, so macOS
+# keeps the permissions it gave (Accessibility, the microphone) across updates. Without the secrets (a fork's pull
+# request) it is signed ad hoc, which Apple Silicon needs to run it at all. Gatekeeper still asks the first time either
+# way (README.md says how to open it).
 name: Build
 
 on:
@@ -56,10 +59,40 @@ jobs:
                   node-version: 22
                   cache: npm
             - run: npm ci
-            - run: npm run ${{ matrix.script }}
+            # macOS: trust the project's certificate for code signing on this runner, so electron-builder finds it.
+            - name: Signing certificate (macOS)
+              if: matrix.name == 'macos'
+              id: sign
               env:
-                  # No certificate: never look for one in the runner's keychain.
+                  P12: ${{ secrets.MAC_SIGN_P12 }}
+                  PASSWORD: ${{ secrets.MAC_SIGN_PASSWORD }}
+              run: |
+                  if [ -z "$P12" ]; then echo "No certificate: signed ad hoc."; exit 0; fi
+                  echo "$P12" | base64 --decode > "$RUNNER_TEMP/sign.p12"
+                  openssl pkcs12 -in "$RUNNER_TEMP/sign.p12" -passin env:PASSWORD -nokeys -clcerts -legacy -out "$RUNNER_TEMP/sign.pem" 2>/dev/null \
+                      || openssl pkcs12 -in "$RUNNER_TEMP/sign.p12" -passin env:PASSWORD -nokeys -clcerts -out "$RUNNER_TEMP/sign.pem"
+                  sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain "$RUNNER_TEMP/sign.pem"
+                  echo "signed=yes" >> "$GITHUB_OUTPUT"
+            - run: |
+                  if [ "${{ steps.sign.outputs.signed }}" = "yes" ]; then
+                      npm run ${{ matrix.script }} -- "-c.mac.identity=Pi Pocket GUI (vitalNohj)"
+                  else
+                      npm run ${{ matrix.script }}
+                  fi
+              shell: bash
+              env:
+                  # Never look for a certificate in the runner's keychain: macOS names its own (above), or signs ad hoc.
                   CSC_IDENTITY_AUTO_DISCOVERY: "false"
+                  CSC_LINK: ${{ matrix.name == 'macos' && secrets.MAC_SIGN_P12 || '' }}
+                  CSC_KEY_PASSWORD: ${{ matrix.name == 'macos' && secrets.MAC_SIGN_PASSWORD || '' }}
+            # The signature macOS checks its permissions against: the certificate, the same in every release.
+            - name: Signature (macOS)
+              if: matrix.name == 'macos'
+              run: |
+                  for app in release/mac*/*.app; do
+                      codesign --verify --deep --strict "$app"
+                      codesign -d -r- "$app" 2>&1 | tail -1
+                  done
             - uses: actions/upload-artifact@v4
               with:
                   name: pi-pocket-gui-${{ matrix.name }}
