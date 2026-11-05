@@ -232,7 +232,10 @@ export function setUpUpdates(host: UpdateHost): {
         if (response === 0 && readyVersion === version) {
             host.quitting();
             await beforeInstall();
-            updater?.quitAndInstall();
+            // Silent, then start again: the Windows installer keeps the earlier install's choice (only for me, or for
+            // everyone) and folder instead of asking again, and asks for administrator rights only for an install for
+            // everyone. An AppImage ignores the first argument.
+            updater?.quitAndInstall(true, true);
         }
     };
 
