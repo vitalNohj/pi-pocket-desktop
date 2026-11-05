@@ -7,7 +7,7 @@ app runs.
 This is phase 1 of three:
 
 1. **Pi Pocket on this computer** (this document).
-2. **The runner** in Pi Pocket: a server executes a session's tools on another computer ([remote/plan.md](remote/plan.md)).
+2. **The runner** in Pi Pocket: a server executes a session's tools on another computer (see Pi Pocket's `docs/runners.md`).
 3. **The app as a runner:** the app offers this computer to a server it is connected to.
 
 ## What the person sees
