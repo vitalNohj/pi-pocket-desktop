@@ -85,7 +85,14 @@ const PILL_URL = `${APP_ORIGIN}/anywhere/index.html`;
 const LONGEST_MS = 5 * 60 * 1000;
 /** How long "Pasted" stays, and the clipboard keeps the words before it gets back what it held. */
 const DONE_MS = 900;
-const RESTORE_MS = 1500;
+/**
+ * How long the words stay on the clipboard after the paste, before what was there comes back. Measured on macOS 26
+ * (TextEdit, Notes, Safari, Cursor, iTerm; 38 pastes): the app reads the clipboard 2 to 12 ms after ⌘V, 122 ms at worst
+ * (the first paste into a cold TextEdit). 300 ms keeps a margin over that. Windows and Linux are not measured yet.
+ */
+function restoreMs(platform: string): number {
+    return platform === "darwin" ? 300 : 1500;
+}
 /** While macOS has not given Accessibility, how often to look again (quietly: no prompt). */
 const ACCESSIBILITY_CHECK_MS = 10_000;
 
@@ -560,7 +567,7 @@ export function setUpAnywhere(host: AnywhereHost) {
                     await clipboard.write(before);
                 }
             })().catch(() => undefined);
-        }, RESTORE_MS);
+        }, restoreMs(host.platform));
 
         return true;
     };
