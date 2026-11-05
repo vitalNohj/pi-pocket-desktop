@@ -6,6 +6,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute } from "node:path";
 import type { Settings, SettingsProblem } from "../../shared/types";
 import { modelById } from "../dictation/dictation-catalog";
+import { checkCombo } from "../dictation/key-combo";
 import { normalizeServerUrl } from "./url";
 
 export const DEFAULT_SERVER_URL = "http://127.0.0.1:8787";
@@ -122,6 +123,17 @@ const words: Check<string[]> = (value) => {
     return pass(result);
 };
 
+/** The dictation key: "auto", "off", or a combination (src/main/dictation/key-combo.ts), kept the one way it is written. */
+const dictationKey: Check<string> = (value) => {
+    if (value === "auto" || value === "off") {
+        return pass(value);
+    }
+
+    const checked = typeof value === "string" && value.length <= 200 ? checkCombo(value) : undefined;
+
+    return checked?.ok === true ? pass(checked.key) : fail(`must be "auto", "off", or a key such as "AltRight" or "Control+Shift+KeyD"${checked?.ok === false ? `: ${checked.problem}` : ""}`);
+};
+
 const hotkey: Check<string> = (value) =>
     typeof value === "string" && /^[\w+]+$/.test(value) && value.length <= 64
         ? pass(value)
@@ -184,7 +196,7 @@ const schema: { [S in keyof Settings]: { [K in keyof Settings[S]]: Check<Setting
         model: (value) => (value === "" || (typeof value === "string" && modelById(value) !== undefined) ? pass(value) : fail("must be a speech model's id")),
         live: bool,
         words,
-        key: oneOf("auto", "off", "AltRight", "CtrlRight", "MetaRight", "ShiftRight", "F13", "F14", "F15"),
+        key: dictationKey,
         keyMode: oneOf("both", "hold", "toggle"),
     },
     anywhere: {

@@ -12,7 +12,8 @@
  */
 import type { Input } from "electron";
 import type { Settings } from "../../shared/types";
-import { DOM_CODES, domKey, KEY, needsMask, Trigger, triggerKey, type TriggerAction } from "./anywhere-keys";
+import { KEY, Trigger, type TriggerAction } from "./anywhere-keys";
+import { accelerator, Chord, codeOfHook, comboOf, needsMask, TRIGGER, type Step } from "./key-combo";
 import type { PageMicAction, PageMicAnswer } from "./page-mic";
 
 export interface DictationKeyHost {
@@ -21,6 +22,8 @@ export interface DictationKeyHost {
     /** Pi Pocket's window has the focus and shows Pi Pocket (not GUI Settings). */
     pageInFront: () => boolean;
     pageMic: (action: PageMicAction) => Promise<PageMicAnswer>;
+    /** Takes this accelerator as the app's own shortcut (globalShortcut), or gives it back (undefined). */
+    grab: (accelerator: string | undefined, pressed: () => void) => void;
     anywhere: () =>
         | {
               usable(): boolean;
@@ -38,8 +41,11 @@ type Target = { kind: "page"; started: Promise<boolean> } | { kind: "anywhere" }
 
 export function setUpDictationKey(host: DictationKeyHost) {
     let trigger: Trigger | undefined;
+    let chord: Chord | undefined;
     let target: Target | undefined;
     let applied = "";
+    /** GUI Settings records a new key: this one does nothing meanwhile. */
+    let paused = false;
 
     const apply = (): void => {
         const { key, keyMode } = host.settings().dictation;
@@ -50,11 +56,43 @@ export function setUpDictationKey(host: DictationKeyHost) {
         }
 
         applied = next;
-        trigger = key === "off" ? undefined : new Trigger(triggerKey(key, host.platform), keyMode);
+
+        const combo = comboOf(key, host.platform);
+
+        chord = combo === undefined ? undefined : new Chord(combo.combo);
+        trigger = combo === undefined ? undefined : new Trigger(TRIGGER, keyMode);
         target = undefined;
     };
 
     const hooked = (): boolean => host.anywhere()?.hooked() === true;
+
+    /**
+     * While the hook hears the keys, a combination with a key (Ctrl+Shift+D) is taken as the app's shortcut, so the app
+     * in front does not act on it too. Without the hook the window hears it itself, and a shortcut would hide it there.
+     */
+    const grab = (): void => {
+        const combo = chord?.combo;
+
+        host.grab(combo !== undefined && hooked() && !paused ? accelerator(combo) : undefined, shortcutPressed);
+    };
+
+    /** When the shortcut fired, the hook heard the key too, or not long after. */
+    let matchedAt = 0;
+    const SHORTCUT_WAIT_MS = 80;
+
+    /**
+     * The shortcut fired. The hook hears the same press, unless the system keeps a shortcut's keys from it: then the
+     * shortcut alone is the press, a tap (with no key events, no release can be known).
+     */
+    const shortcutPressed = (): void => {
+        setTimeout(() => {
+            if (chord === undefined || paused || chord.active || Date.now() - matchedAt < 500) {
+                return;
+            }
+
+            steps([...chord.press(), ...chord.release()]);
+        }, SHORTCUT_WAIT_MS);
+    };
 
     /** Starts where you are: the page's mic, else anywhere. */
     const start = (): void => {
@@ -147,7 +185,7 @@ export function setUpDictationKey(host: DictationKeyHost) {
         switch (action) {
             case "start":
                 // Alt or the Windows key alone opens a menu off macOS: a Ctrl tap makes this press a combination.
-                if (trigger !== undefined && needsMask(trigger.key, host.platform)) {
+                if (chord !== undefined && needsMask(chord.combo, host.platform)) {
                     host.anywhere()?.tap(KEY.Ctrl);
                 }
 
@@ -164,21 +202,41 @@ export function setUpDictationKey(host: DictationKeyHost) {
         }
     };
 
-    const key = (type: "down" | "up", code: number): void => {
-        if (trigger === undefined) {
+    const steps = (list: Step[]): void => {
+        for (const step of list) {
+            if (trigger === undefined) {
+                return;
+            }
+
+            const at = Date.now();
+
+            act(step.type === "down" ? trigger.down(step.code, at) : trigger.up(step.code, at), at);
+        }
+    };
+
+    /** A key went down or up, by the window's name for it (KeyboardEvent.code). */
+    const key = (type: "down" | "up", code: string): void => {
+        if (chord === undefined || paused) {
             return;
         }
 
-        const at = Date.now();
+        const list = type === "down" ? chord.down(code) : chord.up(code);
 
-        act(type === "down" ? trigger.down(code, at) : trigger.up(code, at), at);
+        if (list.some((step) => step.code === TRIGGER && step.type === "down")) {
+            matchedAt = Date.now();
+        }
+
+        steps(list);
     };
 
     apply();
+    grab();
 
     return {
         /** A key the keyboard hook heard, in any app. */
-        fromHook: key,
+        fromHook(type: "down" | "up", code: number): void {
+            key(type, codeOfHook(code));
+        },
 
         /**
          * A key in Pi Pocket's window (its before-input-event), acted on here only when no hook hears the keys. The
@@ -186,25 +244,35 @@ export function setUpDictationKey(host: DictationKeyHost) {
          * report its release.
          */
         fromWindow(input: Input): void {
-            if (trigger !== undefined && (input.type === "keyDown" || input.type === "keyUp") && !hooked() && !input.isAutoRepeat) {
-                key(input.type === "keyDown" ? "down" : "up", domKey(input.code));
+            if ((input.type === "keyDown" || input.type === "keyUp") && !hooked() && !input.isAutoRepeat) {
+                key(input.type === "keyDown" ? "down" : "up", input.code);
             }
         },
 
-        /** The dictation key as the page names it (KeyboardEvent.code), for its preload to keep from Pi Pocket. */
+        /** The dictation key as the settings write it ("AltRight", "Control+Shift+KeyD"), for the page's preload to keep from Pi Pocket. */
         pageKey(): string | undefined {
-            return trigger === undefined ? undefined : DOM_CODES[trigger.key];
+            return chord === undefined ? undefined : comboOf(host.settings().dictation.key, host.platform)?.key;
+        },
+
+        /** GUI Settings records a new key: the current one does nothing until it is done. */
+        pause(on: boolean): void {
+            paused = on;
+            steps(chord?.release() ?? []);
+            grab();
         },
 
         /** The window lost the focus while it heard the key itself: the key's release goes elsewhere. */
         windowBlurred(): void {
-            if (trigger?.held === true && !hooked()) {
-                key("up", trigger.key);
+            if (chord !== undefined && !hooked()) {
+                steps(chord.release());
             }
         },
 
-        /** The dictation key is down now. */
-        held: (): boolean => trigger?.held === true,
+        /** A key of the dictation key is down now: a paste would carry it. */
+        held: (): boolean => chord?.held() === true,
+
+        /** The keyboard hook started or stopped: take the key's shortcut for the app, or give it back. */
+        hookChanged: (): void => grab(),
 
         /** Dictate anywhere's recording ended some other way (the tray, an error, the time limit). */
         ended(): void {
@@ -214,6 +282,9 @@ export function setUpDictationKey(host: DictationKeyHost) {
             }
         },
 
-        settingsChanged: apply,
+        settingsChanged(): void {
+            apply();
+            grab();
+        },
     };
 }

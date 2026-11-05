@@ -1,8 +1,8 @@
 /**
- * The dictation key: which key it is, and what each press and release means. Pure, so the tests cover it without a
- * keyboard hook (src/main/dictation/anywhere.ts feeds it uiohook's key events, or the app window's own).
+ * What each press and release of the dictation key means (Trigger), and Dictate anywhere's small pure helpers. Pure, so
+ * the tests cover them without a keyboard hook. The key itself, a combination, is in src/main/dictation/key-combo.ts.
  */
-import type { Settings, TriggerKeyName } from "../../shared/types";
+import type { Settings } from "../../shared/types";
 
 /** uiohook's key codes (uiohook-napi's UiohookKey), for the keys used here. */
 export const KEY = {
@@ -20,70 +20,6 @@ export const KEY = {
     F14: 92,
     F15: 93,
 } as const;
-
-/** The key a setting names: "auto" is Right Option on macOS (it types nothing alone there) and Right Ctrl elsewhere. */
-export function triggerKey(key: "auto" | TriggerKeyName, platform: string): number {
-    if (key === "auto") {
-        return platform === "darwin" ? KEY.AltRight : KEY.CtrlRight;
-    }
-
-    return KEY[key];
-}
-
-/** The key's name as this computer's keyboard prints it. */
-export function keyLabel(key: "auto" | TriggerKeyName, platform: string): string {
-    const mac = platform === "darwin";
-    const code = triggerKey(key, platform);
-
-    switch (code) {
-        case KEY.AltRight:
-            return mac ? "Right Option" : "Right Alt";
-        case KEY.CtrlRight:
-            return mac ? "Right Control" : "Right Ctrl";
-        case KEY.MetaRight:
-            return mac ? "Right Command" : platform === "win32" ? "Right Windows" : "Right Super";
-        case KEY.ShiftRight:
-            return "Right Shift";
-        case KEY.F13:
-            return "F13";
-        case KEY.F14:
-            return "F14";
-        default:
-            return "F15";
-    }
-}
-
-/**
- * A modifier alone, pressed and let go, can do something of its own: Alt opens the menu bar on Windows, and the
- * Windows or Super key opens the start menu. A Ctrl tap while it is held turns that press into a combination.
- */
-export function needsMask(code: number, platform: string): boolean {
-    return platform !== "darwin" && (code === KEY.AltRight || code === KEY.MetaRight);
-}
-
-/** The keys used here as the window names them (Electron's `input.code`, the DOM's KeyboardEvent.code). */
-export const DOM_CODES: Record<number, string> = {
-    [KEY.Escape]: "Escape",
-    [KEY.V]: "KeyV",
-    [KEY.Ctrl]: "ControlLeft",
-    [KEY.CtrlRight]: "ControlRight",
-    [KEY.Alt]: "AltLeft",
-    [KEY.AltRight]: "AltRight",
-    [KEY.Shift]: "ShiftLeft",
-    [KEY.ShiftRight]: "ShiftRight",
-    [KEY.Meta]: "MetaLeft",
-    [KEY.MetaRight]: "MetaRight",
-    [KEY.F13]: "F13",
-    [KEY.F14]: "F14",
-    [KEY.F15]: "F15",
-};
-
-/** A key of the app's window as uiohook's code, for the same Trigger. Keys not named here are 0: some other key. */
-export function domKey(code: string): number {
-    const found = Object.entries(DOM_CODES).find(([, name]) => name === code);
-
-    return found === undefined ? 0 : Number(found[0]);
-}
 
 export type TriggerMode = Settings["dictation"]["keyMode"];
 
@@ -139,7 +75,7 @@ export class Trigger {
 
     down(code: number, at: number): TriggerAction {
         if (code !== this.key) {
-            // Modifiers alone change nothing: Shift with the key, or the Ctrl the app taps itself (needsMask).
+            // Modifiers alone change nothing: the Ctrl the app taps itself (needsMask), or one pressed after the key.
             if (MODIFIERS.has(code)) {
                 return "none";
             }

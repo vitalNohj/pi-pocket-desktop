@@ -34,6 +34,9 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
     const nodes = new Map([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => [match[1]!, makeElement()]));
     const element = (id: string) => { const node = nodes.get(id); assert.ok(node, `Missing #${id}`); return node; };
     const radio = { ...makeElement(), value: "url", checked: true };
+    // The one setting input the stub page renders: the dictation key, set by its buttons.
+    const keyInput = element("dictation-key");
+    keyInput.dataset.key = "dictation.key";
     const parts = { ...makeElement(), value: "parts" };
     const translucent = makeElement(), opacity = makeElement();
     const where = { local: { ...makeElement(), value: "local" }, remote: { ...makeElement(), value: "remote" } };
@@ -51,6 +54,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
         local: { status: "absent", log: [], restartNeeded: false, update: { status: "idle" }, defaults: { folder: "/home/test", data: "/home/test/.pi-pocket" }, home: "/test/server" },
         dictation: { supported: true, status: "idle", engine: { installed: false, size: 11e6 }, folder: "/test/dictation", models: [], downloading: false },
         anywhere: { status: "off", copyOnly: false },
+        dictationKeyLabel: "Right Ctrl",
         billionContext: { server: "absent", foreign: false, updateAvailable: false, folder: "/home/test/.pi-pocket/extensions", page: "https://github.com/x/y", command: "cd" },
         runner: { status: "unlinked", enabled: true, available: false, log: [] },
         ...initial,
@@ -95,10 +99,11 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
 
     runInNewContext(source, {
         URL,
-        window: { gui, clearInterval() {}, setInterval() {}, clearTimeout() {}, setTimeout() {}, scrollTo() {} },
+        HTMLInputElement: class {},
+        window: { gui, clearInterval() {}, setInterval() {}, clearTimeout() {}, setTimeout() {}, scrollTo() {}, addEventListener() {} },
         document: {
             documentElement: makeElement(), body: makeElement(), getElementById: (id: string) => element(id), createElement: makeElement,
-            querySelectorAll: (selector: string) => selector === 'input[name="mode"]' ? [radio, parts] : selector === 'input[name="where"]' ? [where.local, where.remote] : [],
+            querySelectorAll: (selector: string) => selector === 'input[name="mode"]' ? [radio, parts] : selector === 'input[name="where"]' ? [where.local, where.remote] : selector === "[data-key]" ? [keyInput] : [],
             querySelector: (selector: string) => selector.includes('name="mode"') ? radio : selector.includes("translucent") ? translucent : opacity,
         },
     });
@@ -306,4 +311,18 @@ test("every sidebar link and Home tile leads to a section that exists", () => {
     for (const section of ["window", "appearance", "notifications", "dictation", "updates", "runner", "server"]) {
         assert.ok(targets.has(section), `the sidebar links ${section}`);
     }
+});
+
+test("a dictation key chosen with a button stays while other state arrives before it is saved", async () => {
+    const screen = await page(async () => found, { reason: { kind: "user" } });
+
+    await screen.push({});
+    assert.equal(screen.element("dictation-key").value, "auto");
+
+    await screen.click("dictation-key-off");
+    assert.equal(screen.element("dictation-key").value, "off");
+
+    // Any state that arrives (a model download's progress, an update check) re-renders the settings while the save waits.
+    await screen.push({ update: { method: "source", status: "checking" } });
+    assert.equal(screen.element("dictation-key").value, "off");
 });

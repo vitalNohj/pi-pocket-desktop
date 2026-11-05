@@ -110,7 +110,7 @@ Words show while you speak and are corrected when you pause (**Words as you spea
 
 ### Dictation key
 
-One key turns dictation on, set in **GUI Settings → Dictation**: Right Option on macOS and Right Ctrl elsewhere, or Right Alt, Right ⌘/Windows, Right Shift, F13 to F15, or none. Only the key pressed alone counts: with another key (Right Ctrl + C, Right Alt + E for €) it does what it always does.
+One key turns dictation on, set in **GUI Settings → Dictation**: Right Option on macOS and Right Ctrl elsewhere by default. To pick another, click the key's button, press a key or a combination (Ctrl+Shift+D, Ctrl + Right Alt, F13), and let go: it is saved. Escape cancels, and **None** turns the key off. A key that types (a letter, a digit, Space) needs Ctrl, Alt, or ⌘/Windows/Super with it. A modifier key on its own counts only when pressed alone: with another key (Right Ctrl + C, Right Alt + E for €) it does what it always does.
 
 - **In Pi Pocket's window** it turns on the mic of the session in front (PiP's while PiP is open), so the button shows it listening and the words go into the message box. It needs no permission there. Pi Pocket's own Alt+V still works.
 - **Hold or tap:** hold the key while you talk and let go, or tap it once to start and again to stop. Both work by default; a press under 0.3 seconds is a tap.
