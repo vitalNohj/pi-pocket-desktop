@@ -24,6 +24,7 @@ const api: GuiConfigApi = {
     chooseFolder: (start: string) => ipcRenderer.invoke("config:choose-folder", start) as Promise<string | undefined>,
     dictation: (action) => ipcRenderer.invoke("config:dictation", action) as Promise<void>,
     showDictationFolder: () => ipcRenderer.invoke("config:show-dictation-folder") as Promise<void>,
+    resetAccessibility: () => ipcRenderer.invoke("config:reset-accessibility") as Promise<boolean>,
     recordKey: (on) => ipcRenderer.invoke("config:record-key", on) as Promise<void>,
     checkKey: (keys) => ipcRenderer.invoke("config:check-key", keys) as ReturnType<GuiConfigApi["checkKey"]>,
     billionContext: (action) => ipcRenderer.invoke("config:billion-context", action) as Promise<void>,

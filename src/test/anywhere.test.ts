@@ -1,9 +1,11 @@
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { HOLD_MS, KEY, keptType, pasteText, pillPlace, pillWindowOptions, Trigger } from "../main/dictation/anywhere-keys";
 import { bpeVocab, customWords, modelById, MODELS } from "../main/dictation/dictation-catalog";
 import { defaultSettings, validateSettings } from "../main/core/settings";
+import { BUNDLE_ID, resetAccessibility } from "../main/dictation/mac-accessibility";
 
 const K = KEY.CtrlRight;
 
@@ -178,4 +180,27 @@ test("the pill is a popup to window managers: no title, no window buttons, on ma
         { type: "panel", roundedCorners: false },
     );
     assert.equal("roundedCorners" in pillWindowOptions("win32"), false);
+});
+
+test("macOS Accessibility: tccutil removes the app's own entry, and nothing runs elsewhere", async () => {
+    const calls: string[][] = [];
+    const run = ((file: string, args: string[], _options: unknown, done: (error: Error | null) => void) => {
+        calls.push([file, ...args]);
+        done(null);
+    }) as unknown as typeof import("node:child_process").execFile;
+
+    assert.equal(await resetAccessibility("darwin", run), true);
+    assert.deepEqual(calls, [["/usr/bin/tccutil", "reset", "Accessibility", BUNDLE_ID]]);
+    assert.equal(await resetAccessibility("linux", run), false);
+    assert.equal(calls.length, 1);
+
+    const failing = ((_file: string, _args: string[], _options: unknown, done: (error: Error | null) => void) => done(new Error("no"))) as unknown as typeof import("node:child_process").execFile;
+
+    assert.equal(await resetAccessibility("darwin", failing), false);
+});
+
+test("the bundle id tccutil resets is the app's own", () => {
+    const pkg = JSON.parse(readFileSync(join(__dirname, "..", "..", "package.json"), "utf8")) as { build: { appId: string } };
+
+    assert.equal(BUNDLE_ID, pkg.build.appId);
 });
