@@ -126,3 +126,15 @@ test("chord of modifiers alone: down when all are, never with another key", () =
     assert.deepEqual(right.down("AltRight"), [{ type: "down", code: TRIGGER }]);
     assert.deepEqual(right.release(), [{ type: "up", code: TRIGGER }]);
 });
+
+test("a key pressed with ⌘ whose release macOS never sends does not block the dictation key", () => {
+    const chord = new Chord(combo("AltRight").combo);
+
+    // ⌘C: macOS reports C going down, then only ⌘ going up.
+    chord.down("MetaLeft");
+    chord.down("KeyC");
+    chord.up("MetaLeft");
+
+    assert.deepEqual(chord.down("AltRight"), [{ type: "down", code: TRIGGER }]);
+    assert.deepEqual(chord.up("AltRight"), [{ type: "up", code: TRIGGER }]);
+});

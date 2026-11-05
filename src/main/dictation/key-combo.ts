@@ -303,6 +303,16 @@ export class Chord {
     up(code: string): Step[] {
         this.#down.delete(code);
 
+        // macOS sends no release for a key pressed with ⌘ (⌘C): when ⌘ goes up, no other key counts as held any more,
+        // or that key would stay "down" and keep the dictation key from ever matching.
+        if (familyOf(code) === "Meta") {
+            for (const each of this.#down) {
+                if (familyOf(each) === undefined) {
+                    this.#down.delete(each);
+                }
+            }
+        }
+
         if (this.#active && this.#part(code)) {
             this.#active = false;
 

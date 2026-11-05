@@ -28,6 +28,7 @@ import { APP_ORIGIN, serveAppPages } from "../settings-screen/config-protocol";
 import { preloadPath } from "../core/paths";
 import { KEY, keptType, pasteText, pillPlace } from "./anywhere-keys";
 import { comboOf } from "./key-combo";
+import { diagnose } from "../diagnostics/stall-watchdog";
 import type { Listening, PageMessage } from "./dictation";
 
 /** uiohook-napi, as used here. Loaded only once Dictate anywhere is turned on. */
@@ -82,6 +83,8 @@ const LONGEST_MS = 5 * 60 * 1000;
 /** How long "Pasted" stays, and the clipboard keeps the words before it gets back what it held. */
 const DONE_MS = 900;
 const RESTORE_MS = 1500;
+/** While macOS has not given Accessibility, how often to look again (quietly: no prompt). */
+const ACCESSIBILITY_CHECK_MS = 10_000;
 
 type PillMessage =
     | { type: "record"; title: string; colors: Record<string, string>; mode: "dark" | "light"; sound: boolean }
@@ -100,7 +103,7 @@ export function waylandOnly(platform: string, env: NodeJS.ProcessEnv): boolean {
 export function hookProblem(error: unknown, platform: string): string {
     const text = error instanceof Error ? error.message : String(error);
 
-    if (platform === "darwin" || /AXAPI/.test(text)) {
+    if (/AXAPI/.test(text)) {
         return "macOS has not let Pi Pocket see keys yet. In System Settings → Privacy & Security, turn Pi Pocket on under Accessibility (and Input Monitoring if it is listed), then turn Dictate anywhere off and on.";
     }
 
@@ -641,11 +644,12 @@ export function setUpAnywhere(host: AnywhereHost) {
             systemPreferences.isTrustedAccessibilityClient(true);
             problem = hookProblem(new Error("AXAPI"), host.platform);
             setStatus("error");
+            diagnose("dictate anywhere: macOS reports no Accessibility permission");
             accessibilityTimer = setInterval(() => {
                 if (systemPreferences.isTrustedAccessibilityClient(false)) {
                     apply();
                 }
-            }, 2000);
+            }, ACCESSIBILITY_CHECK_MS);
 
             return;
         }
@@ -662,6 +666,7 @@ export function setUpAnywhere(host: AnywhereHost) {
         } catch (error) {
             stopHook();
             problem = hookProblem(error, host.platform);
+            diagnose(`dictate anywhere could not start: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
             setStatus("error");
         }
     };
