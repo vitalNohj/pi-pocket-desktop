@@ -147,6 +147,16 @@ body {
     text-overflow: ellipsis;
 }
 
+/* While recording, the newest words stay in sight (main.ts scrolls to the end), with no ellipsis to cut them. */
+.words small[data-live] {
+    text-overflow: clip;
+}
+
+.words small[data-cut] {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 28px);
+    mask-image: linear-gradient(to right, transparent, #000 28px);
+}
+
 .words small:empty {
     display: none;
 }

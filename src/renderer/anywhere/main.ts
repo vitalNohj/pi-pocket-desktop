@@ -62,7 +62,18 @@ function show(state: string, heading: string, more = ""): void {
     pill.dataset.state = state;
     pill.dataset.shown = "true";
     title.textContent = heading;
+    delete detail.dataset.live;
+    delete detail.dataset.cut;
     detail.textContent = more;
+    detail.scrollLeft = 0;
+}
+
+/** Words heard so far: the line follows the newest ones, and fades out on the left once the start no longer fits. */
+function follow(text: string): void {
+    detail.dataset.live = "true";
+    detail.textContent = text;
+    detail.scrollLeft = detail.scrollWidth;
+    detail.toggleAttribute("data-cut", detail.scrollWidth > detail.clientWidth);
 }
 
 async function record(number: number): Promise<void> {
@@ -155,7 +166,7 @@ window.anywhere.listen((message) => {
             show(message.state, message.title, message.detail ?? "");
             break;
         case "words":
-            detail.textContent = message.text;
+            follow(message.text);
             break;
         case "edge":
             pill.dataset.edge = message.edge;
