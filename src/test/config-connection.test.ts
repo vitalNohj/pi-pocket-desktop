@@ -212,10 +212,17 @@ test("a click on a choice only shows that side: it does not connect, and Back st
     assert.equal(screen.element("back").hidden, false);
     assert.equal(screen.element("choice-remote").textContent, "Connected");
     assert.equal(screen.element("choice-local").textContent, "Stopped");
+    // Settings → Server shows only the chosen side's settings.
+    const serverSettings = () => ["preferences", "server-local-settings", "remote-settings-heading", "remote-settings-card"]
+        .map((id) => screen.element(id).hidden);
+    assert.deepEqual(serverSettings(), [true, true, false, false]);
     await screen.choose("local");
     assert.equal(screen.element("local-card").hidden, false);
     assert.equal(screen.element("remote-card").hidden, true);
+    assert.deepEqual(serverSettings(), [false, false, true, true]);
+    assert.equal(screen.element("billion-context-card").hidden, false);
     await screen.choose("remote");
+    assert.deepEqual(serverSettings(), [true, true, false, false]);
     assert.deepEqual(screen.views, ["local", "remote"]);
     assert.equal(screen.connections.length, 0);
     assert.equal(checks, 0);
