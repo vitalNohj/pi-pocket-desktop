@@ -71,6 +71,8 @@ export interface FinishHost {
 export class FinishNotices {
     /** The finishes not yet seen, oldest first, one per session. */
     #finishes: HostNotification[] = [];
+    /** The finishes the notification that shows now lists: finishes held after it are not in it. */
+    #shown: readonly HostNotification[] = [];
     /** The computer sleeps, its screen is locked, or another person's login is active: the system said so. */
     #asleep = false;
     /** Finishes came while the person was away: they show when the person is back. */
@@ -111,11 +113,28 @@ export class FinishNotices {
         }
     }
 
-    /** The person saw them: they clicked or closed the notification, or the window shows Pi Pocket. */
+    /** The person saw them all: the window shows Pi Pocket. */
     seen(): void {
         this.#finishes = [];
+        this.#shown = [];
         this.#held = false;
         this.#unwatch();
+    }
+
+    /**
+     * The person clicked or closed the notification that shows: what it listed was seen. Finishes held after it (the
+     * person was away) were not in it, also a session that finished again: they stay, and show when the person is back.
+     */
+    dismissed(): void {
+        const shown = new Set(this.#shown);
+
+        this.#finishes = this.#finishes.filter((finish) => !shown.has(finish));
+        this.#shown = [];
+
+        if (this.#finishes.length === 0) {
+            this.#held = false;
+            this.#unwatch();
+        }
     }
 
     /** How many finishes are not yet seen. */
@@ -128,6 +147,8 @@ export class FinishNotices {
         this.#unwatch();
 
         const notice = groupNotice(this.#finishes);
+
+        this.#shown = this.#finishes;
 
         if (notice !== undefined) {
             this.host.show(notice);

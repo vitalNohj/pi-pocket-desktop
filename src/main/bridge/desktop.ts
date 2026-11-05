@@ -343,7 +343,7 @@ export function setUpDesktop(host: DesktopHost): {
         notification.on("click", () => {
             if (finished === notification) {
                 finished = undefined;
-                finishes.seen();
+                finishes.dismissed();
             }
 
             open(notice.url);
@@ -352,7 +352,7 @@ export function setUpDesktop(host: DesktopHost): {
             // On Windows a banner that times out moves to the Action Center: it is still there to see.
             if (finished === notification && event.reason !== "timedOut") {
                 finished = undefined;
-                finishes.seen();
+                finishes.dismissed();
             }
         });
         notification.on("failed", () => {

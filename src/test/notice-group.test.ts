@@ -144,3 +144,30 @@ test("an unknown idle state counts as present: finishes are never held for good"
     group.add(finish(1));
     assert.equal(shown.length, 1);
 });
+
+test("closing the notification that shows keeps the finishes held after it, also a session that finished again", () => {
+    const { group, shown, timers, computer, tick } = notices();
+
+    group.add(finish(1));
+    group.add(finish(2));
+    assert.equal(shown.at(-1)!.title, "2 sessions finished");
+
+    // The person leaves: these wait, and the notification that shows still lists 1 and 2.
+    computer.state = "idle";
+    group.add(finish(3));
+    group.add(finish(2, "Session 2 again"));
+    assert.equal(shown.length, 2);
+
+    // Back, they close it before the next check: only what it listed was seen.
+    computer.state = "active";
+    group.dismissed();
+    assert.equal(group.size, 2);
+    assert.equal(timers.size, 1, "the held finishes still wait for their check");
+
+    tick();
+    assert.deepEqual(shown.at(-1), { title: "2 sessions finished", body: "Session 2 again\nSession 3", url: "/s/2" });
+
+    group.dismissed();
+    assert.equal(group.size, 0);
+    assert.equal(timers.size, 0);
+});
