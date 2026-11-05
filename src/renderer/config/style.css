@@ -1494,3 +1494,17 @@ details.log pre {
         transition: none !important;
     }
 }
+
+/* The dictation key: a button that records the next key or combination. */
+.key-record {
+    min-width: 132px;
+}
+
+.key-record kbd {
+    font: 500 14px/20px var(--mono);
+}
+
+.key-record[data-recording="true"] {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, var(--raised));
+}

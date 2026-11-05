@@ -16,6 +16,7 @@ function world(options: { page?: boolean; mic?: boolean; anywhere?: boolean; hoo
     settings.anywhere.enabled = options.anywhere ?? false;
 
     const calls: string[] = [];
+    const grabbed: { value: string | undefined } = { value: undefined };
     const place = { page: options.page ?? true };
     const mic = { found: options.mic ?? true, listening: false };
     let recording = false;
@@ -49,9 +50,12 @@ function world(options: { page?: boolean; mic?: boolean; anywhere?: boolean; hoo
             },
             tap: (code) => calls.push(`tap ${code}`),
         }),
+        grab: (accelerator) => {
+            grabbed.value = accelerator;
+        },
     });
 
-    return { key, calls, place, mic };
+    return { key, calls, place, mic, settings, grabbed };
 }
 
 const input = (type: "keyDown" | "keyUp", code = "ControlRight"): Input => ({ type, code, key: code, isAutoRepeat: false }) as Input;
@@ -219,8 +223,78 @@ test("no key: nothing is taken", () => {
         pageInFront: () => true,
         pageMic: async () => ({ found: true, listening: false }),
         anywhere: () => undefined,
+        grab: () => undefined,
     });
 
     assert.equal(none.pageKey(), undefined);
     assert.ok(key !== undefined);
+});
+
+test("a combination with a key: Ctrl+Shift+D dictates anywhere, and is taken as the app's shortcut while hooked", () => {
+    const { key, calls, place, settings, grabbed } = world({ anywhere: true, hooked: true, mode: "toggle" });
+
+    settings.dictation.key = "Control+Shift+KeyD";
+    key.settingsChanged();
+    assert.equal(grabbed.value, "Control+Shift+D");
+    assert.equal(key.pageKey(), "Control+Shift+KeyD");
+
+    place.page = false;
+
+    const tap = () => {
+        key.fromHook("down", 29);
+        key.fromHook("down", 42);
+        key.fromHook("down", 32);
+        key.fromHook("up", 32);
+        key.fromHook("up", 42);
+        key.fromHook("up", 29);
+    };
+
+    tap();
+    tap();
+    // D alone, or Ctrl+D: not the key.
+    key.fromHook("down", 32);
+    key.fromHook("up", 32);
+    key.fromHook("down", 29);
+    key.fromHook("down", 32);
+    key.fromHook("up", 32);
+    key.fromHook("up", 29);
+    assert.deepEqual(calls, ["anywhere start", "anywhere stop"]);
+});
+
+test("recording a new key pauses the current one, and gives its shortcut back", () => {
+    const { key, calls, place, settings, grabbed } = world({ anywhere: true, hooked: true });
+
+    settings.dictation.key = "Control+Shift+KeyD";
+    key.settingsChanged();
+    place.page = false;
+    key.pause(true);
+    assert.equal(grabbed.value, undefined);
+    key.fromHook("down", 29);
+    key.fromHook("down", 42);
+    key.fromHook("down", 32);
+    key.fromHook("up", 32);
+    key.fromHook("up", 42);
+    key.fromHook("up", 29);
+    key.pause(false);
+    assert.equal(grabbed.value, "Control+Shift+D");
+    assert.deepEqual(calls, []);
+});
+
+test("modifiers alone: Left Ctrl + Left Alt held dictates; with another key it is a shortcut", async () => {
+    const { key, calls, place, settings } = world({ anywhere: true, hooked: true, mode: "hold" });
+
+    settings.dictation.key = "ControlLeft+AltLeft";
+    key.settingsChanged();
+    place.page = false;
+    key.fromHook("down", 29);
+    key.fromHook("down", 56);
+    key.fromHook("up", 56);
+    key.fromHook("up", 29);
+    key.fromHook("down", 29);
+    key.fromHook("down", 56);
+    key.fromHook("down", 20);
+    key.fromHook("up", 20);
+    key.fromHook("up", 56);
+    key.fromHook("up", 29);
+    assert.deepEqual(calls, ["anywhere start", "anywhere stop", "anywhere start", "anywhere drop"]);
 });

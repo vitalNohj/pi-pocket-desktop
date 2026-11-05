@@ -322,6 +322,20 @@ type DictationMessage =
  * shows, else the session's, and none under a sheet or the launcher, as with Alt+V. A click on Pi Pocket's own button, so
  * its dictation runs and the button shows it.
  */
+/** Whether a key event is part of the dictation key (as src/main/dictation/key-combo.ts writes it). */
+function keyOfCombo(combo: string, event: KeyboardEvent): boolean {
+    const parts = combo.split("+");
+    const main = parts.find((part) => !/^(Control|Alt|Shift|Meta)(Left|Right)?$/.test(part));
+
+    if (main === undefined) {
+        return parts.includes(event.code);
+    }
+
+    const families = { Control: event.ctrlKey, Alt: event.altKey, Shift: event.shiftKey, Meta: event.metaKey };
+
+    return event.code === main && Object.entries(families).every(([family, down]) => down === parts.includes(family));
+}
+
 function offerDictationKey(first: string | null): void {
     let code = first;
 
@@ -329,9 +343,11 @@ function offerDictationKey(first: string | null): void {
         code = typeof next === "string" ? next : null;
     });
 
-    // The app acts on the key (before-input-event); Pi Pocket never sees it, nor the window's menu an Alt alone.
+    // The app acts on the key (before-input-event); Pi Pocket never sees it, nor the window's menu an Alt alone. A key
+    // alone or modifiers alone ("AltRight", "ControlLeft+AltLeft"): each of their keys. A combination with a key
+    // ("Control+Shift+KeyD"): that key while exactly its modifiers are down, so the modifiers still work as usual.
     const swallow = (event: KeyboardEvent): void => {
-        if (code !== null && event.code === code) {
+        if (code !== null && keyOfCombo(code, event)) {
             event.preventDefault();
             event.stopImmediatePropagation();
         }

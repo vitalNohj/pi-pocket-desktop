@@ -47,6 +47,9 @@ export function applyDesktopSettings(before: Settings | undefined): void {
         }
     }
 
+    // The dictation key's shortcut, which unregisterAll gave back.
+    state.dictationKey?.hookChanged();
+
     if (state.tray === undefined && state.trayAvailable) {
         state.tray = createTray();
     }

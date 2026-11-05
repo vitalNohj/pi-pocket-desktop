@@ -518,7 +518,28 @@ export async function start(): Promise<void> {
         key: (type, code) => appState.gui?.dictationKey?.fromHook(type, code),
         keyHeld: () => appState.gui?.dictationKey?.held() === true,
         ended: () => appState.gui?.dictationKey?.ended(),
+        hookChanged: () => appState.gui?.dictationKey?.hookChanged(),
     });
+
+    // The dictation key's combination, taken as the app's shortcut while the hook hears it (src/main/dictation/dictation-key.ts).
+    let grabbed: string | undefined;
+    const grabDictationShortcut = (accelerator: string | undefined, pressed: () => void): void => {
+        if (grabbed !== undefined && globalShortcut.isRegistered(grabbed)) {
+            globalShortcut.unregister(grabbed);
+        }
+
+        grabbed = undefined;
+
+        if (accelerator !== undefined && accelerator !== appState.gui?.settings.window.hotkey) {
+            try {
+                if (globalShortcut.register(accelerator, pressed)) {
+                    grabbed = accelerator;
+                }
+            } catch {
+                // Not a shortcut this system takes: the app in front sees the key too.
+            }
+        }
+    };
 
     const pageMic = setUpPageMic(() => (server.webContents.isDestroyed() ? undefined : server.webContents));
 
@@ -528,6 +549,7 @@ export async function start(): Promise<void> {
         pageInFront: () => window.isFocused() && appState.gui?.showing === "server" && appState.gui.loadedUrl !== undefined && !appState.gui.unverified,
         pageMic,
         anywhere: () => appState.gui?.anywhere,
+        grab: grabDictationShortcut,
     });
 
     // The window hears the dictation key itself, so it works with no keyboard hook.

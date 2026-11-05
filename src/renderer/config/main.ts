@@ -1176,13 +1176,12 @@ function renderAnywhere(next: ConfigState): void {
     const mac = next.platform === "darwin";
     const ready = next.dictation.models.some((model) => model.chosen && model.installed);
     const message = element("anywhere-message");
-    const names: Record<string, string> = mac
-        ? { auto: "Automatic (Right Option)", AltRight: "Right Option", CtrlRight: "Right Control", MetaRight: "Right Command" }
-        : { auto: "Automatic (Right Ctrl)", AltRight: "Right Alt", CtrlRight: "Right Ctrl", MetaRight: next.platform === "win32" ? "Right Windows" : "Right Super" };
-
-    for (const option of element("dictation-key").querySelectorAll<HTMLOptionElement>("option")) {
-        option.textContent = names[option.value] ?? option.textContent;
+    if (keyRecording === undefined) {
+        element("dictation-key-label").textContent = next.dictationKeyLabel === "" ? "None" : next.dictationKeyLabel;
     }
+
+    element<HTMLButtonElement>("dictation-key-auto").disabled = next.settings.dictation.key === "auto";
+    element<HTMLButtonElement>("dictation-key-off").disabled = next.settings.dictation.key === "off";
 
     message.hidden = anywhere.message === undefined;
     message.textContent = anywhere.message ?? "";
@@ -1200,12 +1199,14 @@ function renderAnywhere(next: ConfigState): void {
 
     const key = next.settings.dictation.key;
 
-    element("dictation-key-note").textContent =
-        key === "off"
-            ? "No key: use the mic button, or Alt+V in Pi Pocket."
-            : !mac && key === "AltRight"
-              ? "On many keyboards Right Alt is AltGr, which types characters such as @ or €: those still work, but pick another key if you use them often."
-              : "Pressed alone, it turns on the mic of the session in front. With another key it works as usual.";
+    if (keyRecording === undefined) {
+        element("dictation-key-note").textContent =
+            key === "off"
+                ? "No key: use the mic button, or Alt+V in Pi Pocket. Click to set one."
+                : !mac && key.split("+").includes("AltRight")
+                  ? "On many keyboards Right Alt is AltGr, which types characters such as @ or €: those still work, but pick another key if you use them often."
+                  : "It turns on the mic of the session in front, or dictates anywhere. Click to set another key or combination.";
+    }
     element("anywhere-output-note").textContent = anywhere.copyOnly
         ? "On Wayland the words are always copied: paste them yourself."
         : "Pasting puts back what you had copied.";
@@ -1510,6 +1511,122 @@ function renderGlance(next: ConfigState): void {
               ? `${model.name}. Audio stays on this computer.${next.settings.anywhere.enabled ? " Dictate anywhere is on." : ""}`
               : "Download a speech model to talk to Pi offline.",
     );
+}
+
+// ——— The dictation key: click, press a key or combination, let go ———
+
+/** The keys held now while recording (KeyboardEvent.code); undefined when not recording. */
+let keyRecording: Set<string> | undefined;
+/** Every key pressed during this recording: the combination, saved when all are let go. */
+let keyPressed = new Set<string>();
+const keyButton = element<HTMLButtonElement>("dictation-key-record");
+
+function keyRecordEnd(): void {
+    if (keyRecording === undefined) {
+        return;
+    }
+
+    keyRecording = undefined;
+    keyButton.dataset.recording = "false";
+    void gui.recordKey(false);
+
+    if (state !== undefined) {
+        render(state);
+    }
+}
+
+function setDictationKey(value: string): void {
+    element<HTMLInputElement>("dictation-key").value = value;
+    scheduleSave();
+}
+
+keyButton.addEventListener("click", () => {
+    if (keyRecording !== undefined) {
+        keyRecordEnd();
+
+        return;
+    }
+
+    keyRecording = new Set();
+    keyPressed = new Set();
+    keyButton.dataset.recording = "true";
+    element("dictation-key-label").textContent = "Press keys…";
+    element("dictation-key-note").textContent = "Press a key or a combination, then let go. Escape cancels.";
+    void gui.recordKey(true);
+});
+
+element("dictation-key-auto").addEventListener("click", () => {
+    keyRecordEnd();
+    setDictationKey("auto");
+});
+
+element("dictation-key-off").addEventListener("click", () => {
+    keyRecordEnd();
+    setDictationKey("off");
+});
+
+/** A key while recording: held keys build the combination; letting all go saves it. */
+function keyRecorded(event: KeyboardEvent): void {
+    if (keyRecording === undefined) {
+        return;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    if (event.type === "keydown") {
+        if (event.repeat) {
+            return;
+        }
+
+        if (event.code === "Escape" && keyRecording.size === 0) {
+            keyRecordEnd();
+
+            return;
+        }
+
+        keyRecording.add(event.code);
+        keyPressed.add(event.code);
+
+        const keys = [...keyPressed].join("+");
+
+        void gui.checkKey(keys).then((checked) => {
+            if (keyRecording !== undefined && [...keyPressed].join("+") === keys) {
+                element("dictation-key-label").textContent = checked.ok ? checked.label : keys.replaceAll("+", " + ");
+            }
+        });
+
+        return;
+    }
+
+    keyRecording.delete(event.code);
+
+    if (keyRecording.size > 0 || keyPressed.size === 0) {
+        return;
+    }
+
+    const keys = [...keyPressed].join("+");
+
+    keyPressed = new Set();
+    void gui.checkKey(keys).then((checked) => {
+        if (!checked.ok) {
+            element("dictation-key-label").textContent = "Press keys…";
+            element("dictation-key-note").textContent = checked.problem;
+
+            return;
+        }
+
+        keyRecordEnd();
+        element("dictation-key-label").textContent = checked.label;
+        setDictationKey(checked.key);
+    });
+}
+
+// While recording, every key goes to the recorder, wherever the focus is; leaving the window stops it.
+if (typeof document.addEventListener === "function") {
+    document.addEventListener("keydown", keyRecorded, true);
+    document.addEventListener("keyup", keyRecorded, true);
+    window.addEventListener("blur", keyRecordEnd);
 }
 
 // Esc: back to Pi Pocket, as the sidebar's button.

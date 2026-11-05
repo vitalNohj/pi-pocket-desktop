@@ -1,28 +1,11 @@
 import { strict as assert } from "node:assert";
 import { join } from "node:path";
 import { test } from "node:test";
-import { domKey, HOLD_MS, KEY, keptType, keyLabel, needsMask, pasteText, pillPlace, Trigger, triggerKey } from "../main/dictation/anywhere-keys";
+import { HOLD_MS, KEY, keptType, pasteText, pillPlace, Trigger } from "../main/dictation/anywhere-keys";
 import { bpeVocab, customWords, modelById, MODELS } from "../main/dictation/dictation-catalog";
 import { defaultSettings, validateSettings } from "../main/core/settings";
 
 const K = KEY.CtrlRight;
-
-test("the automatic key is Right Option on macOS and Right Ctrl elsewhere", () => {
-    assert.equal(triggerKey("auto", "darwin"), KEY.AltRight);
-    assert.equal(triggerKey("auto", "win32"), KEY.CtrlRight);
-    assert.equal(triggerKey("auto", "linux"), KEY.CtrlRight);
-    assert.equal(triggerKey("F13", "linux"), KEY.F13);
-    assert.equal(keyLabel("auto", "darwin"), "Right Option");
-    assert.equal(keyLabel("AltRight", "win32"), "Right Alt");
-    assert.equal(keyLabel("MetaRight", "darwin"), "Right Command");
-});
-
-test("Alt and the Windows key are masked off macOS: alone they would open a menu", () => {
-    assert.ok(needsMask(KEY.AltRight, "win32"));
-    assert.ok(needsMask(KEY.MetaRight, "linux"));
-    assert.ok(!needsMask(KEY.AltRight, "darwin"));
-    assert.ok(!needsMask(KEY.CtrlRight, "win32"));
-});
 
 test("hold: a press starts, letting go stops, however short", () => {
     const trigger = new Trigger(K, "hold");
@@ -132,7 +115,7 @@ test("settings: Dictate anywhere is off by default, and its values are checked",
     assert.equal(validateSettings({ dictation: { key: "off" } }).settings.dictation.key, "off");
     assert.deepEqual(good.settings.dictation.words, ["Pi Pocket", "Tribble"]);
 
-    const bad = validateSettings({ anywhere: { output: "type" }, dictation: { key: "Space", keyMode: "sometimes", words: "Pi" } });
+    const bad = validateSettings({ anywhere: { output: "type" }, dictation: { key: "KeyA", keyMode: "sometimes", words: "Pi" } });
 
     assert.deepEqual(
         bad.problems.map((problem) => problem.path).sort(),
@@ -152,13 +135,6 @@ test("the clipboard keeps content types, not X11's protocol targets or portal ha
     assert.ok(!keptType(raw("MULTIPLE")));
     assert.ok(!keptType(raw("SAVE_TARGETS")));
     assert.ok(!keptType(raw("application/vnd.portal.files")));
-});
-
-test("the window's own key codes map to the hook's", () => {
-    assert.equal(domKey("AltRight"), KEY.AltRight);
-    assert.equal(domKey("ControlRight"), KEY.CtrlRight);
-    assert.equal(domKey("Escape"), KEY.Escape);
-    assert.equal(domKey("KeyE"), 0);
 });
 
 test("resume: a press that would stop starts after all, and letting go then stops", () => {

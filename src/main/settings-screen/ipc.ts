@@ -11,6 +11,7 @@ import { configState, pushConfigState, showConfig } from "./screen";
 import { sameAddress, checkAddress } from "../connection/address";
 import { stopRetry, scheduleRetry } from "../connection/retry";
 import { applyDesktopSettings } from "./apply";
+import { checkCombo, comboLabel } from "../dictation/key-combo";
 import { startHealth } from "../connection/health";
 import { connect } from "../connection/connect";
 import { openSettings } from "../app/menu";
@@ -226,6 +227,20 @@ export function registerIpc(): void {
         if (appState.gui!.settings.server.mode !== "local") {
             appState.gui!.local!.keepCurrent();
         }
+    });
+
+    handle("config:record-key", (_event, on: unknown) => {
+        appState.gui!.dictationKey?.pause(on === true);
+    });
+
+    handle("config:check-key", (_event, keys: unknown) => {
+        if (typeof keys !== "string" || keys.length > 200) {
+            throw new Error("Not keys");
+        }
+
+        const checked = checkCombo(keys);
+
+        return checked.ok ? { ok: true, key: checked.key, label: comboLabel(checked.combo, process.platform) } : checked;
     });
 
     handle("config:runner-folders", (_event, remove: unknown) => {

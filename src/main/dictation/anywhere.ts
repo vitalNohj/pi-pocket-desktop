@@ -27,6 +27,7 @@ import type { AnywhereState, Settings, ThemeColors } from "../../shared/types";
 import { APP_ORIGIN, serveAppPages } from "../settings-screen/config-protocol";
 import { preloadPath } from "../core/paths";
 import { KEY, keptType, pasteText, pillPlace } from "./anywhere-keys";
+import { comboOf } from "./key-combo";
 import type { Listening, PageMessage } from "./dictation";
 
 /** uiohook-napi, as used here. Loaded only once Dictate anywhere is turned on. */
@@ -69,6 +70,8 @@ export interface AnywhereHost {
     keyHeld: () => boolean;
     /** A recording ended some other way than the key (the tray, an error, the time limit). */
     ended: () => void;
+    /** The keyboard hook started or stopped. */
+    hookChanged: () => void;
 }
 
 const PARTITION = "gui-anywhere";
@@ -594,6 +597,11 @@ export function setUpAnywhere(host: AnywhereHost) {
 
     /** Starts or stops watching the key, as the settings say. */
     const apply = (): void => {
+        applyHook();
+        host.hookChanged();
+    };
+
+    const applyHook = (): void => {
         const settings = host.settings().anywhere;
         const { key } = host.settings().dictation;
 
@@ -611,7 +619,7 @@ export function setUpAnywhere(host: AnywhereHost) {
             return;
         }
 
-        if (key === "off") {
+        if (comboOf(key, host.platform) === undefined) {
             problem = "Choose a dictation key above: it is the key that starts Dictate anywhere.";
             setStatus("error");
 

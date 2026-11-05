@@ -8,6 +8,13 @@ import { defaultSettings } from "../core/settings";
 import { currentOrigin } from "../connection/address";
 import { show } from "../window/views";
 import { state as appState } from "../app/state";
+import { comboLabel, comboOf } from "../dictation/key-combo";
+
+function dictationKeyLabel(key: string): string {
+    const combo = comboOf(key, process.platform);
+
+    return combo === undefined ? "" : comboLabel(combo.combo, process.platform);
+}
 
 export function configState(): ConfigState {
     const state = appState.gui!;
@@ -44,6 +51,7 @@ export function configState(): ConfigState {
         local,
         dictation: state.dictation!.state(),
         anywhere: state.anywhere?.state() ?? { status: "off", copyOnly: false },
+        dictationKeyLabel: dictationKeyLabel(state.settings.dictation.key),
         billionContext: state.billionContext!.state(),
         runner: { ...state.runner!.state(), ...(currentOrigin() === "null" ? {} : { suggestedServer: currentOrigin() }) },
     };

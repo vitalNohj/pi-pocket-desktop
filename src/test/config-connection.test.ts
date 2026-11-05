@@ -51,6 +51,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
         local: { status: "absent", log: [], restartNeeded: false, update: { status: "idle" }, defaults: { folder: "/home/test", data: "/home/test/.pi-pocket" }, home: "/test/server" },
         dictation: { supported: true, status: "idle", engine: { installed: false, size: 11e6 }, folder: "/test/dictation", models: [], downloading: false },
         anywhere: { status: "off", copyOnly: false },
+        dictationKeyLabel: "Right Ctrl",
         billionContext: { server: "absent", foreign: false, updateAvailable: false, folder: "/home/test/.pi-pocket/extensions", page: "https://github.com/x/y", command: "cd" },
         runner: { status: "unlinked", enabled: true, available: false, log: [] },
         ...initial,
@@ -95,7 +96,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
 
     runInNewContext(source, {
         URL,
-        window: { gui, clearInterval() {}, setInterval() {}, clearTimeout() {}, setTimeout() {}, scrollTo() {} },
+        window: { gui, clearInterval() {}, setInterval() {}, clearTimeout() {}, setTimeout() {}, scrollTo() {}, addEventListener() {} },
         document: {
             documentElement: makeElement(), body: makeElement(), getElementById: (id: string) => element(id), createElement: makeElement,
             querySelectorAll: (selector: string) => selector === 'input[name="mode"]' ? [radio, parts] : selector === 'input[name="where"]' ? [where.local, where.remote] : [],

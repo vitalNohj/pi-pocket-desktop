@@ -113,7 +113,7 @@ export interface Settings {
         words: string[];
         /**
          * The dictation key: in Pi Pocket's window it turns the mic on; with Dictate anywhere, it dictates in other apps
-         * too. "auto": Right Option on macOS, Right Ctrl elsewhere.
+         * too. "auto": Right Option on macOS, Right Ctrl elsewhere. Else a key alone, modifiers alone, or modifiers with a key.
          */
         key: DictationKey;
         /** Hold the key while you talk, tap it to start and stop, or both (a short press taps). */
@@ -193,11 +193,11 @@ export interface DictationModelState {
     download?: { step: string; percent: number };
 }
 
-/** A key that can start dictation, by its uiohook name. */
-export type TriggerKeyName = "AltRight" | "CtrlRight" | "MetaRight" | "ShiftRight" | "F13" | "F14" | "F15";
-
-/** The dictation key: "auto" picks one for this computer, "off" has none. */
-export type DictationKey = "auto" | "off" | TriggerKeyName;
+/**
+ * The dictation key: "auto" picks one for this computer, "off" has none, else a combination of KeyboardEvent.code names
+ * (src/main/dictation/key-combo.ts): "AltRight", "ControlLeft+AltLeft", "Control+Shift+KeyD".
+ */
+export type DictationKey = string;
 
 /** Dictate anywhere's state, for the settings (src/main/dictation/anywhere.ts). */
 export interface AnywhereState {
@@ -430,6 +430,8 @@ export interface ConfigState {
     local: LocalState;
     dictation: DictationState;
     anywhere: AnywhereState;
+    /** The dictation key as this computer's keyboard prints it ("Right Option", "⌃⇧D"); empty when none. */
+    dictationKeyLabel: string;
     billionContext: BillionContextState;
     runner: RunnerState;
 }
@@ -548,6 +550,12 @@ export interface GuiConfigApi {
     chooseFolder(start: string): Promise<string | undefined>;
     dictation(action: DictationAction): Promise<void>;
     showDictationFolder(): Promise<void>;
+    /**
+     * Records a new dictation key: while on, the current key does nothing, so pressing it can be recorded too. `check`
+     * checks a combination and names it: the key as the settings write it and its label, or why it cannot be used.
+     */
+    recordKey(on: boolean): Promise<void>;
+    checkKey(keys: string): Promise<{ ok: true; key: string; label: string } | { ok: false; problem: string }>;
     billionContext(action: BillionContextAction): Promise<void>;
     runner(action: RunnerAction): Promise<void>;
     /** Read the allowed folders, or remove one. */
