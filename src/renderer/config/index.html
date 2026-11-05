@@ -257,7 +257,7 @@
             </section>
 
             <section class="section" id="sec-server" aria-labelledby="h-server">
-                <div class="section-head"><h2 id="h-server">Server</h2><p>Pi Pocket on this computer, another server, and server extensions.</p></div>
+                <div class="section-head"><h2 id="h-server">Server</h2><p id="server-intro">Pi Pocket on this computer, and server extensions.</p></div>
                 <h3 class="group-heading" id="preferences">This computer</h3>
                 <div class="card rows local-rows" id="server-local-settings">
                     <div class="row" id="local-restart-row" hidden>
@@ -302,7 +302,7 @@
                         <button type="button" class="ghost small" data-local="show-log">Show log file</button>
                     </details>
                 </div>
-                <h3 class="group-heading">Another server</h3>
+                <h3 class="group-heading" id="remote-settings-heading">Another server</h3>
                 <div class="card rows" id="remote-settings-card">
                     <label class="row"><span><strong>Connect at startup</strong><small>Open Pi Pocket when the server answers. Otherwise, show this screen.</small></span><input type="checkbox" data-key="connection.autoConnect" /></label>
                     <label class="row stack"><span><strong>Other allowed addresses</strong><small>One per line, without a path. For example, a Cloudflare Access sign-in page. Other links open in your browser.</small></span><textarea data-key="server.extraOrigins" rows="2" spellcheck="false" placeholder="https://myteam.cloudflareaccess.com"></textarea></label>

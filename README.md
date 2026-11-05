@@ -196,7 +196,7 @@ GUI Settings has a sidebar with two parts, **Home** and **Settings**. **Back to 
 | **Dictation** | Download speech models and turn speech into text on this computer. |
 | **Updates** | Desktop app updates, checked at startup and each time Settings opens. |
 | **Runner** | Let your server use this computer's files and commands. See [Runner](#runner). |
-| **Server** | **This computer**: session folder, who can connect, and server updates. **Another server**: connect at startup, other allowed addresses, and check and retry limits. **Extensions**: Billion context. |
+| **Server** | Only the side chosen on Home. **This computer**: session folder, who can connect, and server updates. **Another server**: connect at startup, other allowed addresses, and check and retry limits. **Extensions**: Billion context, on both. |
 
 The two choices on Home, **This computer** and **Another server**, only show that side, with a status for each. A click on a choice does not connect, disconnect, start, or stop anything. The window changes servers only when you click **Connect**, **Start**, or **Open**. A remote connection stays while you look at This computer. When Pi Pocket on this computer stops on its own, the app shows a notification.
 

@@ -491,7 +491,14 @@ function renderLocal(next: ConfigState): void {
     renderChoice("local", next.choices.local);
     renderChoice("remote", next.choices.remote);
 
-    // Home shows the side chosen; Settings → Server keeps the settings of both.
+    // Home and Settings → Server show the side chosen: switching on Home brings the other side's settings.
+    element("preferences").hidden = !isLocal;
+    element("server-local-settings").hidden = !isLocal;
+    element("remote-settings-heading").hidden = isLocal;
+    element("remote-settings-card").hidden = isLocal;
+    element("server-intro").textContent = isLocal
+        ? "Pi Pocket on this computer, and server extensions. To use another server, choose it on Home."
+        : "The server this app connects to, and server extensions. To run Pi Pocket here, choose This computer on Home.";
     element("local-card").hidden = !isLocal;
     element("remote-card").hidden = isLocal;
     element("get-card").hidden = isLocal;
