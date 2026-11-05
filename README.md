@@ -26,7 +26,7 @@ The app runs Pi Pocket on this computer for you, or opens one you already run el
 | **Pi Pocket on this computer** | No terminal: the app downloads Pi Pocket and the Node.js it needs, runs it while the app runs, and keeps both up to date. |
 | **Tray** | Your pinned sessions with their state (◆ waiting for you, ◐ working, ✕ failed), one click away. |
 | **Badge** | How many sessions need you, on the dock or taskbar icon. |
-| **Notifications** | Native ones, even with the window hidden. An approval can be answered from the notification. |
+| **Notifications** | Native ones, even with the window hidden. An approval can be answered from the notification. Sessions that finish share one notification ("3 sessions finished"), and while you are away (sleep, lock, or idle) they wait and show once when you are back. |
 | **Seamless window** | No title bar: Pi Pocket runs to the top edge, and the window's buttons sit over it. |
 | **See-through background** | The desktop shows through Pi Pocket's background, blurred, as much as you choose. |
 | **Your theme** | The settings screen, the window, and the tray's π follow the theme Pi Pocket shows. |
