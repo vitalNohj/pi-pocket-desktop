@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { join } from "node:path";
 import { test } from "node:test";
-import { HOLD_MS, KEY, keptType, pasteText, pillPlace, Trigger } from "../main/dictation/anywhere-keys";
+import { HOLD_MS, KEY, keptType, pasteText, pillPlace, pillWindowOptions, Trigger } from "../main/dictation/anywhere-keys";
 import { bpeVocab, customWords, modelById, MODELS } from "../main/dictation/dictation-catalog";
 import { defaultSettings, validateSettings } from "../main/core/settings";
 
@@ -157,4 +157,25 @@ test("the pill goes to the top when the pointer is in the screen's lower half", 
     // A second screen to the right, above the first.
     assert.equal(pillPlace({ x: 1440, y: -400, width: 1920, height: 1080 }, { x: 2000, y: 300 }, size).edge, "top");
     assert.equal(pillPlace({ x: 1440, y: -400, width: 1920, height: 1080 }, { x: 2000, y: 0 }, size).edge, "bottom");
+});
+
+test("the pill is a popup to window managers: no title, no window buttons, on macOS no hidden ones either", () => {
+    for (const platform of ["darwin", "win32", "linux"] as const) {
+        const options = pillWindowOptions(platform);
+
+        assert.equal(options.title, "");
+        assert.equal(options.frame, false);
+        assert.equal(options.focusable, false);
+        assert.equal(options.minimizable, false);
+        assert.equal(options.maximizable, false);
+        assert.equal(options.fullscreenable, false);
+        // A window that cannot close keeps macOS from quitting the app.
+        assert.equal("closable" in options, false);
+    }
+
+    assert.deepEqual(
+        { type: pillWindowOptions("darwin").type, roundedCorners: pillWindowOptions("darwin").roundedCorners },
+        { type: "panel", roundedCorners: false },
+    );
+    assert.equal("roundedCorners" in pillWindowOptions("win32"), false);
 });
