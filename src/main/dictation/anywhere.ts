@@ -28,6 +28,7 @@ import { APP_ORIGIN, serveAppPages } from "../settings-screen/config-protocol";
 import { preloadPath } from "../core/paths";
 import { KEY, keptType, pasteText, pillPlace } from "./anywhere-keys";
 import { comboOf } from "./key-combo";
+import { resetAccessibility } from "./mac-accessibility";
 import { diagnose } from "../diagnostics/stall-watchdog";
 import type { Listening, PageMessage } from "./dictation";
 
@@ -104,7 +105,7 @@ export function hookProblem(error: unknown, platform: string): string {
     const text = error instanceof Error ? error.message : String(error);
 
     if (/AXAPI/.test(text)) {
-        return "macOS has not let Pi Pocket see keys yet. In System Settings → Privacy & Security, turn Pi Pocket on under Accessibility (and Input Monitoring if it is listed), then turn Dictate anywhere off and on.";
+        return "macOS does not let Pi Pocket see keys in other apps. If System Settings already shows Pi Pocket on under Accessibility, that permission belongs to an earlier version: use Ask again below, then allow it.";
     }
 
     if (/X_OPEN_DISPLAY|X_RECORD|XRECORD/i.test(text)) {
@@ -119,6 +120,8 @@ export function setUpAnywhere(host: AnywhereHost) {
     let hook: Hook | undefined;
     let hookRunning = false;
     let problem: string | undefined;
+    /** macOS answered that Pi Pocket has no Accessibility. */
+    let refused = false;
     let status: AnywhereState["status"] = "off";
     let pill: BrowserWindow | undefined;
     let pillReady: Promise<void> | undefined;
@@ -613,6 +616,7 @@ export function setUpAnywhere(host: AnywhereHost) {
         clearInterval(accessibilityTimer);
         stopHook();
         problem = undefined;
+        refused = false;
 
         if (!settings.enabled) {
             stop(true);
@@ -643,6 +647,7 @@ export function setUpAnywhere(host: AnywhereHost) {
         if (host.platform === "darwin" && !systemPreferences.isTrustedAccessibilityClient(false)) {
             systemPreferences.isTrustedAccessibilityClient(true);
             problem = hookProblem(new Error("AXAPI"), host.platform);
+            refused = true;
             setStatus("error");
             diagnose("dictate anywhere: macOS reports no Accessibility permission");
             accessibilityTimer = setInterval(() => {
@@ -684,9 +689,22 @@ export function setUpAnywhere(host: AnywhereHost) {
 
     return {
         state(): AnywhereState {
-            return { status, ...(problem === undefined ? {} : { message: problem }), copyOnly };
+            return { status, ...(problem === undefined ? {} : { message: problem }), copyOnly, permission: refused };
         },
         /** The settings were saved: watch another key, or stop, when Dictate anywhere's settings changed. */
+        /**
+         * macOS refuses the permission though its settings show it on (an older build's entry): remove the entry, then
+         * start again, which asks macOS anew. Resolves false when the entry could not be removed.
+         */
+        async resetPermission(): Promise<boolean> {
+            const removed = await resetAccessibility(host.platform);
+
+            if (removed) {
+                apply();
+            }
+
+            return removed;
+        },
         settingsChanged(): void {
             const next = applying();
 

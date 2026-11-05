@@ -205,6 +205,8 @@ export interface AnywhereState {
     status: "off" | "ready" | "recording" | "working" | "error";
     /** Why it cannot run, or what to do (such as a permission to give). */
     message?: string;
+    /** macOS refuses Accessibility: GUI Settings offers to remove its entry and ask again. */
+    permission?: boolean;
     /** The words go on the clipboard only: this desktop does not let apps type into others (Wayland). */
     copyOnly: boolean;
 }
@@ -550,6 +552,8 @@ export interface GuiConfigApi {
     chooseFolder(start: string): Promise<string | undefined>;
     dictation(action: DictationAction): Promise<void>;
     showDictationFolder(): Promise<void>;
+    /** macOS: removes Pi Pocket's Accessibility entry and asks again. False when it could not be removed. */
+    resetAccessibility(): Promise<boolean>;
     /**
      * Records a new dictation key: while on, the current key does nothing, so pressing it can be recorded too. `check`
      * checks a combination and names it: the key as the settings write it and its label, or why it cannot be used.

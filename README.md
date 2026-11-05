@@ -121,7 +121,7 @@ The dictation key in every app, not only Pi Pocket: turn on **Dictate anywhere**
 
 - **Where it goes:** with Pi Pocket's window in front, the key still turns on the session's mic; in any other app, it pastes. In Pi Pocket with no message box showing (a sheet open), it pastes too. A recording ends where it started, even if you switch apps meanwhile. In GUI Settings it dictates anywhere too, so the words go into the box you are typing in.
 - **Esc** drops a recording. **Words go** where the cursor is, or only to the clipboard. The tray menu's **Dictate** starts and stops it too.
-- **macOS** asks once for Accessibility (to see the key and press ⌘V) and the microphone. The app is not signed, so macOS may ask again after an update.
+- **macOS** asks for Accessibility (to see the key and press ⌘V) and the microphone. macOS gives Accessibility to one version of the app: when an update installs, Pi Pocket removes its own entry first (`tccutil reset Accessibility io.github.vitalnohj.pipocketgui`), so the new version is asked again instead of being refused silently. If Dictate anywhere still says macOS does not let it see keys while System Settings shows it on, use **Ask again** in GUI Settings → Dictation.
 - **Windows** keeps apps run as administrator apart: to dictate into those, run Pi Pocket as administrator too. On many keyboards Right Alt is AltGr; pick another key if you type with it.
 - **Linux** works on X11. Wayland lets no app hear other apps' keys or type into them: there use the tray's **Dictate**, and the words are copied for you to paste.
 
