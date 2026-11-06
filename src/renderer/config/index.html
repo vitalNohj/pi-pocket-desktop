@@ -244,10 +244,11 @@
                             <label class="field grow"><span>Server address</span><input id="runner-server" type="text" spellcheck="false" autocomplete="off" placeholder="https://pocket.example.com" /></label>
                             <label class="field runner-code"><span>Link code</span><input id="runner-code" type="text" spellcheck="false" autocomplete="off" placeholder="ABCD-EFGH-JKLM" /></label>
                         </div>
+                        <p class="row-note security-note" id="runner-trust"><strong>This computer will trust that server fully.</strong> Sessions started here run commands and change files as your user on this computer, with everything you can reach. Nothing runs in a sandbox. Link only to a server you trust.</p>
                         <p class="row-note error" id="runner-link-error" role="alert" hidden></p>
                         <div class="actions"><button type="button" class="primary" id="runner-link">Link</button></div>
                     </div>
-                    <p class="row-note security-note">Only you can start sessions here. They are private unless the server owner enables sharing. Anyone who can prompt a shared session can run commands here.</p>
+                    <p class="row-note security-note" id="runner-linked-note">This computer trusts its server fully: sessions run commands as your user here, not in a sandbox. Only you can start sessions here. They are private unless the server owner enables sharing. Anyone who can prompt a shared session can run commands here.</p>
                     <h4 class="row-group" id="runner-folders-heading">Allowed folders</h4>
                     <p class="row-note">Sessions in these folders, and folders inside them, start without asking. A folder is added when you allow a session in it.</p>
                     <p class="row-note error" id="runner-folders-error" role="alert" hidden></p>
