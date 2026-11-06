@@ -159,6 +159,9 @@ Use **Runner** in the GUI Settings sidebar, or the Runner tile on Home. A runner
 
 The app has the same runner as `pi-pocket runner` built in, and links the same way: the server cannot tell them apart.
 
+> [!WARNING]
+> A linked computer trusts its server fully. Sessions started on it run commands and change files as your user on that computer, with everything you can reach. Nothing runs in a sandbox. Link only to a server you trust. The **Runner** card says this next to **Link**.
+
 1. In Pi Pocket, open **Menu → Runners → Link a computer**, name this computer, and choose **Get a link code**.
 2. In the app's **Runner** card, enter the server's address (filled in with the server the app uses) and the code, then choose **Link**. The first link installs Node.js and Pi Pocket for the runner if needed.
 3. Under **Menu → Runners**, choose **New session** on this computer and pick a folder. The session title shows which computer it uses.
