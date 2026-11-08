@@ -9,6 +9,7 @@ import {
     MENU_CSS,
     CONTROLS_GAP,
     ROOM_CSS,
+    ROOM_ORIGIN,
     NOTCH_CSS,
     NOTCH_GAP,
     NOTCH_SHAPE,
@@ -49,7 +50,9 @@ test("with the controls on the right, the wide session menu opens against the wi
 
 test("with the controls on the right, a bar under them keeps a gap past the notch", () => {
     assert.ok(CONTROLS_GAP > NOTCH_GAP);
-    assert.ok(ROOM_CSS.startsWith(`:root[data-window-controls="right"] [data-under-controls="bar"][data-under-controls="bar"] {`));
+    assert.ok(ROOM_CSS.startsWith(`:root[data-window-controls="right"] [data-under-controls="bar"] {`));
+    // Pi Pocket's own rule is !important in a cascade layer: only user CSS beats it.
+    assert.equal(ROOM_ORIGIN, "user");
     assert.ok(ROOM_CSS.includes(`padding-right: calc(var(--controls-room) + ${CONTROLS_GAP}px) !important;`));
     assert.ok(!ROOM_CSS.includes(`"left"`));
 });

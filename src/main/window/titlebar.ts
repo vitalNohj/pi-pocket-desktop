@@ -133,9 +133,15 @@ export const CONTROLS_GAP = 12;
 /**
  * Pi Pocket's web/window-controls.js gives a bar under the controls exactly the room they cover (--controls-room), so
  * its last button (the ⋯ menu, a panel's ✕) touches them, and the notch's curve cuts into it. With the controls on the
- * right (Windows, Linux), the bar keeps a gap too. The doubled attribute outranks the page's own !important rule.
+ * right (Windows, Linux), the bar keeps a gap too.
+ *
+ * Pi Pocket's rule is !important inside its cascade layer (@layer pocket), and a layered !important beats any
+ * unlayered one, whatever its specificity. So this is inserted as user CSS (ROOM_ORIGIN): a user's !important beats
+ * every author rule.
  */
-export const ROOM_CSS = `:root[data-window-controls="right"] [data-under-controls="bar"][data-under-controls="bar"] {
+export const ROOM_ORIGIN = "user" as const;
+
+export const ROOM_CSS = `:root[data-window-controls="right"] [data-under-controls="bar"] {
     padding-right: calc(var(--controls-room) + ${CONTROLS_GAP}px) !important;
 }`;
 
@@ -348,7 +354,7 @@ export function setUpTitleBar(host: TitleBarHost): {
         void contents.insertCSS(DRAG_CSS).catch(() => undefined);
         void contents.insertCSS(NOTCH_CSS).catch(() => undefined);
         void contents.insertCSS(MENU_CSS).catch(() => undefined);
-        void contents.insertCSS(ROOM_CSS).catch(() => undefined);
+        void contents.insertCSS(ROOM_CSS, { cssOrigin: ROOM_ORIGIN }).catch(() => undefined);
         void check();
     });
     contents.on("did-finish-load", () => void check());
