@@ -6,7 +6,7 @@
  *   and no permission. With no mic to press (a sheet open, no session), it dictates anywhere instead, if that is on.
  * - Any other app, with Dictate anywhere on: the keyboard hook hears it, and the words are pasted where the cursor is
  *   (src/main/dictation/anywhere.ts).
- * - GUI Settings in front: it dictates anywhere, if that is on, so the words go into the box you type in there.
+ * - Desktop Settings in front: it dictates anywhere, if that is on, so the words go into the box you type in there.
  *
  * A recording belongs to where it started: the next press (or letting go) ends it there, wherever you are by then.
  */
@@ -19,7 +19,7 @@ import type { PageMicAction, PageMicAnswer } from "./page-mic";
 export interface DictationKeyHost {
     platform: NodeJS.Platform;
     settings: () => Settings;
-    /** Pi Pocket's window has the focus and shows Pi Pocket (not GUI Settings). */
+    /** Pi Pocket's window has the focus and shows Pi Pocket (not Desktop Settings). */
     pageInFront: () => boolean;
     pageMic: (action: PageMicAction) => Promise<PageMicAnswer>;
     /** Takes this accelerator as the app's own shortcut (globalShortcut), or gives it back (undefined). */
@@ -44,7 +44,7 @@ export function setUpDictationKey(host: DictationKeyHost) {
     let chord: Chord | undefined;
     let target: Target | undefined;
     let applied = "";
-    /** GUI Settings records a new key: this one does nothing meanwhile. */
+    /** Desktop Settings records a new key: this one does nothing meanwhile. */
     let paused = false;
 
     const apply = (): void => {
@@ -254,7 +254,7 @@ export function setUpDictationKey(host: DictationKeyHost) {
             return chord === undefined ? undefined : comboOf(host.settings().dictation.key, host.platform)?.key;
         },
 
-        /** GUI Settings records a new key: the current one does nothing until it is done. */
+        /** Desktop Settings records a new key: the current one does nothing until it is done. */
         pause(on: boolean): void {
             paused = on;
             steps(chord?.release() ?? []);

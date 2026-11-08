@@ -1,4 +1,4 @@
-# Pi Pocket GUI — design
+# Pi Pocket Desktop — design
 
 A desktop app (Electron) for Pi Pocket. It connects to one Pi Pocket server that already runs, at a URL the person gives
 it, and adds what a browser tab cannot: a tray, a badge, native notifications, a global hotkey, launch at login, and
@@ -17,7 +17,7 @@ when there is a sensible choice, it is a setting, with a safe default.
 
 ## Stack
 
-- Electron + TypeScript, built with `tsc`, packaged with electron-builder. MIT. Repo `vitalNohj/pi-pocket-gui`.
+- Electron + TypeScript, built with `tsc`, packaged with electron-builder. MIT. Repo `vitalNohj/pi-pocket-desktop`.
 - Product name **Pi Pocket**; executable `pi-pocket-gui` (so it never clashes with the server's `pi-pocket` command).
 - Icon: Pi Pocket's own π icon (`assets/icon.svg`, MIT, from upstream). The tray icon adds a dot when something needs
   you.
@@ -42,7 +42,7 @@ when there is a sensible choice, it is a setting, with a safe default.
 - When the server cannot be reached (at start or when the page fails to load) the config screen shows the error, with
   **Retry**, **Edit connection**, and a background retry that backs off up to 30 s (configurable) and switches back
   to Pi Pocket as soon as it answers.
-- The config screen opens from: Pi Pocket's menu (**GUI Settings…**, through the bridge), the tray, and the app
+- The config screen opens from: Pi Pocket's menu (**Desktop Settings…**, through the bridge), the tray, and the app
   menu. The tray and app menu always work, also on a server without the bridge.
 - Certificates stay strict: a self-signed https server fails like it does in Chrome, and the error shows on the
   config screen.
@@ -50,9 +50,9 @@ when there is a sensible choice, it is a setting, with a safe default.
 ## Desktop features
 
 - Single instance. A second launch focuses the first window.
-- **Tray menu:** Open, the pinned sessions of this GUI (Pi Pocket keeps pins per browser, so the GUI has its own),
-  GUI Settings…, Quit. Each pin shows the same state as Pi Pocket's sidebar square: working, waiting for you,
-  failed, finished and unread, read. A click opens that session in the GUI window.
+- **Tray menu:** Open, the pinned sessions of this desktop app (Pi Pocket keeps pins per browser, so the app has its own),
+  Desktop Settings…, Quit. Each pin shows the same state as Pi Pocket's sidebar square: working, waiting for you,
+  failed, finished and unread, read. A click opens that session in the desktop window.
 - **Tray icon and badge** count every session that needs you, as Pi Pocket's home-screen badge does.
 - **The main process never waits.** It owns the tray and the menus, so nothing in it blocks: no synchronous child
   processes, no long synchronous file work, and the one synchronous IPC (`host:hello`) is answered at once. A
@@ -65,7 +65,7 @@ when there is a sensible choice, it is a setting, with a safe default.
   popup falls back to the native menu when it does not appear in 2 s.
 - **Close to tray** (default on). When the desktop has no tray (plain GNOME without AppIndicator), close minimizes, and
   the config screen says why.
-- **Launch at login** (default off), **global show/hide hotkey** (default off), **notifications** (default on), **GUI
+- **Launch at login** (default off), **global show/hide hotkey** (default off), **notifications** (default on), **desktop
   update checks** (default on: at start and every 6 hours; asks before it restarts). electron-updater, from this
   repo's GitHub Releases. Pi Pocket itself keeps updating through its own updater, on the server.
 
@@ -74,11 +74,11 @@ when there is a sensible choice, it is a setting, with a safe default.
 - Web Push does not work in Electron. The server sends each push decision it makes (same rules: who can see it, their
   preferences, whether they look at the session) also over the live connection to that person's desktop clients. The
   bridge shows it as a native notification.
-- Notifications only come while the GUI runs (also hidden in the tray). Closed means no notifications.
-- The GUI tells the page when its window is hidden or minimized, so the server's "is looking at it" check stays
+- Notifications only come while the desktop app runs (also hidden in the tray). Closed means no notifications.
+- The desktop app tells the page when its window is hidden or minimized, so the server's "is looking at it" check stays
   correct.
 - A click opens the session (or PiP).
-- **Approvals:** the server sends the full call. The GUI decides how to show it: truncated to a length you set, with
+- **Approvals:** the server sends the full call. The desktop app decides how to show it: truncated to a length you set, with
   invisible and reordering characters shown as visible marks (`⟨U+202E⟩`). **Deny** is always offered. **Allow** is
   offered by the setting `notifications.allowFromNotification`: `whenFullyShown` (default: only when the whole call
   fits), `always`, or `never`. The server still checks that the person who answers may answer.
@@ -87,10 +87,10 @@ when there is a sensible choice, it is a setting, with a safe default.
 
 - Chrome's speech recognition needs Google's private API keys, which Electron apps do not get, so it fails with
   `network`. It cannot be fixed in Electron.
-- The GUI's preload installs its own `SpeechRecognition` into the page. Pi Pocket's `web/voice.js` uses it unchanged.
+- The desktop app's preload installs its own `SpeechRecognition` into the page. Pi Pocket's `web/voice.js` uses it unchanged.
   No upstream change, no audio over the bridge or to the server.
-- Recognition runs natively (sherpa-onnx's Node addon) in the GUI's main process. Audio goes from the preload to the
-  GUI's own main process only.
+- Recognition runs natively (sherpa-onnx's Node addon) in the app's main process. Audio goes from the preload to the
+  app's own main process only.
 - Models download on demand, checked against checksums, into `<appData>/pi-pocket-gui/models/`: Parakeet TDT 0.6B v2
   (English), v3 (25 European languages, suggested), Whisper tiny, base, small, large-v3-turbo, large-v3. Several can
   be downloaded; one is active. Words come after each pause (Silero VAD), not live word by word.
@@ -99,7 +99,7 @@ when there is a sensible choice, it is a setting, with a safe default.
 
 Built in a worktree from `upstream/main` (`/home/nohj/pi-pocket-desktop-bridge`), pushed to the fork
 (`vitalNohj/pi-pocket`), and applied to the live instance for testing. Filed upstream as **one issue and one PR** only
-when everything is finished, explaining that it is for this GUI or any other wrapper app.
+when everything is finished, explaining that it is for this desktop app or any other wrapper app.
 
 - `GET /api/pocket/info` (no sign-in): `{ name: "pi-pocket", bridge: 1 }`. No version.
 - **App bridge**, generic and versioned: the wrapper's preload exposes `window.pocketHost`:
@@ -121,10 +121,10 @@ when everything is finished, explaining that it is for this GUI or any other wra
   ```
 
   Pi Pocket uses only the capabilities it finds, and ignores what it does not know.
-- The page shows the wrapper's menu items in a group under the wrapper's own title (`menuTitle()`: a "Pi Pocket Desktop" group with **GUI Settings…**).
+- The page shows the wrapper's menu items in a group under the wrapper's own title (`menuTitle()`: a "Pi Pocket Desktop" group with **Desktop Settings…**).
 - The server sends push decisions to desktop clients over the live connection.
 - The page reports visibility from the wrapper.
-- A server without the bridge still works in the GUI, with a one-time notice: "This server doesn't support desktop
+- A server without the bridge still works in the desktop app, with a one-time notice: "This server doesn't support desktop
   features yet. Please update it."
 
 ## Security
@@ -144,9 +144,30 @@ when everything is finished, explaining that it is for this GUI or any other wra
 - Linux is tested on opti2 under Xvfb. The owner checks the tray and notifications on a real desktop, then macOS, then
   Windows.
 
+## Project name and installed identity
+
+The project is **Pi Pocket Desktop** (`pi-pocket-desktop`), at `vitalNohj/pi-pocket-desktop`. Renaming the project must
+not create a second installed app or lose its settings, sign-in, runner link, or launch-at-login entry:
+
+- Keep `appId` / the macOS bundle ID `io.github.vitalnohj.pipocketgui`, product name **Pi Pocket**, and the main
+  window's **Pi Pocket** name.
+- Keep `<appData>/pi-pocket-gui`, including cookies and runner state, and `PI_POCKET_GUI_USER_DATA` for development.
+- Keep the Windows and Linux executable `pi-pocket-gui`, the Debian package name `pi-pocket-gui`, and Linux autostart
+  file `pi-pocket-gui.desktop` with `Icon=pi-pocket-gui`. Pin `deb.packageName`: otherwise it follows the new npm name.
+- Keep bridge `kind: "pi-pocket-gui"` (the app bridge identifies its embedder for logs), extension marker
+  `.pi-pocket-gui.json`, internal `pocket-gui://` scheme, and page custom element names. They are not project labels.
+- New release files use `pi-pocket-desktop-…`. The macOS download picker accepts both prefixes. Each release also
+  ships byte-identical `pi-pocket-gui-<version>-mac-<arch>.dmg` aliases (and any matching `.dmg.blockmap`), made by
+  `scripts/mac-update-compat.mjs` after the build. Keep these aliases for installed 0.2.x apps.
+- Windows and AppImage updates read the file URLs and checksums in `latest.yml` and `latest-linux.yml`; they do not
+  need old installer or AppImage names. `latest-mac.yml` names the new zip / dmg files. Do not rewrite these generated
+  files to use the aliases. The unsigned macOS app reads GitHub's release assets directly, not `latest-mac.yml`.
+- GitHub redirects the old repository after its owner renames it. Installed apps keep their old update URL; new builds
+  use the new repository. Rename the repository before publishing a build that uses its new name.
+
 ## Order
 
-1. GUI core and the config screen.
+1. Desktop core and the config screen.
 2. The upstream bridge, on the fork and the live instance.
 3. Tray, pins, badge, notifications.
 4. Offline dictation.

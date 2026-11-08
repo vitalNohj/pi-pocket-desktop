@@ -232,7 +232,7 @@ export function setUpDesktop(host: DesktopHost): {
                 ? [{ type: "separator" as const }, { label: "Pinned", enabled: false }, ...pinItems]
                 : []),
             { type: "separator" },
-            { label: "GUI Settings…", click: host.openSettings },
+            { label: "Desktop Settings…", click: host.openSettings },
             { type: "separator" },
             { label: "Quit", click: host.quit },
         ];

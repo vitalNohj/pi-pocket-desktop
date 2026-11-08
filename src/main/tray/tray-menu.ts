@@ -60,7 +60,7 @@ export interface TrayMenuInput {
 
 /**
  * The tray's items, in the order the native menu uses: Open Pi Pocket (with the needs-you count), New session, Dictate (while Dictate anywhere is on), Reload
- * while the window is up, the update when there is one, the pinned sessions, GUI Settings…, Quit.
+ * while the window is up, the update when there is one, the pinned sessions, Desktop Settings…, Quit.
  */
 export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
     const open: TrayMenuAction = {
@@ -80,7 +80,7 @@ export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
         label: pinLabel(pin),
         run: () => input.openPin(pin.url),
     }));
-    const settings: TrayMenuAction = { id: "settings", label: "GUI Settings…", run: input.openSettings };
+    const settings: TrayMenuAction = { id: "settings", label: "Desktop Settings…", run: input.openSettings };
     const quit: TrayMenuAction = { id: "quit", label: "Quit", run: input.quit };
     const actions = [open, newSession, ...(dictate === undefined ? [] : [dictate]), ...(reload === undefined ? [] : [reload]), ...(update === undefined ? [] : [update]), ...pins, settings, quit];
     const rows: TrayMenuRow[] = [

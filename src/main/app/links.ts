@@ -4,5 +4,5 @@
 export const LINKS = {
     github: "https://github.com/TannerMidd/pi-pocket",
     docs: "https://tannermidd.github.io/pi-pocket/docs/",
-    releases: "https://github.com/vitalNohj/pi-pocket-gui/releases",
+    releases: "https://github.com/vitalNohj/pi-pocket-desktop/releases",
 } as const;

@@ -1,14 +1,14 @@
 {
-    "name": "pi-pocket-gui",
+    "name": "pi-pocket-desktop",
     "productName": "Pi Pocket",
     "version": "0.2.37",
     "description": "Desktop app for a Pi Pocket server: tray, badge, native notifications, and offline dictation.",
     "license": "MIT",
     "author": "vitalNohj",
-    "homepage": "https://github.com/vitalNohj/pi-pocket-gui",
+    "homepage": "https://github.com/vitalNohj/pi-pocket-desktop",
     "repository": {
         "type": "git",
-        "url": "https://github.com/vitalNohj/pi-pocket-gui.git"
+        "url": "https://github.com/vitalNohj/pi-pocket-desktop.git"
     },
     "main": "dist/main/index.js",
     "private": true,
@@ -24,7 +24,7 @@
     "build": {
         "appId": "io.github.vitalnohj.pipocketgui",
         "productName": "Pi Pocket",
-        "artifactName": "pi-pocket-gui-${version}-${os}-${arch}.${ext}",
+        "artifactName": "pi-pocket-desktop-${version}-${os}-${arch}.${ext}",
         "npmRebuild": false,
         "asarUnpack": [
             "node_modules/uiohook-napi/**/*.node"
@@ -42,7 +42,7 @@
             {
                 "provider": "github",
                 "owner": "vitalNohj",
-                "repo": "pi-pocket-gui"
+                "repo": "pi-pocket-desktop"
             }
         ],
         "protocols": [
@@ -63,6 +63,9 @@
             "maintainer": "vitalNohj <vitalNohj@users.noreply.github.com>",
             "synopsis": "Desktop app for Pi Pocket",
             "executableName": "pi-pocket-gui"
+        },
+        "deb": {
+            "packageName": "pi-pocket-gui"
         },
         "mac": {
             "target": [
@@ -95,7 +98,7 @@
             ],
             "icon": "assets/icon-512.png",
             "executableName": "pi-pocket-gui",
-            "artifactName": "pi-pocket-gui-win-${arch}.${ext}"
+            "artifactName": "pi-pocket-desktop-win-${arch}.${ext}"
         },
         "nsis": {
             "oneClick": false,

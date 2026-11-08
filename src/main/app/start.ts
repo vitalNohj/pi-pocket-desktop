@@ -84,7 +84,7 @@ export async function start(): Promise<void> {
         viewSession.registerPreloadScript({ type: "frame", filePath: preloadPath("navigation") });
     }
 
-    serverSession.setUserAgent(`${serverSession.getUserAgent()} PiPocketGUI/${app.getVersion()}`);
+    serverSession.setUserAgent(`${serverSession.getUserAgent()} pi-pocket-desktop/${app.getVersion()}`);
     serveAppPages(configSession, RENDERER);
     configSession.setPermissionRequestHandler((_contents, permission, callback) => {
         callback(permission === "clipboard-sanitized-write");
@@ -228,7 +228,7 @@ export async function start(): Promise<void> {
             state.settings = { ...state.settings, dictation: { ...state.settings.dictation, model } };
             saveSettings(state.configPath, state.settings);
         },
-        fetch: (url) => net.fetch(url, { headers: { "user-agent": `pi-pocket-gui/${app.getVersion()}` } }),
+        fetch: (url) => net.fetch(url, { headers: { "user-agent": `pi-pocket-desktop/${app.getVersion()}` } }),
         fromServerPage: (event) => appState.gui?.desktop?.fromServerPage(event) === true,
         toPage: (message) => {
             if (!server.webContents.isDestroyed()) {
@@ -248,7 +248,7 @@ export async function start(): Promise<void> {
         platform: process.platform,
         arch: process.arch,
         settings: () => appState.gui!.settings,
-        fetch: (url) => net.fetch(url, { headers: { "user-agent": `pi-pocket-gui/${app.getVersion()}` } }),
+        fetch: (url) => net.fetch(url, { headers: { "user-agent": `pi-pocket-desktop/${app.getVersion()}` } }),
         probe: (url) =>
             probe(url, (target, init) => serverSession.fetch(target, init), appState.gui!.settings.connection.probeTimeoutMs),
         changed: () => {
@@ -285,7 +285,7 @@ export async function start(): Promise<void> {
 
             return { installed: local.installed(), url: local.state().status === "running" ? local.url() : undefined };
         },
-        fetch: (url, headers = {}) => net.fetch(url, { headers: { "user-agent": `pi-pocket-gui/${app.getVersion()}`, ...headers } }),
+        fetch: (url, headers = {}) => net.fetch(url, { headers: { "user-agent": `pi-pocket-desktop/${app.getVersion()}`, ...headers } }),
         request: (url, init) => net.fetch(url, init),
         changed: () => {
             pushConfigState();

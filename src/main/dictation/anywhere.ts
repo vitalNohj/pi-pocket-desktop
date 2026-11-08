@@ -326,7 +326,7 @@ export function setUpAnywhere(host: AnywhereHost) {
 
         if (dictation === undefined || !dictation.ready()) {
             host.ended();
-            notify("Dictate anywhere needs a speech model", "Download one in GUI Settings → Dictation.");
+            notify("Dictate anywhere needs a speech model", "Download one in Desktop Settings → Dictation.");
             host.needModel();
 
             return;

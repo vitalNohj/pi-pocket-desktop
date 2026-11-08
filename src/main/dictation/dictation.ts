@@ -528,7 +528,7 @@ export function setUpDictation(host: DictationHost) {
         if (chosen === undefined) {
             host.needModel();
 
-            return { error: "no speech model is downloaded yet (GUI Settings → Dictation)" };
+            return { error: "no speech model is downloaded yet (Desktop Settings → Dictation)" };
         }
 
         begin(id, chosen);

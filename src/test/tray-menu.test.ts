@@ -52,7 +52,7 @@ test("the menu keeps every item, in the order the native menu uses", () => {
 
     assert.deepEqual(
         menu.rows.map((row) => (row.kind === "separator" ? "—" : row.kind === "header" ? row.label : row.label)),
-        ["Open Pi Pocket  (3 need you)", "New session", "Update ready to install", "—", "Pinned", "First draft", "A double gap", "—", "GUI Settings…", "—", "Quit"],
+        ["Open Pi Pocket  (3 need you)", "New session", "Update ready to install", "—", "Pinned", "First draft", "A double gap", "—", "Desktop Settings…", "—", "Quit"],
     );
     assert.deepEqual(
         menu.rows.filter((row) => row.kind === "action").map((row) => row.mark),
@@ -67,7 +67,7 @@ test("the menu keeps every item, in the order the native menu uses", () => {
     assert.equal(opened, "/s/2");
 });
 
-test("without a badge, an update, or pins, the menu is Open, New session, GUI Settings, Quit", () => {
+test("without a badge, an update, or pins, the menu is Open, New session, Desktop Settings, Quit", () => {
     const menu = buildTrayMenu({
         badge: 0,
         update: undefined,
@@ -81,7 +81,7 @@ test("without a badge, an update, or pins, the menu is Open, New session, GUI Se
 
     assert.deepEqual(
         menu.rows.map((row) => (row.kind === "action" ? row.label : row.kind)),
-        ["Open Pi Pocket", "New session", "separator", "GUI Settings…", "separator", "Quit"],
+        ["Open Pi Pocket", "New session", "separator", "Desktop Settings…", "separator", "Quit"],
     );
 });
 
@@ -101,7 +101,7 @@ test("while the window is up, Reload comes after New session, and says when the 
 
     assert.deepEqual(
         menu.rows.map((row) => (row.kind === "action" ? row.label : row.kind)),
-        ["Open Pi Pocket", "New session", "Reload (page not responding)", "Update ready to install", "separator", "GUI Settings…", "separator", "Quit"],
+        ["Open Pi Pocket", "New session", "Reload (page not responding)", "Update ready to install", "separator", "Desktop Settings…", "separator", "Quit"],
     );
     menu.actions.find((action) => action.id === "reload")?.run();
     assert.equal(reloaded, 1);
@@ -246,7 +246,7 @@ test("the page draws the items and escapes a label", () => {
     const page = menuPage(menu.rows, trayMenuPalette("windows", false, theme, "#0067c0"));
 
     assert.match(page, /role="menu"/);
-    assert.match(page, /GUI Settings…/);
+    assert.match(page, /Desktop Settings…/);
     assert.doesNotMatch(page, /<script>alert/);
     assert.match(page, /&lt;script&gt;alert/);
 });

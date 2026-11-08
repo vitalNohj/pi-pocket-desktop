@@ -60,9 +60,14 @@ jobs:
               env:
                   # No certificate: never look for one in the runner's keychain.
                   CSC_IDENTITY_AUTO_DISCOVERY: "false"
+            # Old macOS apps read GitHub's release assets directly. Keep their disk-image names too.
+            # latest-mac.yml / latest.yml / latest-linux.yml keep electron-builder's new file names and checksums.
+            - name: Keep macOS update download names
+              if: matrix.name == 'macos'
+              run: node scripts/mac-update-compat.mjs
             - uses: actions/upload-artifact@v4
               with:
-                  name: pi-pocket-gui-${{ matrix.name }}
+                  name: pi-pocket-desktop-${{ matrix.name }}
                   # The latest*.yml files and block maps are what the app's updater reads from a release.
                   path: |
                       release/*.dmg

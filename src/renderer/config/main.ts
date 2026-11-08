@@ -1,4 +1,4 @@
-/** GUI Settings: Home (where Pi Pocket runs, and the way into it) and Settings (every section), with a sidebar. */
+/** Desktop Settings: Home (where Pi Pocket runs, and the way into it) and Settings (every section), with a sidebar. */
 import type {
   BillionContextAction,
   ChoiceStatus,
@@ -792,7 +792,7 @@ function render(next: ConfigState): void {
   element("recovery").hidden = !next.recovery;
   element("settings-page").hidden = next.recovery;
   element("settings-shortcut").textContent =
-    `Open GUI Settings from the tray menu, with a right-click on the page, or with ${next.platform === "darwin" ? "⌘ + comma" : "Ctrl + comma"}.`;
+    `Open Desktop Settings from the tray menu, with a right-click on the page, or with ${next.platform === "darwin" ? "⌘ + comma" : "Ctrl + comma"}.`;
   renderLocal(next);
   renderDictation(next);
   renderAnywhere(next);
@@ -1143,7 +1143,7 @@ function renderTitleBar(next: ConfigState): void {
   element("title-bar-note").textContent =
     next.platform === "darwin"
       ? "Seamless puts the window buttons over the page."
-      : "Seamless puts the window buttons over the page. Menu shortcuts still work, such as Ctrl + comma for GUI Settings.";
+      : "Seamless puts the window buttons over the page. Menu shortcuts still work, such as Ctrl + comma for Desktop Settings.";
 }
 
 /** The Appearance card: what this desktop can do, and the config screen itself see-through like the server's page. */
