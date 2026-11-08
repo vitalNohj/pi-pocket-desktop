@@ -1,227 +1,266 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import type { DownloadItem, Event, WebContents } from "electron";
 import * as inputRules from "../main/bridge/save-file-input";
 
-type Bridge = typeof import("../main/bridge/save-file");
+type Downloads = typeof import("../main/bridge/save-file");
 const origin = "https://pocket.test";
-const input = { url: "/api/c/1/download?path=notes.txt", name: "notes.txt" };
+const url = origin + "/api/c/1/download?path=notes.txt";
 
-/** The real main-process module, with only Electron, disk I/O, and its 30-second timer replaced. */
+/** The real main-process module, with only Electron and disk I/O replaced. */
 function host() {
-    const bridge = {} as Bridge;
+    const downloads = {} as Downloads;
     const files = new Set<string>();
     const shown: string[] = [];
-    const downloads: string[] = [];
-    const timers = new Set<() => void>();
-    const contents = Object.assign(new EventEmitter(), {
-        id: 7,
-        downloadURL: (url: string) => downloads.push(url),
-    });
+    const notices: string[] = [];
+    const contents = Object.assign(new EventEmitter(), { id: 7 });
+    let revealError = false;
 
     runInNewContext(readFileSync(join(__dirname, "..", "main", "bridge", "save-file.js"), "utf8"), {
-        exports: bridge,
+        exports: downloads,
         URL,
+        setImmediate,
         require: (name: string) => {
             if (name === "electron") {
-                return { app: { getPath: () => join("tmp", "Downloads") }, shell: { showItemInFolder: (path: string) => shown.push(path) } };
+                return {
+                    app: { getPath: (folder: string) => { assert.equal(folder, "downloads"); return join("tmp", "Downloads"); } },
+                    shell: { showItemInFolder: (path: string) => { if (revealError) throw new Error("no file manager"); shown.push(path); } },
+                };
             }
             if (name === "node:fs") {
                 return { existsSync: (path: string) => files.has(path), rmSync: (path: string) => files.delete(path) };
+            }
+            if (name === "node:path") {
+                return { basename };
             }
             assert.equal(name, "./save-file-input");
 
             return inputRules;
         },
-        setTimeout: (callback: () => void, ms: number) => {
-            assert.ok(ms > 0 && ms <= 30_000);
-            timers.add(callback);
-
-            return callback;
-        },
-        clearTimeout: (callback: () => void) => timers.delete(callback),
     });
 
-    const item = (url = origin + input.url) => {
+    const item = (firstUrl = url, filename = "notes.txt", chain = [firstUrl]) => {
         const download = Object.assign(new EventEmitter(), {
             path: "",
             cancelled: false,
-            getURL: () => url,
-            getURLChain: () => [url],
-            setSavePath: (path: string) => {
-                download.path = path;
-                files.add(path);
-            },
-            cancel: () => {
-                download.cancelled = true;
-                download.emit("done", {}, "cancelled");
-            },
+            getURLChain: () => chain,
+            getFilename: () => filename,
+            setSavePath: (path: string) => { download.path = path; files.add(path); },
+            cancel: () => { download.cancelled = true; download.emit("done", {}, "cancelled"); },
         });
 
         return download;
     };
-    const start = (download: ReturnType<typeof item>, sender = contents) => bridge.saveDownload(
-        { preventDefault: () => assert.fail("the item should be accepted") } as unknown as Event,
+    const notify = (message: string) => notices.push(message);
+    const start = (download: ReturnType<typeof item>, trusted = true, event: { preventDefault: () => void } = { preventDefault: () => assert.fail("the item should be accepted") }) => downloads.saveDownload(
+        event as unknown as Event,
         download as unknown as DownloadItem,
-        sender as unknown as WebContents,
+        contents as unknown as WebContents,
+        origin,
+        trusted,
+        notify,
     );
-    const save = (value = input) => bridge.saveFile(value, contents as unknown as WebContents, origin);
+    const request = (id: number, firstUrl = url, trusted = true, contentsId: number | undefined = contents.id) => downloads.saveRequestStarted(id, firstUrl, contentsId, origin, trusted);
+    const response = (id: number, status: number, redirect = false) => downloads.saveResponse(id, status, notify, redirect);
 
-    return { bridge, files, shown, downloads, timers, contents, item, start, save };
+    return { downloads, files, shown, notices, contents, item, start, request, response, revealFails: () => { revealError = true; } };
 }
 
-test("a completed save uses Downloads, reveals the file, and the next save gets (1)", async () => {
+test("ordinary completed downloads use Downloads, reveal the file, and notify with the collision suffix", () => {
     const h = host();
 
-    for (const expected of ["notes.txt", "notes (1).txt"]) {
-        const answer = h.save();
+    for (const expected of ["notes.txt", "notes (1).txt", "notes (2).txt"]) {
         const item = h.item();
 
         assert.equal(h.start(item), true);
-        assert.equal(h.timers.size, 0, "a started download no longer has the start timeout");
         assert.equal(item.path, join("tmp", "Downloads", expected));
         item.emit("done", {}, "completed");
-        const result = await answer;
-
-        assert.equal(result.ok, true);
-        assert.equal(result.ok && result.path, item.path);
         assert.equal(h.shown.at(-1), item.path);
+        assert.equal(h.notices.at(-1), `Saved ${expected} to Downloads`);
+        assert.equal(h.contents.listenerCount("destroyed"), 0);
     }
 });
 
-test("unrelated downloads retain their dialog and another view cannot claim a pending save", async () => {
+test("unrelated downloads, foreign first URLs, missing chains, and other contents keep their dialog", () => {
     const h = host();
-    const plain = h.item("https://elsewhere.test/file");
 
-    assert.equal(h.start(plain), false);
-    assert.equal(plain.path, "");
-    const answer = h.save();
+    for (const item of [h.item("https://elsewhere.test/file"), h.item(origin + "/api/c/1/files?path=a"), h.item("https://elsewhere.test/redirect", "notes.txt", ["https://elsewhere.test/redirect", url]), h.item(url, "notes.txt", [])]) {
+        assert.equal(h.start(item), false);
+        assert.equal(item.path, "");
+    }
+
     const item = h.item();
 
-    assert.equal(h.start(item, Object.assign(new EventEmitter(), { id: 8, downloadURL: () => 0 })), false);
+    assert.equal(h.start(item, false), false);
     assert.equal(item.path, "");
-    h.start(item);
-    item.emit("done", {}, "completed");
-    assert.equal((await answer).ok, true);
+    assert.deepEqual(h.notices, []);
 });
 
-test("pending names do not collide, and repeated saves of one URL start in order", async () => {
+test("simultaneous downloads of the same URL reserve different names before any bytes reach disk", () => {
     const h = host();
-    const first = h.save();
-    const second = h.save();
-    const other = h.save({ ...input, url: "/api/c/1/download?path=other.txt" });
+    const first = h.item(), second = h.item(), third = h.item();
 
-    assert.equal(h.downloads.length, 2);
-    const one = h.item();
-    const two = h.item(origin + "/api/c/1/download?path=other.txt");
+    // No file on disk yet: the in-progress path alone must reserve the name.
+    for (const item of [first, second, third]) {
+        item.setSavePath = (path: string) => { item.path = path; };
+        h.start(item);
+    }
 
-    h.start(one);
-    h.start(two);
-    assert.notEqual(one.path, two.path);
-    one.emit("done", {}, "completed");
-    await first;
-    await Promise.resolve();
-    assert.equal(h.downloads.length, 3);
-    const three = h.item();
-
-    h.start(three);
-    assert.notEqual(three.path, one.path);
-    assert.notEqual(three.path, two.path);
-    two.emit("done", {}, "completed");
-    three.emit("done", {}, "completed");
-    assert.equal((await second).ok, true);
-    assert.equal((await other).ok, true);
+    assert.equal(first.path, join("tmp", "Downloads", "notes.txt"));
+    assert.equal(second.path, join("tmp", "Downloads", "notes (1).txt"));
+    assert.equal(third.path, join("tmp", "Downloads", "notes (2).txt"));
+    for (const item of [first, second, third]) item.emit("done", {}, "cancelled");
 });
 
-test("HTTP errors, including a folder's 404, fail before a file can be saved", async () => {
+test("the response filename is cleaned and an empty filename falls back to the path", () => {
     const h = host();
-    const answer = h.save();
+    const unsafe = h.item(url, "../x");
+    const fallback = h.item(origin + "/api/c/1/download?path=%2Ftmp%2F.secret", "");
 
-    h.bridge.saveRequestStarted(1, origin + input.url, h.contents.id);
-    assert.equal(h.bridge.saveResponse(1, 404), true);
-    h.bridge.saveRequestEnded(1, "net::ERR_BLOCKED_BY_CLIENT");
-    const result = await answer;
-
-    assert.equal(result.ok, false);
-    assert.match(!result.ok ? result.error : "", /Could not save notes.txt:.*404/);
-    assert.equal(h.files.size, 0);
-    assert.deepEqual(h.shown, []);
-    assert.equal(h.timers.size, 0);
+    h.start(unsafe);
+    h.start(fallback);
+    assert.equal(basename(unsafe.path), "_._x");
+    assert.equal(basename(fallback.path), "_secret");
+    unsafe.emit("done", {}, "completed");
+    fallback.emit("done", {}, "completed");
 });
 
-test("cancelled and interrupted downloads report an error and remove the partial file", async () => {
+test("HTTP errors, including a folder's 404, stop before Electron can create a file", () => {
+    for (const status of [100, 304, 400, 401, 403, 404, 500, 503]) {
+        const h = host();
+
+        h.request(1);
+        assert.equal(h.response(1, status), true);
+        assert.equal(h.response(1, status), true);
+        assert.equal(h.notices.length, 1, "a failed request reports only once");
+        assert.match(h.notices[0]!, new RegExp(String(status)));
+        assert.equal(h.files.size, 0);
+        assert.deepEqual(h.shown, []);
+        h.downloads.saveRequestEnded(1);
+        assert.equal(h.response(1, status), false);
+    }
+});
+
+test("2xx responses and intermediate redirects continue, but the redirected HTTP error is stopped", () => {
+    const h = host();
+
+    for (const status of [200, 201, 206, 299]) {
+        h.request(status);
+        assert.equal(h.response(status, status), false);
+        h.downloads.saveRequestEnded(status);
+    }
+
+    h.request(1);
+    assert.equal(h.response(1, 302, true), false);
+    h.request(1, "https://elsewhere.test/response", false);
+    assert.equal(h.response(1, 500), true, "the first URL's decision survives a redirect");
+    assert.match(h.notices[0]!, /notes.txt:.*500/);
+    h.downloads.saveRequestEnded(1);
+});
+
+test("an untrusted first URL or contents cannot become an automatic save by redirecting", () => {
+    const h = host();
+
+    for (const [id, firstUrl, trusted, contentsId] of [[1, "https://elsewhere.test/redirect", true, 7], [2, url, false, 8], [3, url, false, 7], [4, url, true, undefined]] as const) {
+        h.downloads.saveRequestStarted(id, firstUrl, contentsId, origin, trusted);
+        h.request(id);
+        assert.equal(h.response(id, 404), false);
+        h.downloads.saveRequestEnded(id);
+    }
+    assert.deepEqual(h.notices, []);
+});
+
+test("concurrent requests for the same URL have separate HTTP outcomes and ended requests cannot claim later ones", () => {
+    const h = host();
+
+    h.request(1);
+    h.request(2, url, false, 8);
+    h.request(3);
+    assert.equal(h.response(2, 404), false);
+    assert.equal(h.response(1, 404), true);
+    h.downloads.saveRequestEnded(1);
+    assert.equal(h.response(3, 200), false);
+    assert.equal(h.response(1, 500), false);
+    assert.equal(h.notices.length, 1);
+});
+
+test("cancelled and interrupted downloads report once, remove the partial file, and release the name", () => {
     for (const state of ["cancelled", "interrupted"]) {
         const h = host();
-        const answer = h.save();
         const item = h.item();
 
         h.start(item);
         item.emit(state === "interrupted" ? "updated" : "done", {}, state);
-        const result = await answer;
-
-        assert.equal(result.ok, false);
-        assert.match(!result.ok ? result.error : "", /Could not save notes.txt:/);
+        item.emit("done", {}, "interrupted");
         assert.equal(h.files.size, 0);
         assert.deepEqual(h.shown, []);
+        assert.equal(h.notices.length, 1);
+        assert.match(h.notices[0]!, /Could not save notes.txt:/);
+        assert.equal(h.contents.listenerCount("destroyed"), 0);
+        const next = h.item();
+
+        h.start(next);
+        assert.equal(next.path, item.path);
+        next.emit("done", {}, "completed");
     }
 });
 
-test("a late response after 30 seconds cannot open a dialog or steal a new save of the URL", async () => {
+test("an interrupted update cancels after Chromium finishes its observer notification", async () => {
     const h = host();
-    const first = h.save();
+    const item = h.item();
+    let updating = false;
+    const cancel = item.cancel;
 
-    h.bridge.saveRequestStarted(1, origin + input.url, h.contents.id);
-    [...h.timers].forEach((timeout) => timeout());
-    const result = await first;
+    item.cancel = () => { assert.equal(updating, false, "cancellation must not re-enter the update observer list"); cancel(); };
+    h.start(item);
+    updating = true;
+    item.emit("updated", {}, "interrupted");
+    updating = false;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(item.cancelled, true);
+    assert.equal(h.files.size, 0);
+    assert.equal(h.notices.length, 1);
+});
 
-    assert.equal(result.ok, false);
-    assert.match(!result.ok ? result.error : "", /30 seconds/);
-    const second = h.save();
-
-    h.bridge.saveRequestStarted(2, origin + input.url, h.contents.id);
-    assert.equal(h.bridge.saveResponse(1, 200), true, "the expired request is cancelled");
-    h.bridge.saveRequestEnded(1, "cancelled");
-    assert.equal(h.bridge.saveResponse(2, 200), false, "the new request can continue");
+test("a closed server page cancels its active download and removes the partial file", () => {
+    const h = host();
     const item = h.item();
 
     h.start(item);
-    item.emit("done", {}, "completed");
-    assert.equal((await second).ok, true);
-    h.bridge.saveRequestEnded(2);
+    h.contents.emit("destroyed");
+    assert.equal(item.cancelled, true);
+    assert.equal(h.files.size, 0);
+    assert.deepEqual(h.shown, []);
+    assert.match(h.notices[0]!, /server page closed/);
 });
 
-test("a repeated save waiting for the same URL also has a 30-second start timeout", async () => {
+test("a save-path error prevents the download without calling a destroyed item", () => {
     const h = host();
-    const first = h.save();
+    const item = h.item();
+    let prevented = false;
+
+    item.setSavePath = () => { throw new Error("no Downloads folder"); };
+    item.cancel = () => assert.fail("preventDefault already destroys the item");
+    assert.equal(h.start(item, true, { preventDefault: () => { prevented = true; } }), true);
+    assert.equal(prevented, true);
+    assert.match(h.notices[0]!, /no Downloads folder/);
+    assert.equal(h.files.size, 0);
+    assert.equal(h.contents.listenerCount("destroyed"), 0);
+});
+
+test("a file-manager error does not remove the completed file", () => {
+    const h = host();
     const item = h.item();
 
     h.start(item);
-    const second = h.save();
-
-    [...h.timers].forEach((timeout) => timeout());
-    assert.equal((await second).ok, false);
-    assert.equal(h.downloads.length, 1);
+    h.revealFails();
     item.emit("done", {}, "completed");
-    assert.equal((await first).ok, true);
-});
-
-test("a network error or a closed server page ends a save before the start timeout", async () => {
-    for (const close of [false, true]) {
-        const h = host();
-        const answer = h.save();
-
-        h.bridge.saveRequestStarted(1, origin + input.url, h.contents.id);
-        if (close) {
-            h.contents.emit("destroyed");
-        } else {
-            h.bridge.saveRequestEnded(1, "net::ERR_CONNECTION_RESET");
-        }
-        assert.equal((await answer).ok, false);
-        assert.equal(h.timers.size, 0);
-        assert.equal(h.files.size, 0);
-    }
+    item.emit("updated", {}, "interrupted");
+    assert.equal(h.files.has(item.path), true);
+    assert.match(h.notices[0]!, /Could not show the saved file/);
+    assert.equal(h.notices.length, 1);
 });

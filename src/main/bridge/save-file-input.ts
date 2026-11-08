@@ -6,8 +6,6 @@ export interface SaveFileInput {
     name: string;
 }
 
-export type SaveFileResult = { ok: true; path: string } | { ok: false; error: string };
-
 export function readSaveFile(input: unknown): SaveFileInput | undefined {
     if (typeof input !== "object" || input === null) {
         return undefined;
@@ -15,9 +13,39 @@ export function readSaveFile(input: unknown): SaveFileInput | undefined {
 
     const { url, name } = input as Record<string, unknown>;
 
-    return typeof url === "string" && url.startsWith("/api/c/") && url.includes("/download?path=") && typeof name === "string"
+    return typeof url === "string" && /^\/api\/c\/[^/?#]+\/download\?path=/.test(url) && typeof name === "string"
         ? { url, name }
         : undefined;
+}
+
+/** Only a download of this server's file, from its own view, may skip the save dialog. */
+export function readFileDownload(
+    firstUrl: string | undefined,
+    serverOrigin: string,
+    isServerView: boolean,
+    filename: string,
+    platform: NodeJS.Platform = process.platform,
+): SaveFileInput | undefined {
+    if (!isServerView || firstUrl === undefined) {
+        return undefined;
+    }
+
+    let url: URL;
+
+    try {
+        url = new URL(firstUrl);
+    } catch {
+        return undefined;
+    }
+
+    if (url.origin === "null" || url.origin !== serverOrigin) {
+        return undefined;
+    }
+
+    const fallback = (url.searchParams.get("path") ?? "").split(/[/\\]/).at(-1) ?? "";
+    const input = readSaveFile({ url: url.pathname + url.search, name: filename || fallback });
+
+    return input === undefined ? undefined : { ...input, name: saveFileName(input.name, platform) };
 }
 
 /** A file name, never a path, a hidden file, or a Windows device/alternate data stream. */

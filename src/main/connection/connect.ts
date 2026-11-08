@@ -87,17 +87,25 @@ export function watchServerView(): void {
         }
     });
 
+    const notifyDownload = (message: string) => appState.gui?.desktop?.notifyDownload(message);
+
     contents.session.webRequest.onBeforeRequest((details, callback) => {
-        saveRequestStarted(details.id, details.url, details.webContentsId);
+        const origin = currentOrigin();
+        const fromServer = details.webContentsId === contentsId && details.frame === contents.mainFrame && details.initiatorOrigin === origin;
+
+        saveRequestStarted(details.id, details.url, details.webContentsId, origin, fromServer);
         callback({});
     });
     contents.session.webRequest.onCompleted((details) => saveRequestEnded(details.id));
-    contents.session.webRequest.onErrorOccurred((details) => saveRequestEnded(details.id, details.error));
+    contents.session.webRequest.onErrorOccurred((details) => saveRequestEnded(details.id));
 
     // Record before commitment, but do not change UI here: an attachment has headers yet never replaces the page.
     contents.session.webRequest.onHeadersReceived((details, callback) => {
-        // Electron has one headers hook per session: share it with the pending file saves.
-        if (saveResponse(details.id, details.statusCode)) {
+        // Electron has one headers hook per session: share it with file downloads.
+        const redirect = [301, 302, 303, 307, 308].includes(details.statusCode) &&
+            Object.entries(details.responseHeaders ?? {}).some(([name, values]) => name.toLowerCase() === "location" && values.some(Boolean));
+
+        if (saveResponse(details.id, details.statusCode, notifyDownload, redirect)) {
             callback({ cancel: true });
 
             return;
