@@ -71,9 +71,44 @@ Everything lives in the app's data folder (below), in `server/`: the runtimes an
 
 Pi Pocket runs to the window's top edge, and only what sits under the window's buttons makes room for them: on macOS the sidebar starts a little lower and the conversation keeps its whole height. On Windows and Linux the buttons sit at the top right instead, and the tiled window under them is notched around them: its border goes down and around the buttons rather than under them.
 
-<img src="docs/images/windows.png" alt="The Windows and Linux layout: minimize, maximize, and close at the top right, with the conversation's border notched around them" width="100%" />
+<img src="docs/images/windows.png" alt="Pi Pocket on Windows 11: minimize, maximize, and close at the top right, with the conversation's border notched around them" width="100%" />
 
 The app tells the page where the buttons are through the [Window Controls Overlay](https://developer.mozilla.org/en-US/docs/Web/API/Window_Controls_Overlay_API), the web's own standard for it. An older Pi Pocket gets a plain band as tall as the buttons. Drag the window by the bar beside them. Desktop Settings → Window → Title bar → **System** brings back the normal title bar, after a restart.
+
+#### On macOS
+
+The window's buttons sit over the sidebar, so the panels on the right need no room for them.
+
+| | |
+|---|---|
+| <img src="docs/images/mac-menu.png" alt="On macOS, the session menu against the window's right edge" width="100%" /> | <img src="docs/images/mac-people.png" alt="On macOS, the People panel beside the conversation" width="100%" /> |
+| The session menu. | The People panel (Discuss opens it). |
+| <img src="docs/images/mac-files.png" alt="On macOS, the Files and Changes panel beside the conversation" width="100%" /> | |
+| Files and Changes beside the conversation. | |
+
+#### On Windows
+
+The same window on Windows 11, taken in the app there against the demo server.
+
+| | |
+|---|---|
+| <img src="docs/images/win-menu.png" alt="On Windows, the session menu opens against the window's right edge, below the window's buttons" width="100%" /> | <img src="docs/images/win-people.png" alt="On Windows, the People panel beside the conversation, its close button clear of the window's buttons" width="100%" /> |
+| The session menu opens against the right edge, below the buttons. | The People panel (Discuss opens it): its close button keeps clear of the buttons. |
+| <img src="docs/images/win-files.png" alt="On Windows, the Files and Changes panel beside the conversation" width="100%" /> | <img src="docs/images/win-settings.png" alt="Desktop Settings on Windows, with the window's buttons at the top right" width="100%" /> |
+| Files and Changes beside the conversation. | Desktop Settings. |
+
+#### On Linux
+
+The same window on Linux (X11), where the buttons also sit at the top right. These are from the app itself, against a demo server with made-up sessions.
+
+<img src="docs/images/linux.png" alt="Pi Pocket on Linux: the session list on the left, a conversation on the right, and the conversation's border notched around minimize, maximize, and close" width="100%" />
+
+| | |
+|---|---|
+| <img src="docs/images/linux-menu.png" alt="On Linux, the session menu opens against the window's right edge, below the window's buttons" width="100%" /> | <img src="docs/images/linux-people.png" alt="On Linux, the People panel beside the conversation, its close button clear of the window's buttons" width="100%" /> |
+| The session menu opens against the right edge, below the buttons. | The People panel (Discuss opens it): its close button keeps clear of the buttons. |
+| <img src="docs/images/linux-files.png" alt="On Linux, the Files and Changes panel beside the conversation" width="100%" /> | <img src="docs/images/linux-settings.png" alt="Desktop Settings on Linux, with the window's buttons at the top right" width="100%" /> |
+| Files and Changes beside the conversation. | Desktop Settings. |
 
 ### See-through background
 
@@ -84,6 +119,10 @@ Turn on **See-through background** in Settings → Appearance, and set the **Opa
 - **macOS:** the system's blur (vibrancy). **Blur** picks its material.
 - **Windows 11 (22H2 or newer):** Acrylic or Mica. Windows 10 cannot.
 - **Linux:** turning it on takes a restart (the settings screen offers one). Your compositor does the blur: on Hyprland, `decoration:blur`; on KDE, the Blur effect. GNOME shows it see-through, without blur.
+
+<img src="docs/images/win-see-through.png" alt="Pi Pocket on Windows 11 with the see-through background (Acrylic): the desktop's colors show through, blurred" width="100%" />
+
+On Windows 11, with Acrylic.
 
 ### It follows your theme
 

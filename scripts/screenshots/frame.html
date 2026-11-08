@@ -40,7 +40,7 @@
             .lights i:nth-child(2) { background: #febc2e; }
             .lights i:nth-child(3) { background: #28c840; }
             .controls { position: absolute; top: 0; right: 0; height: 32px; display: flex; z-index: 2; color: var(--symbol, #c0caf5); }
-            .controls b { width: 46px; display: grid; place-items: center; font-weight: 400; font-size: 13px; }
+            .controls b { width: var(--button-w, 46px); display: grid; place-items: center; font-weight: 400; font-size: 13px; }
         </style>
     </head>
     <body>
@@ -68,6 +68,8 @@
                 win.insertAdjacentHTML("beforeend", '<div class="lights"><i></i><i></i><i></i></div>');
             } else {
                 document.documentElement.style.setProperty("--symbol", query.get("symbol") ?? "#c0caf5");
+                // The buttons' whole width, as the overlay reports it (138 on Windows, 113 on Linux's Electron).
+                document.documentElement.style.setProperty("--button-w", `${Number(query.get("controls") ?? 138) / 3}px`);
                 win.insertAdjacentHTML("beforeend", '<div class="controls"><b>&#x2014;</b><b>&#x25A2;</b><b>&#x2715;</b></div>');
             }
 
