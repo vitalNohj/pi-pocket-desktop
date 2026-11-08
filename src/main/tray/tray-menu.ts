@@ -53,13 +53,15 @@ export interface TrayMenuInput {
     newSession: () => void;
     /** Dictate anywhere's item, while it is on. */
     dictate?: { label: string; click: () => void } | undefined;
+    /** Copy last dictation, while a recent dictation is kept. */
+    copyDictation?: { label: string; click: () => void } | undefined;
     openSettings: () => void;
     quit: () => void;
     openPin: (url: string) => void;
 }
 
 /**
- * The tray's items, in the order the native menu uses: Open Pi Pocket (with the needs-you count), New session, Dictate (while Dictate anywhere is on), Reload
+ * The tray's items, in the order the native menu uses: Open Pi Pocket (with the needs-you count), New session, Dictate (while Dictate anywhere is on), Copy last dictation (while one is kept), Reload
  * while the window is up, the update when there is one, the pinned sessions, Desktop Settings…, Quit.
  */
 export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
@@ -71,6 +73,10 @@ export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
     const newSession: TrayMenuAction = { id: "new-session", label: "New session", run: input.newSession };
     const dictate: TrayMenuAction | undefined =
         input.dictate === undefined ? undefined : { id: "dictate", label: input.dictate.label, run: input.dictate.click };
+    const copyDictation: TrayMenuAction | undefined =
+        input.copyDictation === undefined
+            ? undefined
+            : { id: "copy-dictation", label: input.copyDictation.label, run: input.copyDictation.click };
     const reload: TrayMenuAction | undefined =
         input.reload === undefined ? undefined : { id: "reload", label: input.reload.label, run: input.reload.click };
     const update: TrayMenuAction | undefined =
@@ -82,11 +88,12 @@ export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
     }));
     const settings: TrayMenuAction = { id: "settings", label: "Desktop Settings…", run: input.openSettings };
     const quit: TrayMenuAction = { id: "quit", label: "Quit", run: input.quit };
-    const actions = [open, newSession, ...(dictate === undefined ? [] : [dictate]), ...(reload === undefined ? [] : [reload]), ...(update === undefined ? [] : [update]), ...pins, settings, quit];
+    const actions = [open, newSession, ...(dictate === undefined ? [] : [dictate]), ...(copyDictation === undefined ? [] : [copyDictation]), ...(reload === undefined ? [] : [reload]), ...(update === undefined ? [] : [update]), ...pins, settings, quit];
     const rows: TrayMenuRow[] = [
         rowOf(open),
         rowOf(newSession),
         ...(dictate === undefined ? [] : [rowOf(dictate)]),
+        ...(copyDictation === undefined ? [] : [rowOf(copyDictation)]),
         ...(reload === undefined ? [] : [rowOf(reload)]),
         ...(update === undefined ? [] : [rowOf(update)]),
         ...(pins.length > 0 ? [{ kind: "separator" as const }, { kind: "header" as const, label: "Pinned" }, ...pins.map(rowOf)] : []),

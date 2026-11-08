@@ -408,8 +408,10 @@ export function setUpAnywhere(host: AnywhereHost) {
         }
 
         if (drop) {
-            // Nothing more is wanted from the microphone: the dictation ends now, without waiting for the pill.
+            // Nothing more is wanted from the microphone: the dictation ends now, without waiting for the pill. The
+            // phrases already recognised stay in the recent dictations, marked not pasted.
             take.micClosed = true;
+            take.listening.dropped();
             take.listening.stop(true);
             toPill({ type: "hide" });
             hidePillSoon(0);

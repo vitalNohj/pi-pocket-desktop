@@ -34,6 +34,7 @@ import {
 } from "./dictation-catalog";
 import { downloadChecked } from "../core/download";
 import type { WorkerIn, WorkerOut } from "./dictation-worker";
+import { createRecent } from "./dictation-recent";
 
 export interface DictationHost {
     home: string;
@@ -49,6 +50,8 @@ export interface DictationHost {
     toPage: (message: PageMessage) => void;
     /** The state changed: show it on the config screen. */
     changed: () => void;
+    /** The recent dictations changed: the tray's Copy last dictation comes or goes. */
+    recentChanged: () => void;
     /** The mic was used with no model: open the settings at Dictation. */
     needModel: () => void;
 }
@@ -65,6 +68,8 @@ export interface Listening {
     audio: (samples: Float32Array) => void;
     /** Ends it: `drop` throws away what was said; else the last phrase is recognised first. */
     stop: (drop: boolean) => void;
+    /** The person threw it away (Esc, or Dictate anywhere turned off): the recent dictations mark it not pasted. */
+    dropped: () => void;
 }
 
 /** A loaded model is kept this long after the last dictation, then its memory is freed. */
@@ -95,6 +100,13 @@ export function setUpDictation(host: DictationHost) {
     const owners = new Map<number, (message: PageMessage) => void>();
     let nextOwn = 0;
     let status: DictationState["status"] = "idle";
+    /** The last dictations' words, to copy again (memory only). */
+    const recent = createRecent();
+
+    const recentChanged = (): void => {
+        host.changed();
+        host.recentChanged();
+    };
 
     const scan = async (): Promise<void> => {
         engineReady = existsSync(join(engineDir, "node_modules", "sherpa-onnx-node")) && existsSync(join(engineDir, VAD.name));
@@ -307,6 +319,10 @@ export function setUpDictation(host: DictationHost) {
     const deliver = (message: PageMessage): void => {
         const owner = owners.get(message.id);
 
+        if (recent.heard(message)) {
+            recentChanged();
+        }
+
         if (message.type === "end") {
             owners.delete(message.id);
         }
@@ -483,6 +499,11 @@ export function setUpDictation(host: DictationHost) {
         }
 
         active = id;
+
+        if (recent.start(id)) {
+            recentChanged();
+        }
+
         clearTimeout(idleTimer);
         void load(model).catch(() => undefined);
         post({ type: "start", id });
@@ -581,6 +602,9 @@ export function setUpDictation(host: DictationHost) {
                         stopOne(id, drop);
                     }
                 },
+                dropped: () => {
+                    recent.dropped(id);
+                },
             };
         },
 
@@ -608,7 +632,17 @@ export function setUpDictation(host: DictationHost) {
                         : {}),
                 })),
                 downloading: download !== undefined,
+                recent: recent.list(),
             };
+        },
+
+        /** The last dictation's words, for the tray's Copy last dictation. */
+        lastText: (): string | undefined => recent.last()?.text,
+
+        clearRecent(): void {
+            if (recent.clear()) {
+                recentChanged();
+            }
         },
 
         async act(action: DictationAction): Promise<void> {

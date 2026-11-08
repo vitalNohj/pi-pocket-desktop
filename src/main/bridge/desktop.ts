@@ -73,6 +73,8 @@ export interface DesktopHost {
     pageRightClick: (click: unknown) => void;
     /** The tray's Dictate item (Dictate anywhere is on), with what a click does; undefined when it is off. */
     dictateItem: () => { label: string; click: () => void } | undefined;
+    /** The tray's Copy last dictation, while a recent dictation is kept; undefined when none is. */
+    copyDictationItem: () => { label: string; click: () => void } | undefined;
 }
 
 function originOf(url: string): string | undefined {
@@ -221,11 +223,13 @@ export function setUpDesktop(host: DesktopHost): {
         const update = host.updateItem();
         const reload = host.reloadItem();
         const dictate = host.dictateItem();
+        const copyDictation = host.copyDictationItem();
 
         return [
             { label: badge > 0 ? `Open Pi Pocket  (${badge} need you)` : "Open Pi Pocket", click: host.showWindow },
             { label: "New session", click: () => newSession() },
             ...(dictate === undefined ? [] : [{ label: dictate.label, click: dictate.click }]),
+            ...(copyDictation === undefined ? [] : [{ label: copyDictation.label, click: copyDictation.click }]),
             ...(reload === undefined ? [] : [{ label: reload.label, click: reload.click }]),
             ...(update === undefined ? [] : [{ label: update.label, click: update.click }]),
             ...(pinItems.length > 0
@@ -267,6 +271,7 @@ export function setUpDesktop(host: DesktopHost): {
             showWindow: host.showWindow,
             newSession: () => newSession(),
             dictate: host.dictateItem(),
+            copyDictation: host.copyDictationItem(),
             openSettings: host.openSettings,
             quit: host.quit,
             openPin: open,

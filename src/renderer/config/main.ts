@@ -6,6 +6,7 @@ import type {
   ConfigState,
   DictationModelState,
   GuiConfigApi,
+  RecentDictation,
   LocalAction,
   LocalState,
   ProbeResult,
@@ -795,6 +796,7 @@ function render(next: ConfigState): void {
     `Open Desktop Settings from the tray menu, with a right-click on the page, or with ${next.platform === "darwin" ? "⌘ + comma" : "Ctrl + comma"}.`;
   renderLocal(next);
   renderDictation(next);
+  renderRecent(next);
   renderAnywhere(next);
   renderBillionContext(next);
   renderRunner(next);
@@ -1420,6 +1422,83 @@ function renderDictation(next: ConfigState): void {
     revealImportantModel();
   }
 }
+
+// ——— Recent dictations ———
+
+/** When a dictation ended: the time of day, with the date when it was not today. Never goes stale on screen. */
+function whenSaid(at: number): string {
+  const date = new Date(at);
+  const time = date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return date.toDateString() === new Date().toDateString()
+    ? time
+    : `${date.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
+}
+
+function recentRow(each: RecentDictation): HTMLElement {
+  const row = document.createElement("div");
+  const text = document.createElement("span");
+  const words = document.createElement("p");
+  const about = document.createElement("small");
+  const copy = document.createElement("button");
+
+  row.className = "row recent-item";
+  words.className = "recent-text";
+  words.textContent = each.text;
+  // Long words stay folded to a few lines; a click shows all of them.
+  words.title = "Click to show all";
+  words.addEventListener("click", () => {
+    // Selecting some of the words is no click to fold them.
+    if (window.getSelection()?.isCollapsed === false) return;
+    words.classList.toggle("open");
+  });
+  about.textContent = [
+    whenSaid(each.at),
+    each.where === "anywhere" ? "Dictate anywhere" : "Pi Pocket",
+    ...(each.dropped === true ? ["dropped, not pasted"] : []),
+    ...(each.error !== undefined ? [`stopped: ${each.error}`] : []),
+  ].join(" · ");
+  about.classList.toggle("error", each.error !== undefined);
+  text.append(words, about);
+  copy.type = "button";
+  copy.className = "secondary";
+  copy.textContent = "Copy";
+  copy.addEventListener("click", () => {
+    void navigator.clipboard.writeText(each.text).then(() => {
+      copy.textContent = "Copied";
+      window.setTimeout(() => {
+        copy.textContent = "Copy";
+      }, 1500);
+    });
+  });
+  row.append(text, copy);
+
+  return row;
+}
+
+/** The ids the list shows now: it is drawn again only when they change, so a click on Copy or on folded words holds. */
+let recentShown = "";
+
+function renderRecent(next: ConfigState): void {
+  const recent = next.dictation.recent;
+  const shown = recent.map((each) => each.id).join(",");
+
+  element("dictation-recent-summary").textContent =
+    recent.length === 0 ? "· none yet" : `· ${String(recent.length)}`;
+  element("dictation-recent-actions").hidden = recent.length === 0;
+
+  if (shown === recentShown) return;
+
+  recentShown = shown;
+  element("dictation-recent").replaceChildren(...recent.map(recentRow));
+}
+
+element("dictation-recent-clear").addEventListener("click", () => {
+  void gui.clearRecentDictations();
+});
 
 /** Dictate anywhere's card: its status, and the notes for this computer's keyboard and desktop. */
 function renderAnywhere(next: ConfigState): void {

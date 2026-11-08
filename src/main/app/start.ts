@@ -2,7 +2,7 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { app, BaseWindow, globalShortcut, nativeTheme, net, session, WebContentsView } from "electron";
+import { app, BaseWindow, clipboard, globalShortcut, nativeTheme, net, session, WebContentsView } from "electron";
 import { CONFIG_URL, serveAppPages } from "../settings-screen/config-protocol";
 import { eventCovered, PAGE_CLICK_WAIT_MS, pageClickInfo, readPageClick } from "../window/themed-menu";
 import { setUpAppearance, windowOptions } from "../window/appearance";
@@ -238,6 +238,9 @@ export async function start(): Promise<void> {
         changed: () => {
             pushConfigState();
         },
+        recentChanged: () => {
+            appState.gui?.desktop?.refreshTray();
+        },
         needModel: () => {
             openSettingsOn(undefined, "dictation");
         },
@@ -367,6 +370,11 @@ export async function start(): Promise<void> {
             }
 
             return { label: anywhere.recording() ? "Stop dictating" : "Dictate", click: () => anywhere.toggle() };
+        },
+        copyDictationItem: () => {
+            const text = appState.gui?.dictation?.lastText();
+
+            return text === undefined ? undefined : { label: "Copy last dictation", click: () => clipboard.writeText(text) };
         },
         themeChanged: (next) => {
             const state = appState.gui!;

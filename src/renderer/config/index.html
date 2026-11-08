@@ -209,6 +209,12 @@
                     <label class="row"><span><strong>Words as you speak</strong><small>Show text before you pause. Uses more CPU.</small></span><input type="checkbox" data-key="dictation.live" /></label>
                     <label class="row stack"><span><strong>Custom words</strong><small id="dictation-words-note">Names and terms to spell your way, one per line, written as you want them. Parakeet models use them; Whisper, Moonshine, and SenseVoice cannot.</small></span><textarea data-key="dictation.words" rows="3" spellcheck="false" placeholder="Pi Pocket&#10;Kubernetes&#10;vitalNohj"></textarea></label>
                     <div class="row"><span><strong>Model folder</strong><small id="dictation-folder"></small></span><button type="button" class="secondary" id="dictation-show-folder">Show folder</button></div>
+                    <details class="advanced" id="dictation-recent-section">
+                        <summary><span>Recent dictations <small id="dictation-recent-summary">· none yet</small></span></summary>
+                        <p class="row-note" id="dictation-recent-note">The last 5, to copy again if the words did not arrive. Kept only while the app runs.</p>
+                        <div id="dictation-recent" class="recent"></div>
+                        <div class="row" id="dictation-recent-actions" hidden><span></span><button type="button" class="ghost" id="dictation-recent-clear">Clear</button></div>
+                    </details>
                 </div>
                 <h3 class="group-heading" id="anywhere-heading">Dictate anywhere</h3>
                 <div class="card rows" id="anywhere-card">

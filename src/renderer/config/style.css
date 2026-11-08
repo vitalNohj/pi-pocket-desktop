@@ -1310,11 +1310,13 @@ details.log pre {
 }
 
 /* Dictation: the speech models, each with its download, use, and remove. */
-#dictation-models-toggle > span {
+#dictation-models-toggle > span,
+#dictation-recent-section > summary > span {
     display: block;
 }
 
-#dictation-models-summary {
+#dictation-models-summary,
+#dictation-recent-summary {
     white-space: nowrap;
 }
 
@@ -1397,6 +1399,41 @@ details.log pre {
 
 .rows .steps {
     padding: 4px 0 12px 20px;
+}
+
+/* Recent dictations: the words, folded to three lines until clicked, and a Copy button. */
+#dictation-recent-section > .row-note {
+    padding-top: 0;
+}
+
+.row.recent-item > span:first-child {
+    flex: 1;
+    min-width: 0;
+}
+
+.recent-text {
+    margin: 0;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 20px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    user-select: text;
+    cursor: pointer;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+}
+
+.recent-text.open {
+    display: block;
+    cursor: text;
+}
+
+.row.recent-item small.error {
+    color: var(--err);
 }
 
 /* A long command scrolls in its own box rather than widening the card. */
