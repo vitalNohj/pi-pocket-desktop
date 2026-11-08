@@ -18,7 +18,7 @@ Everything in them is made up: the people, folders, sessions, and the model's an
        ./node_modules/.bin/electron . --force-device-scale-factor=2 --remote-debugging-port=9334 --remote-allow-origins='*'
    ```
 
-3. Take the raw shots with `scripts/dev/cdp.mjs shot` (`CDP_PORT=9334`) into one folder, as `mac-solid.png`, `mac-clear.png`
+3. Take the raw shots with `scripts/dev/cdp.mjs shot` (`CDP_PORT=9334`) into one folder, as `mac-solid.png`, `mac-menu.png`, `mac-people.png`, `mac-files.png`, `mac-clear.png`
    (with the see-through CSS on and `CDP_CLEAR=1`), `mac-light.png`, `win-solid.png`, and `settings.png`. For the macOS
    layout on Linux, make the page's `navigator.windowControlsOverlay.getTitlebarAreaRect()` return the Mac's rectangle
    (`new DOMRect(76, 0, innerWidth - 76, 28)`) and dispatch `geometrychange`.

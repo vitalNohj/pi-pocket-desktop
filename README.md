@@ -75,6 +75,17 @@ Pi Pocket runs to the window's top edge, and only what sits under the window's b
 
 The app tells the page where the buttons are through the [Window Controls Overlay](https://developer.mozilla.org/en-US/docs/Web/API/Window_Controls_Overlay_API), the web's own standard for it. An older Pi Pocket gets a plain band as tall as the buttons. Drag the window by the bar beside them. Desktop Settings → Window → Title bar → **System** brings back the normal title bar, after a restart.
 
+#### On macOS
+
+The window's buttons sit over the sidebar, so the panels on the right need no room for them.
+
+| | |
+|---|---|
+| <img src="docs/images/mac-menu.png" alt="On macOS, the session menu against the window's right edge" width="100%" /> | <img src="docs/images/mac-people.png" alt="On macOS, the People panel beside the conversation" width="100%" /> |
+| The session menu. | The People panel (Discuss opens it). |
+| <img src="docs/images/mac-files.png" alt="On macOS, the Files and Changes panel beside the conversation" width="100%" /> | |
+| Files and Changes beside the conversation. | |
+
 #### On Windows
 
 The same window on Windows 11, taken in the app there against the demo server.
