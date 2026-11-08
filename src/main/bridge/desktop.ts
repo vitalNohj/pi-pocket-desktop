@@ -33,7 +33,6 @@ import { buildTrayMenu, readAccent } from "../tray/tray-menu";
 import { setUpTrayPopup } from "../tray/tray-popup";
 import { type NewSessionView, PendingNewSession, readPageEvents } from "./new-session";
 import { activity, diagnose } from "../diagnostics/stall-watchdog";
-import { saveFile } from "./save-file";
 
 /** What the bridge needs from the rest of the app. */
 export interface DesktopHost {
@@ -114,6 +113,8 @@ export function setUpDesktop(host: DesktopHost): {
      * started for it (a link), and connects now: it waits for the page as for one that is loading.
      */
     newSession: (starting?: boolean) => void;
+    /** A file download finished or failed: use the same notification helper and preferences as the bridge. */
+    notifyDownload: (message: string) => void;
     /** Dictate anywhere starts or stops recording: the tray's π turns red, and back. */
     setRecording: (on: boolean) => void;
 } {
@@ -460,14 +461,6 @@ export function setUpDesktop(host: DesktopHost): {
         event.returnValue = hello;
     });
 
-    ipcMain.handle("host:save-file", (event, input: unknown) => {
-        if (!fromServerPage(event)) {
-            return { ok: false, error: "Not allowed." };
-        }
-
-        return saveFile(input, host.contents(), host.origin());
-    });
-
     // The page subscribed to the app's events, and named the ones it handles (an older page names none).
     ipcMain.on("host:events", (event, input: unknown) => {
         if (!fromServerPage(event)) {
@@ -548,6 +541,7 @@ export function setUpDesktop(host: DesktopHost): {
         },
         refreshTray,
         fromServerPage,
+        notifyDownload: (body) => notify({ title: "Pi Pocket", body, url: "/", tag: "", urgency: "normal" }),
         reset: () => {
             pins = [];
 

@@ -293,7 +293,7 @@ releases through GitHub's redirect from the old repository name.
 
 Pi Pocket's page runs in the app as it does in a browser, with one addition: a small, versioned bridge (`window.pocketHost`) through which the page tells the app about pins, the badge, and notifications, and the app tells the page when its window is hidden and when to open the New session sheet. A Pi Pocket whose page does not handle New session (it does not name `newSession` as it subscribes) gets the window only. The bridge is on a branch of Pi Pocket and not yet in a release: against a Pi Pocket without it, the app still works, without the tray pins, badge, and notifications, and says so once.
 
-A file of a session on the server can be saved to this computer from the file viewer's **Download** button, or with Cmd+click (Ctrl+click) on its path in a reply when the existing file-manager action is not offered. It goes to **Downloads** and shows in Finder, Explorer, or the Linux file manager. This needs a Pi Pocket server that supports `saveFile`. Sessions on runners keep their existing actions.
+A file of a session on the server can be saved to this computer from the file viewer's **Download** button, or with Cmd+click (Ctrl+click) on its path in a reply when the existing file-manager action is not offered. Its plain download link goes straight to **Downloads**, without a save dialog, and shows in Finder, Explorer, or the Linux file manager. Existing files are not replaced. This works without a file-saving bridge capability; older servers fall back to the same download link. Downloads from other pages or frames keep their save dialog. Sessions on runners keep their existing actions.
 
 ## Roadmap
 
