@@ -56,7 +56,7 @@ Everything Pi Pocket does in a browser works the same way here. The app adds:
 
 - **Session links stay in the window.** A link to another session opens it in the same window. ⌘-click, Ctrl-click, or Shift-click opens a new window.
 - **Other websites open in your browser.** You choose whether server pages, such as artifacts, open in an app window or in your browser.
-- **Save server files** to your Downloads folder with the file viewer's **Download** button, or with Cmd+click (Ctrl+click) on a file path in a reply.
+- **Save server files** straight to your Downloads folder, without a save dialog: the file viewer's **Download** button, or Cmd+click (Ctrl+click) on a file path in a reply.
 
 ### Voice
 

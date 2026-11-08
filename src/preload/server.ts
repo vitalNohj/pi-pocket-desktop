@@ -31,8 +31,7 @@ if (hello !== null && typeof hello === "object") {
     contextBridge.exposeInMainWorld("pocketHost", {
         kind: "pi-pocket-gui",
         apiVersion: API_VERSION,
-        capabilities: ["menu", "badge", "notify", "visibility", "pinned", "open", "newSession", "saveFile"],
-        saveFile: (input: unknown) => ipcRenderer.invoke("host:save-file", input),
+        capabilities: ["menu", "badge", "notify", "visibility", "pinned", "open", "newSession"],
         // The heading of this app's group in Pi Pocket's menu (Pi Pocket's docs/embedders.md). An older Pi Pocket
         // does not ask for it, and shows its own heading.
         menuTitle: () => "Pi Pocket Desktop",

@@ -110,7 +110,7 @@ A new session opens the window with Pi Pocket's **New session** sheet. A server 
 
 ## Saving server files
 
-To save a file from a session on the server to this computer, choose **Download** in the file viewer, or Cmd+click (Ctrl+click) its path in a reply. The file goes to your Downloads folder, and the app shows it in Finder, Explorer, or your Linux file manager. This needs a server that supports it (see [Server compatibility](../README.md#server-compatibility)). Sessions on runners keep their usual file actions.
+To save a file from a session on the server to this computer, choose **Download** in the file viewer, or Cmd+click (Ctrl+click) its path in a reply. The file goes straight to your Downloads folder, without a save dialog, and the app shows it in Finder, Explorer, or your Linux file manager. An existing file is never replaced: the new file gets the next free name. This needs a server with file downloads (see [Server compatibility](../README.md#server-compatibility)). Other downloads still ask where to save. Sessions on runners keep their usual file actions.
 
 ## Desktop Settings
 

@@ -46,7 +46,11 @@ export function openOutside(url: string): void {
     }
 }
 
-export function guardSession(session: Session, policy: OriginPolicy): void {
+export function guardSession(
+    session: Session,
+    policy: OriginPolicy,
+    downloads: { contents: () => WebContents; notify: (message: string) => void },
+): void {
     session.setPermissionRequestHandler((contents, permission, callback, details) => {
         const origin = originOf(details.requestingUrl);
         const isMain = details.isMainFrame;
@@ -73,9 +77,12 @@ export function guardSession(session: Session, policy: OriginPolicy): void {
     });
 
     session.setDevicePermissionHandler(() => false);
-    session.on("will-download", (event, item, contents) => {
-        // Only pending bridge saves choose a path. Other downloads keep Electron's save dialog.
-        saveDownload(event, item, contents);
+    session.on("will-download", (event, item, contents, frame) => {
+        const origin = policy.server();
+        // The contents is the whole view: the initiator also excludes foreign or opaque frames, even after navigation.
+        const fromServer = contents === downloads.contents() && frame === contents.mainFrame && item.getInitiatorOrigin() === origin;
+
+        saveDownload(event, item, contents, origin, fromServer, downloads.notify);
     });
 }
 

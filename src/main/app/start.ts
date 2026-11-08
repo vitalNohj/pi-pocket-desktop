@@ -424,7 +424,10 @@ export async function start(): Promise<void> {
         allowed: () => new Set([currentOrigin(), ...(appState.gui?.settings.server.extraOrigins ?? [])]),
     };
 
-    guardSession(serverSession, policy);
+    guardSession(serverSession, policy, {
+        contents: () => appState.gui!.server.webContents,
+        notify: (message) => appState.gui?.desktop?.notifyDownload(message),
+    });
     guardContents(server.webContents, policy, openServerWindow);
     lockConfigView();
     watchServerView();

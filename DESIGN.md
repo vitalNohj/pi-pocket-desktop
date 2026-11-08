@@ -136,6 +136,14 @@ when everything is finished, explaining that it is for this desktop app or any o
 - Navigation stays on the server's origin and the app's own config page (`pocket-gui://`). Other http(s) links open in
   the system browser; other schemes are refused.
 - Permissions (microphone, notifications, clipboard) are granted only to the server's origin.
+- **File downloads use ordinary links, not a `saveFile` bridge call.** Only the server view's top frame on the trusted
+  server origin can skip the save dialog. The download's first URL (before redirects) must have that exact origin
+  and match `/api/c/<id>/download?path=…`, checked by `readSaveFile`. Other downloads keep Electron's save dialog.
+  The app cleans the response's filename (or the path query's last component), then uses the next unused name in
+  Downloads, counting in-progress saves too. HTTP errors are stopped in the session's shared headers hook, tracked
+  by request id, first URL, and WebContents id across redirects. Completed saves show in the file manager and use
+  the existing notification helper; cancelled or interrupted saves lose their partial files. Older Pi Pocket servers
+  that offer the former `saveFile` action fall back to a plain download link when the capability is absent.
 
 ## Builds
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { test } from "node:test";
-import { readSaveFile, saveFileName, saveFilePath } from "../main/bridge/save-file-input";
+import { readFileDownload, readSaveFile, saveFileName, saveFilePath } from "../main/bridge/save-file-input";
 
 test("save-file accepts only a server file URL and a string name", () => {
     const input = { url: "/api/c/12/download?path=%2Ftmp%2Fa.txt", name: "a.txt" };
@@ -13,9 +13,43 @@ test("save-file accepts only a server file URL and a string name", () => {
         assert.equal(readSaveFile(value), undefined);
     }
 
-    for (const url of ["https://elsewhere.test/api/c/12/download?path=a", "//elsewhere.test/api/c/12/download?path=a", "/api/other/download?path=a", "/api/c/12/file?path=a", "/api/c/12/download", "/api/c/12/download?other=a"]) {
+    for (const url of ["https://elsewhere.test/api/c/12/download?path=a", "//elsewhere.test/api/c/12/download?path=a", "/api/other/download?path=a", "/api/c/12/file?path=a", "/api/c/12/download", "/api/c/12/download?other=a", "/api/c/12/files?next=/download?path=a", "/api/c/12/nested/download?path=a", "/api/c//download?path=a", "/api/c/12/download/extra?path=a", "/api/c/12/download?other=/download?path=a"]) {
         assert.equal(readSaveFile({ url, name: "a" }), undefined, url);
     }
+});
+
+const origin = "https://pocket.test";
+const fileUrl = origin + "/api/c/12/download?path=%2Ftmp%2Fnotes.txt";
+
+test("only the server's own first URL, file route, and contents bypass the dialog", () => {
+    assert.deepEqual(readFileDownload(fileUrl, origin, true, "report.txt"), {
+        url: "/api/c/12/download?path=%2Ftmp%2Fnotes.txt", name: "report.txt",
+    });
+
+    for (const url of [
+        undefined, "invalid", "//pocket.test/api/c/12/download?path=a", fileUrl.replace(origin, "https://other.test"),
+        fileUrl.replace(origin, "http://pocket.test"), fileUrl.replace(origin, "https://pocket.test:8443"),
+        origin + "/api/c/1/files?path=a", origin + "/api/c/1/download", origin + "/download?path=a",
+        origin + "/api/c/1/download?other=/download?path=a", origin + "/api/c/1/nested/download?path=a",
+    ]) {
+        assert.equal(readFileDownload(url, origin, true, "notes.txt"), undefined, url);
+    }
+
+    assert.equal(readFileDownload(fileUrl, origin, false, "notes.txt"), undefined, "another view or frame keeps the dialog");
+    assert.equal(readFileDownload("data:/api/c/1/download?path=a", "null", true, "notes.txt"), undefined, "an opaque origin is never a server");
+    const chain = ["https://other.test/redirect", fileUrl];
+
+    assert.equal(readFileDownload(chain[0], origin, true, "notes.txt"), undefined, "the redirect destination cannot make a foreign first URL trusted");
+});
+
+test("download names use the existing cleaning rules, falling back to the path's last part", () => {
+    for (const [name, expected] of [["../x", "_._x"], [".hidden", "_hidden"], ["CON", "_CON"], ["", "notes.txt"]]) {
+        assert.equal(readFileDownload(fileUrl, origin, true, name!, "win32")?.name, expected);
+    }
+
+    assert.equal(readFileDownload(origin + "/api/c/1/download?path=", origin, true, "")?.name, "download");
+    assert.equal(readFileDownload(origin + "/api/c/1/download?path=C%3A%5Ctmp%5C.hidden", origin, true, "")?.name, "_hidden");
+    assert.equal(readFileDownload(origin + "/api/c/1/download?path=%2Ftmp%2FCON", origin, true, "", "win32")?.name, "_CON");
 });
 
 test("save-file names are bounded, not paths, and not hidden", () => {

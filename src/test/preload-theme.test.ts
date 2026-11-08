@@ -11,6 +11,7 @@ function page(initial: Record<string, string>) {
     let colors = initial;
     let painted = "";
     let probes = 0;
+    let bridge: { capabilities: string[]; saveFile?: unknown } | undefined;
     const messages: ThemeColors[] = [];
     const listeners = new Map<string, () => void>();
     const observers: (() => void)[] = [];
@@ -29,7 +30,7 @@ function page(initial: Record<string, string>) {
             assert.equal(name, "electron");
 
             return {
-                contextBridge: { exposeInMainWorld: () => undefined },
+                contextBridge: { exposeInMainWorld: (name: string, value: typeof bridge) => { assert.equal(name, "pocketHost"); bridge = value; } },
                 ipcRenderer: {
                     sendSync: () => ({ visible: true }),
                     on: () => undefined,
@@ -74,6 +75,7 @@ function page(initial: Record<string, string>) {
 
     return {
         messages,
+        bridge,
         probes: () => probes,
         change: (next: Record<string, string>, event: "mutation" | "load" = "mutation") => {
             colors = next;
@@ -91,6 +93,14 @@ function page(initial: Record<string, string>) {
         },
     };
 }
+
+test("the exposed bridge no longer offers the saveFile capability or method", () => {
+    const { bridge } = page({});
+
+    assert.ok(bridge);
+    assert.equal(bridge.capabilities.includes("saveFile"), false);
+    assert.equal(Object.hasOwn(bridge, "saveFile"), false);
+});
 
 test("a non-Pi-Pocket page never sends inherited black as a theme", () => {
     const loaded = page({});
