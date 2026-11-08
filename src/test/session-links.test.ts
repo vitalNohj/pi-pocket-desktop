@@ -45,3 +45,13 @@ test("other links open as they did", () => {
     assert.equal(sessionLinkHere(PLAIN, "src/app.ts", BASE), null);
     assert.equal(sessionLinkHere(PLAIN, "http://[bad", BASE), null);
 });
+
+test("dictated words join the text before the caret with one space, never two", () => {
+    const { joinDictated } = loadPreload();
+
+    assert.equal(joinDictated("", "hello there"), "hello there");
+    assert.equal(joinDictated("Codes only", "for now"), " for now");
+    assert.equal(joinDictated("Codes only ", "for now"), "for now");
+    assert.equal(joinDictated("line\n", " next "), "next");
+    assert.equal(joinDictated("text", "   "), "");
+});
