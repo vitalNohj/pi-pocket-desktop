@@ -81,8 +81,7 @@ if (hello !== null && typeof hello === "object") {
     });
 
     if (hello.dictation) {
-        offerDictation();
-        offerDictationKey(hello.dictationKey);
+        offerDictationKey(hello.dictationKey, offerDictation());
     }
 }
 
@@ -336,7 +335,7 @@ function keyOfCombo(combo: string, event: KeyboardEvent): boolean {
     return event.code === main && Object.entries(families).every(([family, down]) => down === parts.includes(family));
 }
 
-function offerDictationKey(first: string | null): void {
+function offerDictationKey(first: string | null, dictation: Dictation): void {
     let code = first;
 
     ipcRenderer.on("host:dictation-key", (_event, next: unknown) => {
@@ -375,7 +374,17 @@ function offerDictationKey(first: string | null): void {
         return boxes.at(-1);
     };
 
+    const field = dictateIntoField(dictation, shown);
+
     ipcRenderer.on("host:dictate", (_event, request: { n: number; action: "toggle" | "stop" }) => {
+        const own = field(request.action);
+
+        if (own !== undefined) {
+            ipcRenderer.send("host:dictate-answer", request.n, own);
+
+            return;
+        }
+
         const button = mic();
         const listening = button?.getAttribute("aria-pressed") === "true";
 
@@ -387,7 +396,116 @@ function offerDictationKey(first: string | null): void {
     });
 }
 
-function offerDictation(): void {
+/** The page's offline dictation (offerDictation), for the dictation key's own use too. */
+interface Dictation {
+    start: (listener: unknown) => number;
+    stop: (id: unknown, drop: unknown) => void;
+}
+
+/** Fields with a mic of their own: the session's message box and PiP's. The key presses that mic instead. */
+const OWN_MIC = '[data-part~="composer"], [data-part~="pip"]';
+
+/** The words to insert after `before` (the text left of the caret): a space between them, unless one is there. */
+export function joinDictated(before: string, words: string): string {
+    const text = words.trim();
+
+    return text === "" || before === "" || /\s$/.test(before) ? text : ` ${text}`;
+}
+
+/**
+ * The dictation key in any other text field of the page (an ask card's own answer, a search box, a rename): it
+ * dictates into that field, and each finished phrase is typed at the caret, as if typed (an input event, one undo
+ * step). The field shows that it listens by an outline. Returns the answer for the key, or undefined to press a mic.
+ */
+function dictateIntoField(dictation: Dictation, shown: (element: Element | null) => element is HTMLElement) {
+    let current: { id: number; field: HTMLElement } | undefined;
+
+    const mark = (field: HTMLElement, on: boolean): void => {
+        if (on) {
+            field.setAttribute("data-gui-dictating", "");
+        } else {
+            field.removeAttribute("data-gui-dictating");
+        }
+    };
+
+    const style = document.createElement("style");
+
+    style.textContent = `[data-gui-dictating] { outline: 2px solid var(--err, #e5484d) !important; outline-offset: 1px !important; }`;
+    (document.head ?? document.documentElement).append(style);
+
+    const type = (field: HTMLElement, words: string): void => {
+        if (!field.isConnected) {
+            return;
+        }
+
+        if (document.activeElement !== field) {
+            field.focus({ preventScroll: true });
+        }
+
+        let before = "";
+
+        if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+            before = field.value.slice(0, field.selectionStart ?? field.value.length);
+        } else {
+            const selection = document.getSelection();
+            const range = selection !== null && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : undefined;
+
+            if (range !== undefined && field.contains(range.startContainer)) {
+                range.setStart(field, 0);
+                before = range.toString();
+            }
+        }
+
+        const text = joinDictated(before, words);
+
+        if (text !== "") {
+            // As typing does: the page hears an input event, and Ctrl+Z takes it back.
+            document.execCommand("insertText", false, text);
+        }
+    };
+
+    const start = (field: HTMLElement): void => {
+        let id = 0;
+
+        id = dictation.start((message: DictationMessage) => {
+            if (current?.id !== id) {
+                return;
+            }
+
+            if (message.type === "result" && message.final) {
+                type(field, message.text);
+            } else if (message.type === "end") {
+                mark(field, false);
+                current = undefined;
+            }
+        });
+        current = { id, field };
+        mark(field, true);
+    };
+
+    return (action: "toggle" | "stop"): { found: boolean; listening: boolean } | undefined => {
+        if (current !== undefined) {
+            dictation.stop(current.id, false);
+
+            return { found: true, listening: true };
+        }
+
+        const focused = textField(document.activeElement);
+
+        // A mic already listening (pressed by hand) is ended by the key, wherever the caret went since.
+        const listening = document.querySelector('.mic-button[aria-pressed="true"]') !== null;
+
+        if (action === "stop" || listening || focused === undefined || !shown(focused) || focused.closest(OWN_MIC) !== null) {
+            return undefined;
+        }
+
+        start(focused);
+
+        return { found: true, listening: false };
+    };
+}
+
+function offerDictation(): Dictation {
     let next = 0;
     const listeners = new Map<number, (message: DictationMessage) => void>();
     const captures = new Map<number, () => void>();
@@ -500,6 +618,8 @@ function offerDictation(): void {
     };
 
     contextBridge.executeInMainWorld({ func: installRecognition, args: [dictation] });
+
+    return dictation;
 }
 
 /**
