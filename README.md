@@ -18,44 +18,83 @@ Run Pi Pocket on your own computer, connect to a Pi Pocket server anywhere, or l
 
 Everything Pi Pocket does in a browser works the same way here. The app adds:
 
-**Servers**
+### Servers
 
-- **One-click local server.** The app installs Pi Pocket and Node.js, runs the server while the app is open, and keeps both up to date. No terminal needed.
-- **Connect to any server.** A home server, a VPS, or a server behind Tailscale, a Cloudflare tunnel, or Cloudflare Access.
+- **One-click local server.** The app installs Pi Pocket and Node.js for you, and runs the server while the app is open. No terminal needed.
+- **Server updates with rollback.** Pi Pocket and Node.js stay up to date. If a new version does not start, the previous version runs again.
+- **Your tools work.** The local server gets your terminal's `PATH`, so the agent finds `git`, `node`, and your other tools.
+- **Use it from your phone.** Choose who can connect to the local server: this computer only, your local network, your Tailscale network, or anyone through a Cloudflare link.
+- **Connect to any server.** A home server, a VPS, or a server behind Tailscale, a Cloudflare tunnel, or a Cloudflare Access sign-in.
+- **Automatic reconnect.** The app checks the server and reconnects after a network drop or a server restart.
 - **Built-in runner.** A Pi Pocket server can use this computer's files and commands. See [Runners](#runners).
 
-**Notifications**
+### Tray, badge, and notifications
 
-- **Tray menu** with your pinned sessions and their state: waiting for you, working, or failed.
+- **Pinned sessions in the tray**, with their state: waiting for you, working, or failed. One click opens a session.
+- **Tray actions:** open Pi Pocket, start a new session, dictate, copy your last dictation, reload the page, and install updates.
+- **Styled tray menu on Windows**, in the Windows look or your Pi Pocket theme, with full keyboard support.
 - **Badge** on the dock or taskbar icon that counts the sessions that need you.
-- **Native notifications**, also when the window is hidden. Answer an approval from the notification. Finished sessions share one notification, and notifications wait while you are away.
+- **Native notifications**, also when the window is hidden in the tray.
+- **Approve from a notification.** Allow or deny Pi's request without opening the app. By default, **Allow** shows only when the full command is visible.
+- **Fewer notifications.** Sessions that finish together share one notification. While you are away, notifications wait and show once when you return.
 
-**Window**
+### Window
 
-- **No title bar.** Pi Pocket fills the window, and the window buttons sit on top of it.
-- **See-through background** with the system's blur: vibrancy on macOS, Acrylic or Mica on Windows 11, and your compositor's blur on Linux.
-- **Follows your Pi Pocket theme**, including Desktop Settings and the tray icon.
+- **No title bar.** Pi Pocket fills the window, and the window buttons sit on top of the page. On Windows and Linux, the panel under the buttons is notched around them, and menus and panels keep clear of them.
+- **See-through background** with the system's blur: vibrancy on macOS, Acrylic or Mica on Windows 11, and your compositor's blur on Linux. Set the opacity from 0% to 100%.
+- **Follows your Pi Pocket theme:** Desktop Settings, the window background, the tray icon, the right-click menu, and the window buttons on Windows.
+- **Remembers its size and position**, including maximized.
+- **Close to tray.** Closing the window keeps the app running, so notifications keep coming.
+- **One app at a time.** Opening the app again brings back the window that is already open.
 
-**Voice**
+### Typing and editing
+
+- **Spell check** in every text box, with suggestions in the right-click menu. Add a word to the dictionary, and it is never marked again.
+- **Themed right-click menu**, styled like Pi Pocket's own menus, with cut, copy, paste, and select all where they apply.
+
+### Links and files
+
+- **Session links stay in the window.** A link to another session opens it in the same window. ⌘-click, Ctrl-click, or Shift-click opens a new window.
+- **Other websites open in your browser.** You choose whether server pages, such as artifacts, open in an app window or in your browser.
+- **Save server files** to your Downloads folder with the file viewer's **Download** button, or with Cmd+click (Ctrl+click) on a file path in a reply.
+
+### Voice
 
 - **Offline dictation.** Speech is recognized on your computer and never leaves it. Choose a Parakeet, Whisper, Moonshine, or SenseVoice model, in up to 99 languages.
-- **Dictation key.** Hold or tap one key to talk to Pi.
-- **Dictate anywhere.** The same key types your words into any app, not only Pi Pocket.
+- **Words as you speak.** Your words show while you talk and are corrected when you pause.
+- **Dictation key.** Choose any key or combination. Hold it while you talk, or tap it to start and stop.
+- **Dictate into any text box in Pi Pocket:** the message box, a search box, or your answer to Pi's question.
+- **Dictate anywhere.** The same key types your words into any app. A small pill shows what the app hears, and your clipboard comes back after the paste.
+- **Recent dictations.** Copy any of your last 5 dictations again, from Desktop Settings or the tray.
+- **Custom words**, so that names and terms are spelled your way.
 
-**Shortcuts**
+### Shortcuts
 
 - **New session from anywhere:** Ctrl+N (⌘N on macOS), the tray menu, the dock menu, or a `pi-pocket://new` link.
 - **Global shortcut** to show or hide the window from any app.
 - **Back and forward** with the mouse buttons, Alt+Left and Alt+Right (⌘[ and ⌘] on macOS), or trackpad swipes on macOS.
+- **Desktop Settings** with Ctrl+, (⌘, on macOS), also from Pi Pocket's menu, the tray, and the right-click menu.
+
+### Reliability
+
+- **Page recovery.** A page stuck on the starting screen reloads by itself. A **Reload** button appears when loading takes more than 3 seconds, and a page that stops responding offers a reload.
+- **Settings always open.** Desktop Settings opens also when the server is down, and shows the reason.
+- **Diagnostics log** of page hangs, crashes, and slowdowns, to attach to bug reports.
+
+### Startup and updates
+
 - **Launch at login**, optionally hidden in the tray.
+- **Automatic app updates.** On Windows and Linux (AppImage), updates install when the app restarts. On macOS, the app downloads the update for you.
 
-**More**
+### Privacy and safety
 
-- **Automatic updates** for the app.
-- **Save server files** to your Downloads folder.
-- **Page recovery.** A page that stays stuck is reloaded, and a page that stops responding offers a reload.
-- **Diagnostics log** to attach to bug reports.
-- **Billion context (experimental).** One-click install of context compression for long conversations.
+- **Private speech.** Dictation runs on your computer, and the audio never leaves it.
+- **Limited page access.** Only the server's own page gets permissions, such as the microphone, notifications, and the clipboard. Pages from other addresses open in your browser.
+- **You approve runner sessions.** A server cannot start a session on this computer in a new folder without your answer.
+
+### Experimental
+
+- **Billion context.** One-click install of context compression for long conversations.
 
 ## Where Pi Pocket runs
 
@@ -156,7 +195,7 @@ Open the app and choose where Pi Pocket runs:
 
 ## Documentation
 
-- [Guide](docs/guide.md): the local server, the window, the see-through background, Desktop Settings, updates, and troubleshooting.
+- [Guide](docs/guide.md): the local server, notifications, the window, spell check, links, shortcuts, Desktop Settings, updates, and troubleshooting.
 - [Runner](docs/runner.md): link computers, approve sessions, and control access.
 - [Dictation](docs/dictation.md): speech models, the dictation key, and Dictate anywhere.
 - [Billion context](docs/billion-context.md): the experimental context compression extension.

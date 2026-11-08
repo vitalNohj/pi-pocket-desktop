@@ -8,6 +8,8 @@ How the app works, section by section. For an overview, see the [README](../READ
 - [The window](#the-window)
 - [See-through background](#see-through-background)
 - [Theme](#theme)
+- [Spell check and the right-click menu](#spell-check-and-the-right-click-menu)
+- [Links](#links)
 - [Shortcuts](#shortcuts)
 - [Saving server files](#saving-server-files)
 - [Desktop Settings](#desktop-settings)
@@ -45,7 +47,8 @@ To set up a server, run `npm install -g pi-pocket && pi-pocket` on it (Node.js 2
 
 These features need a server with the app bridge (Pi Pocket 0.28.0 or newer). With an older server, the app shows a message once and works without them.
 
-- **Tray.** Your pinned sessions with their state: ◆ waiting for you, ◐ working, ✕ failed. Click a session to open it.
+- **Tray.** Your pinned sessions with their state: ◆ waiting for you, ◐ working, ✕ failed. Click a session to open it. The tray menu also has **Open Pi Pocket**, **New session**, **Dictate**, **Copy last dictation**, **Reload**, an update item when an app or server update is ready, **Desktop Settings…**, and **Quit**.
+- **Tray menu on Windows.** The menu is drawn by the app, so it can follow the Windows look or your Pi Pocket theme (**Desktop Settings → Appearance → Tray menu style**). Use the arrow keys, Home, End, Enter, and Escape to move in it.
 - **Badge.** The dock or taskbar icon shows how many sessions need you.
 - **Notifications.** Native notifications, also when the window is hidden.
   - You can approve or deny a request from the notification. **Deny** is always available. **Approve from notifications** sets when **Allow** shows: only when the full command is visible (default), always, or never.
@@ -60,6 +63,10 @@ The window has no title bar. Pi Pocket fills the window up to its top edge, and 
 - **Windows and Linux.** The buttons sit at the top right. The panel under them is notched around the buttons.
 - **Moving the window.** Drag the bar next to the buttons.
 - **Standard title bar.** To use the system title bar, set **Desktop Settings → Window → Title bar** to **System**, then restart the app.
+- **Menu bar.** On Windows and Linux the menu bar is hidden. Press Alt to show it, or turn on **Desktop Settings → Window → Show menu bar**.
+- **Size and position.** The app remembers the window's size and position, and whether it was maximized.
+- **Close to tray.** With **Close to tray** on (the default), closing the window keeps the app running in the tray, so notifications, the local server, and the runner keep working. Use **Quit** in the tray menu to stop the app.
+- **One app at a time.** If you open the app while it already runs, the open window comes to the front.
 
 The app tells the page where the buttons are with the [Window Controls Overlay](https://developer.mozilla.org/en-US/docs/Web/API/Window_Controls_Overlay_API) web standard. An older Pi Pocket gets a plain band as tall as the buttons.
 
@@ -75,7 +82,19 @@ Turn on **Desktop Settings → Appearance → See-through background**, and set 
 
 ## Theme
 
-When you change the theme in Pi Pocket, the app follows: Desktop Settings, the window background, and the tray icon. The app remembers the colors, so the next start looks correct before the server answers.
+When you change the theme in Pi Pocket, the app follows: Desktop Settings, the window background, the tray icon, and the right-click menu. On Windows, the window buttons also follow the theme's light or dark mode, so their hover color stays visible. The app remembers the colors, so the next start looks correct before the server answers.
+
+## Spell check and the right-click menu
+
+Text boxes in Pi Pocket are spell checked. Right-click a word that is marked as misspelled to see up to 5 suggestions. Choose one to replace the word, or choose **Add “word” to dictionary** so that the word is never marked again.
+
+The right-click menu also has the edit commands that apply where you click: **Cut**, **Copy**, **Paste**, and **Select All** in a text box, and **Copy** for selected text. **Desktop Settings…** is at the bottom. The menu is styled like Pi Pocket's own menus and uses the colors of your theme.
+
+## Links
+
+- **Session links.** A click on a link to another session on the same server opens it in the same window. ⌘-click, Ctrl-click, Shift-click, Alt-click, or a middle click opens it in a new window.
+- **Server pages.** Other pages of the server, such as artifacts, open in an app window. To open them in your browser instead, set **Desktop Settings → Window → Links to Pi Pocket pages** to **System browser**.
+- **Other websites** always open in your browser.
 
 ## Shortcuts
 
