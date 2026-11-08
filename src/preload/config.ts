@@ -23,6 +23,7 @@ const api: GuiConfigApi = {
     view: (side) => ipcRenderer.invoke("config:view", side) as Promise<void>,
     chooseFolder: (start: string) => ipcRenderer.invoke("config:choose-folder", start) as Promise<string | undefined>,
     dictation: (action) => ipcRenderer.invoke("config:dictation", action) as Promise<void>,
+    clearRecentDictations: () => ipcRenderer.invoke("config:clear-recent-dictations") as Promise<void>,
     showDictationFolder: () => ipcRenderer.invoke("config:show-dictation-folder") as Promise<void>,
     resetAccessibility: () => ipcRenderer.invoke("config:reset-accessibility") as Promise<boolean>,
     recordKey: (on) => ipcRenderer.invoke("config:record-key", on) as Promise<void>,

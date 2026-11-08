@@ -145,6 +145,8 @@ Pi Pocket's mic button (and Alt+V) works in the app, recognised on your computer
 
 Words show while you speak and are corrected when you pause (**Words as you speak**; turn it off to save CPU). A model loads at the first dictation and leaves memory after 10 idle minutes. The mic needs Pi Pocket on `127.0.0.1`/`localhost` or `https`: browsers, and so the app, keep the microphone from plain-http pages on other addresses.
 
+**Recent dictations**, at the bottom of **Desktop Settings → Dictation**, keeps the words of your last 5 dictations, each with a **Copy** button: for when a paste went nowhere, the message box lost them, or the speech model stopped halfway. Each shows when it ended, where it came from (Pi Pocket or Dictate anywhere), and whether it was dropped with Esc or stopped by an error. The tray menu's **Copy last dictation** copies the newest from any app. They are kept only in memory: quitting the app forgets them, and **Clear** forgets them now.
+
 **Custom words** (one per line) are names and terms the model should spell your way, such as `Pi Pocket` or `Kubernetes`. Write them with the capitals you want. Only the Parakeet models take them (they switch to beam search, which costs little); Whisper, Moonshine, and SenseVoice in sherpa-onnx have no prompt to pass words to.
 
 ### Dictation key

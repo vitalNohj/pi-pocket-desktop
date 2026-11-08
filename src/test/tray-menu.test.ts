@@ -107,6 +107,45 @@ test("while the window is up, Reload comes after New session, and says when the 
     assert.equal(reloaded, 1);
 });
 
+test("Copy last dictation comes after Dictate, and only while a dictation is kept", () => {
+    let copied = 0;
+    const base = {
+        badge: 0,
+        update: undefined,
+        reload: { label: "Reload", click: () => undefined },
+        pins: [],
+        showWindow: () => undefined,
+        newSession: () => undefined,
+        openSettings: () => undefined,
+        quit: () => undefined,
+        openPin: () => undefined,
+    };
+    const menu = buildTrayMenu({
+        ...base,
+        dictate: { label: "Dictate", click: () => undefined },
+        copyDictation: { label: "Copy last dictation", click: () => (copied += 1) },
+    });
+
+    assert.deepEqual(
+        menu.rows.map((row) => (row.kind === "action" ? row.label : row.kind)),
+        ["Open Pi Pocket", "New session", "Dictate", "Copy last dictation", "Reload", "separator", "Desktop Settings…", "separator", "Quit"],
+    );
+    menu.actions.find((action) => action.id === "copy-dictation")?.run();
+    assert.equal(copied, 1);
+
+    // Pi Pocket's own mic, with Dictate anywhere off: the copy item stands alone.
+    assert.deepEqual(
+        buildTrayMenu({ ...base, copyDictation: { label: "Copy last dictation", click: () => undefined } }).rows.map((row) =>
+            row.kind === "action" ? row.label : row.kind,
+        ),
+        ["Open Pi Pocket", "New session", "Copy last dictation", "Reload", "separator", "Desktop Settings…", "separator", "Quit"],
+    );
+    assert.equal(
+        buildTrayMenu({ ...base, copyDictation: undefined }).actions.some((action) => action.id === "copy-dictation"),
+        false,
+    );
+});
+
 test("a popup that cannot be measured gets the height its rows draw", () => {
     const menu = buildTrayMenu({
         badge: 0,

@@ -321,6 +321,10 @@ export function registerIpc(): void {
         return done;
     });
 
+    handle("config:clear-recent-dictations", () => {
+        appState.gui!.dictation!.clearRecent();
+    });
+
     handle("config:reset-accessibility", () => appState.gui!.anywhere?.resetPermission() ?? false);
 
     handle("config:show-dictation-folder", () => {

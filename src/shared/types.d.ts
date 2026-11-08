@@ -223,6 +223,23 @@ export interface DictationState {
     folder: string;
     models: DictationModelState[];
     downloading: boolean;
+    /** The last dictations that heard words, newest first (src/main/dictation/dictation-recent.ts). Memory only. */
+    recent: RecentDictation[];
+}
+
+/** One dictation's words, kept to copy again. */
+export interface RecentDictation {
+    /** Counts up from 1 while the app runs. */
+    id: number;
+    text: string;
+    /** When it ended, in ms since the epoch. */
+    at: number;
+    /** Pi Pocket's mic (the page), or Dictate anywhere. */
+    where: "pi-pocket" | "anywhere";
+    /** It ended with an error: the words are those recognised before it. */
+    error?: string;
+    /** Dropped with Esc: not pasted. */
+    dropped?: true;
 }
 
 /** State returned by the installed extension's owner API. Older versions omit extension and updates. */
@@ -551,6 +568,8 @@ export interface GuiConfigApi {
     /** A folder picked in the system's dialog, or undefined when cancelled. */
     chooseFolder(start: string): Promise<string | undefined>;
     dictation(action: DictationAction): Promise<void>;
+    /** Forgets the recent dictations. */
+    clearRecentDictations(): Promise<void>;
     showDictationFolder(): Promise<void>;
     /** macOS: removes Pi Pocket's Accessibility entry and asks again. False when it could not be removed. */
     resetAccessibility(): Promise<boolean>;
