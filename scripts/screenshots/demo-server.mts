@@ -182,7 +182,7 @@ const owner = helpers.owner(app);
 
 app.config.updateUser(owner.id, { name: "Maya Chen" });
 app.config.lastModel = { provider: "faux", modelId: "sonnet-4-5", thinkingLevel: "medium" };
-app.config.addUser("Sam Ortiz", "guest");
+const sam = app.config.addUser("Sam Ortiz", "guest").user;
 
 async function session(cwd: string, title: string, message: string, cost: number): Promise<number> {
     const { id } = await app.commands.createSession(owner, { cwd: join(code, cwd), title });
@@ -206,7 +206,62 @@ made.main = await session("aurora-api", "Rate limiting for login", "Add rate lim
 
 const server = createServer(createHandler({ app, listen: { host, port }, restart: () => {} }));
 
+// Linked computers, for the Runners sheet: runners that connect back to this server (a Pi Pocket with runners).
+server.on("upgrade", (request, socket, head) => {
+    if (app.runners?.upgrade(request, socket, head) !== true) {
+        socket.destroy();
+    }
+});
+
 await new Promise<void>((done) => server.listen(port, host, done));
+
+const runners = app.runners === undefined ? [] : await demoRunners();
+
+/**
+ * Two made-up computers: "Studio Mac", online, with saved folders, two approved sessions, and Sam allowed; "Build box",
+ * linked but not connected. Each runner is this checkout's own `pi-pocket runner`, in-process, with its settings in
+ * memory and its folders under $HOME.
+ */
+async function demoRunners(): Promise<{ stop(): Promise<void> }[]> {
+    const { Runner } = await load("src/runner/runner.ts");
+    const studio = app.runners.redeem(app.runners.makeCode("Studio Mac", owner.id).code);
+
+    app.runners.redeem(app.runners.makeCode("Build box", owner.id).code);
+    app.config.setRunnerUsers(studio.id, [sam.id]);
+
+    const work = join(home, "work");
+    const folders = [join(work, "aurora-ios"), join(work, "design-system")];
+
+    for (const folder of folders) {
+        mkdirSync(folder, { recursive: true });
+    }
+
+    const settings: Record<string, unknown> = { confirm: false, folders, network: true, totpDays: 7 };
+    const runner = new Runner({
+        link: { server: `http://${host}:${port}`, ...studio },
+        version: "0.28.0",
+        cwd: home,
+        log: () => {},
+        settings: () => settings,
+        saveSettings: (change: Record<string, unknown>) => void Object.assign(settings, change),
+        ask: () => Promise.resolve({ allow: true }),
+    });
+
+    runner.start();
+
+    while (!runner.connected) {
+        await new Promise((done) => setTimeout(done, 50));
+    }
+
+    for (const [folder, title] of [
+        [folders[0], "Offline sync for the iOS app"],
+        [folders[1], "Button tokens in dark mode"],
+    ]) {
+        await app.commands.createSession(owner, { cwd: folder, title, runner: studio.id });
+    }
+
+    return [runner];
+}
 
 console.log(
     JSON.stringify({
@@ -217,6 +272,7 @@ console.log(
 );
 
 const stop = async () => {
+    await Promise.all(runners.map((runner) => runner.stop()));
     server.closeAllConnections();
     server.close();
     await app.close();
