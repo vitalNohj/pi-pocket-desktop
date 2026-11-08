@@ -27,6 +27,8 @@ const all = [
     { name: "mac-menu", shot: "mac-menu.png", style: "mac", ground: GROUND },
     { name: "mac-people", shot: "mac-people.png", style: "mac", ground: GROUND },
     { name: "mac-files", shot: "mac-files.png", style: "mac", ground: GROUND },
+    { name: "mac-runners", shot: "runners-overview.png", style: "mac", ground: GROUND },
+    { name: "mac-runners-approvals", shot: "runners-approvals.png", style: "mac", ground: GROUND },
     { name: "win-see-through", shot: "win-clear.png", style: "win", ground: WALLPAPER, clear: "1" },
     { name: "win-menu", shot: "win-menu.png", style: "win", ground: GROUND },
     { name: "win-people", shot: "win-people.png", style: "win", ground: GROUND },
