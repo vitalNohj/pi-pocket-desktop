@@ -40,7 +40,7 @@ export function openSettingsOn(side: Side | undefined, section?: "dictation"): v
     void state.gui?.runner?.refreshFolders().catch(() => {});
 }
 
-/** Help → Open diagnostics log: the file the stall watchdog and the page events write (README, Diagnostics). */
+/** Help → Open diagnostics log: the file the stall watchdog and the page events write (docs/guide.md, Diagnostics log). */
 export function openDiagnosticsLog(): void {
     const file = diagnosticsFile();
 
