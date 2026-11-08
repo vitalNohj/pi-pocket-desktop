@@ -6,6 +6,7 @@ import type { WebContents } from "electron";
 import {
     bandHeight,
     captionScheme,
+    MENU_CSS,
     NOTCH_CSS,
     NOTCH_GAP,
     NOTCH_SHAPE,
@@ -35,6 +36,13 @@ test("the notch cuts the tiled window under the controls, on their side, only wh
     assert.equal(NOTCH_CSS.split(depth).length - 1, 2);
     assert.ok(NOTCH_CSS.includes("calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)"));
     assert.ok(NOTCH_CSS.includes(`calc(env(titlebar-area-x, 0px) - var(--gap-out, 8px) + ${NOTCH_GAP}px)`));
+});
+
+test("with the controls on the right, the wide session menu opens against the window's right edge", () => {
+    assert.match(MENU_CSS, /^@media \(min-width: 700px\) \{/);
+    assert.ok(MENU_CSS.includes(`:root[data-window-controls="right"] .nav-menu {`));
+    assert.ok(MENU_CSS.includes("left: max(8px, calc(100vw - 360px - var(--gap-out, 8px))) !important;"));
+    assert.ok(!MENU_CSS.includes(`data-window-controls="left"`));
 });
 
 test("seamless on macOS: hidden title bar, the traffic lights near the corner, told to the page as an overlay", () => {
