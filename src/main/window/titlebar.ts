@@ -115,6 +115,18 @@ export const NOTCH_CSS = `@supports (corner-shape: notch) {
     }
 }`;
 
+/**
+ * Pi Pocket opens its session menu (.nav-menu, wide windows only) with its right edge under the Menu button. With the
+ * controls on the right, that button sits left of them, so the menu floats in the middle with a gap beside it. Here
+ * it opens against the window's right edge instead, below the bar, as on a page without controls. Only a page that
+ * makes its own room marks its root, so an older Pi Pocket or a sign-in page is left as it is.
+ */
+export const MENU_CSS = `@media (min-width: 700px) {
+    :root[data-window-controls="right"] .nav-menu {
+        left: max(8px, calc(100vw - 360px - var(--gap-out, 8px))) !important;
+    }
+}`;
+
 /** Whether the page makes room for the controls itself: Pi Pocket's web/window-controls.js marks its root. */
 const OWN_ROOM = `document.documentElement.hasAttribute("data-window-controls")`;
 
@@ -323,6 +335,7 @@ export function setUpTitleBar(host: TitleBarHost): {
     contents.on("dom-ready", () => {
         void contents.insertCSS(DRAG_CSS).catch(() => undefined);
         void contents.insertCSS(NOTCH_CSS).catch(() => undefined);
+        void contents.insertCSS(MENU_CSS).catch(() => undefined);
         void check();
     });
     contents.on("did-finish-load", () => void check());
