@@ -165,6 +165,7 @@ Release files are named `pi-pocket-desktop-…`. The Windows installer keeps the
 
 The app checks the server and its page every 10 seconds, also for **This computer**.
 
+- If Pi Pocket's starting screen shows for more than 3 seconds, a **Reload** button appears on it.
 - If the page stays on Pi Pocket's "starting" screen for 15 seconds after the server answers again, the app reloads it once. If that does not help, the app starts the page again in a new process.
 - If the page does not respond for 10 seconds, the app asks whether to reload it.
 - **Reload** is always in the tray menu while the window is open, and in **View → Reload**.
