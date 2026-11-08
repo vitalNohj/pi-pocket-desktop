@@ -152,7 +152,7 @@ test("a release is read with its Mac images and checksums; drafts and pre-releas
     const hex = "a".repeat(64);
     const release = readRelease({
         tag_name: "v0.2.0",
-        html_url: "https://github.com/vitalNohj/pi-pocket-gui/releases/tag/v0.2.0",
+        html_url: "https://github.com/vitalNohj/pi-pocket-desktop/releases/tag/v0.2.0",
         assets: [
             { name: "pi-pocket-gui-0.2.0-mac-arm64.dmg", browser_download_url: "https://x/arm.dmg", size: 10, digest: `sha256:${hex}` },
             { name: "pi-pocket-gui-0.2.0-mac-x64.dmg", browser_download_url: "https://x/x64.dmg", size: 11 },
@@ -168,7 +168,7 @@ test("a release is read with its Mac images and checksums; drafts and pre-releas
     assert.equal(readRelease({ tag_name: "v0.3.0", html_url: "h", prerelease: true }), undefined);
     assert.equal(readRelease({ tag_name: "v0.3.0", html_url: "h", draft: true }), undefined);
     assert.equal(safeFileName("../../evil name.dmg"), "evil_name.dmg");
-    assert.equal(safeFileName("..."), "pi-pocket-gui-update.dmg");
+    assert.equal(safeFileName("..."), "pi-pocket-desktop-update.dmg");
 });
 
 test("a download keeps its name only when its checksum matches", async () => {

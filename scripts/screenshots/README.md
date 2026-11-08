@@ -1,4 +1,4 @@
-# README screenshots
+# Pi Pocket Desktop screenshots
 
 Everything in them is made up: the people, folders, sessions, and the model's answers.
 

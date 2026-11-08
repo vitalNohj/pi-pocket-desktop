@@ -242,7 +242,7 @@ export function readRelease(value: unknown): Release | undefined {
     return { version, page: input.html_url, assets };
 }
 
-/** The disk image for this Mac: pi-pocket-gui-<version>-mac-<arm64|x64>.dmg. */
+/** The disk image for this Mac, with either the pi-pocket-desktop- or the legacy pi-pocket-gui- prefix. */
 export function macImage(release: Release, arch: string): ReleaseAsset | undefined {
     const wanted = arch === "arm64" ? "arm64" : "x64";
 
@@ -261,5 +261,5 @@ export function safeFileName(name: string): string {
     const base = name.split(/[\\/]/).pop() ?? "";
     const clean = base.replace(/[^\w.-]/g, "_").replace(/^\.+/, "");
 
-    return clean === "" ? "pi-pocket-gui-update.dmg" : clean;
+    return clean === "" ? "pi-pocket-desktop-update.dmg" : clean;
 }

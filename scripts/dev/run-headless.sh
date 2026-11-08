@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the built app on a virtual screen (Xvfb) with DevTools on port 9333, for testing on a machine without a
+# Runs Pi Pocket Desktop on a virtual screen (Xvfb) with DevTools on port 9333, for testing on a machine without a
 # display. Pass --fresh to start with empty settings. Data goes to /tmp/gui-data unless PI_POCKET_GUI_USER_DATA is set.
 set -euo pipefail
 cd "$(dirname "$0")/../.."

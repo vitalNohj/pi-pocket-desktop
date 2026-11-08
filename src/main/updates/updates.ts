@@ -36,7 +36,7 @@ import {
     type UpdateMethod,
 } from "./update-pick";
 
-const REPO = "vitalNohj/pi-pocket-gui";
+const REPO = "vitalNohj/pi-pocket-desktop";
 const LATEST = `https://api.github.com/repos/${REPO}/releases/latest`;
 const RELEASES = `https://github.com/${REPO}/releases`;
 /** The first check waits a little after start, so it never slows the window down. */
@@ -287,7 +287,7 @@ export function setUpUpdates(host: UpdateHost): {
     /** GitHub's latest release now, or undefined when there is none. Throws when GitHub cannot be asked. */
     const latestRelease = async (): Promise<Release | undefined> => {
         const response = await net.fetch(LATEST, {
-            headers: { accept: "application/vnd.github+json", "user-agent": `pi-pocket-gui/${app.getVersion()}` },
+            headers: { accept: "application/vnd.github+json", "user-agent": `pi-pocket-desktop/${app.getVersion()}` },
             cache: "no-store",
         });
 

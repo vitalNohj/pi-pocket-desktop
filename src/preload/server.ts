@@ -36,7 +36,7 @@ if (hello !== null && typeof hello === "object") {
         // The heading of this app's group in Pi Pocket's menu (Pi Pocket's docs/embedders.md). An older Pi Pocket
         // does not ask for it, and shows its own heading.
         menuTitle: () => "Pi Pocket Desktop",
-        menuItems: () => [{ id: "server-settings", label: "GUI Settings…", hint: "This desktop app's settings" }],
+        menuItems: () => [{ id: "server-settings", label: "Desktop Settings…", hint: "This desktop app's settings" }],
         invoke: (id: unknown) => {
             if (typeof id !== "string") {
                 return false;

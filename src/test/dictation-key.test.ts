@@ -171,7 +171,7 @@ test("a recording belongs to where it started: switching into the window, the ke
     assert.deepEqual(calls, ["anywhere start", "anywhere stop"]);
 });
 
-test("GUI Settings in front: the key dictates anywhere, heard by the hook or by the window", () => {
+test("Desktop Settings in front: the key dictates anywhere, heard by the hook or by the window", () => {
     const hooked = world({ anywhere: true, hooked: true });
 
     hooked.place.page = false;

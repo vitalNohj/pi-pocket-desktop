@@ -27,7 +27,7 @@ export function show(which: "server" | "config"): void {
     state.gui.config.setVisible(which === "config" || state.gui.unverified);
     layout();
     (which === "server" ? state.gui.server : state.gui.config).webContents.focus();
-    state.gui.window.setTitle(which === "server" ? state.gui.server.webContents.getTitle() || "Pi Pocket" : "Pi Pocket — GUI Settings");
+    state.gui.window.setTitle(which === "server" ? state.gui.server.webContents.getTitle() || "Pi Pocket" : "Pi Pocket — Desktop Settings");
     state.gui.desktop?.visibilityChanged();
     pushConfigState();
 }

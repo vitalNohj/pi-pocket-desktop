@@ -1,4 +1,4 @@
-// Every Back/Forward input goes here: the server's history, and one return step to GUI Settings.
+// Every Back/Forward input goes here: the server's history, and one return step to Desktop Settings.
 import { app, ipcMain, type WebContents } from "electron";
 import { state } from "../app/state";
 import { currentOrigin, originOf } from "../connection/address";

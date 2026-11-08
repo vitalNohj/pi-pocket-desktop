@@ -76,7 +76,7 @@ export function buildMenu(): void {
             submenu: [
                 newSessionMenuItem(() => newSession()),
                 { type: "separator" },
-                { label: "GUI Settings…", accelerator: "CommandOrControl+,", click: openSettings },
+                { label: "Desktop Settings…", accelerator: "CommandOrControl+,", click: openSettings },
                 { type: "separator" },
                 mac ? { role: "close" } : { label: "Quit", accelerator: "CommandOrControl+Q", click: quit },
             ],

@@ -2,13 +2,13 @@
 
 <img src="assets/icon.svg" width="96" alt="Pi Pocket" />
 
-# Pi Pocket for desktop
+# Pi Pocket Desktop
 
 **[Pi Pocket](https://github.com/TannerMidd/pi-pocket) as a real app on macOS, Windows, and Linux: on this computer, or your server's.**
 
 Pi Pocket installed and kept current for you · a tray with your pinned sessions · a badge · native notifications · a seamless window · a see-through background
 
-[Download](https://github.com/vitalNohj/pi-pocket-gui/releases/latest) · [Install](#install) · [Settings](#settings) · [Roadmap](#roadmap)
+[Download](https://github.com/vitalNohj/pi-pocket-desktop/releases/latest) · [Install](#install) · [Settings](#settings) · [Roadmap](#roadmap)
 
 <img src="docs/images/hero.png" alt="Pi Pocket in the desktop app: the session list on the left, a conversation on the right, the macOS traffic lights over the sidebar" width="100%" />
 
@@ -31,14 +31,14 @@ The app runs Pi Pocket on this computer for you, or opens one you already run el
 | **See-through background** | The desktop shows through Pi Pocket's background, blurred, as much as you choose. |
 | **Your theme** | The settings screen, the window, and the tray's π follow the theme Pi Pocket shows. |
 | **New session from anywhere** | ⌘N / Ctrl+N, the dock's menu (macOS), the tray menu, or a `pi-pocket://new` link: the window shows with Pi Pocket's New session sheet open. |
-| **Back and Forward** | Mouse Back and Forward, Alt+Left and Alt+Right (Cmd+[ and Cmd+] on a Mac), and macOS swipes move back and forward in Pi Pocket, and between Pi Pocket and GUI Settings. |
+| **Back and Forward** | Mouse Back and Forward, Alt+Left and Alt+Right (Cmd+[ and Cmd+] on a Mac), and macOS swipes move back and forward in Pi Pocket, and between Pi Pocket and Desktop Settings. |
 | **Global shortcut** | Show or hide the window from anywhere. |
 | **Launch at login** | Optionally hidden in the tray, so notifications keep coming. |
 | **Updates** | It checks for new releases and installs them (or downloads them, on macOS). |
 
 ## Install
 
-Download the app for your computer from [**Releases**](https://github.com/vitalNohj/pi-pocket-gui/releases/latest):
+Download the app for your computer from [**Releases**](https://github.com/vitalNohj/pi-pocket-desktop/releases/latest):
 
 | | File | |
 |---|---|---|
@@ -73,7 +73,7 @@ Pi Pocket runs to the window's top edge, and only what sits under the window's b
 
 <img src="docs/images/windows.png" alt="The Windows and Linux layout: minimize, maximize, and close at the top right, with the conversation's border notched around them" width="100%" />
 
-The app tells the page where the buttons are through the [Window Controls Overlay](https://developer.mozilla.org/en-US/docs/Web/API/Window_Controls_Overlay_API), the web's own standard for it. An older Pi Pocket gets a plain band as tall as the buttons. Drag the window by the bar beside them. GUI Settings → Window → Title bar → **System** brings back the normal title bar, after a restart.
+The app tells the page where the buttons are through the [Window Controls Overlay](https://developer.mozilla.org/en-US/docs/Web/API/Window_Controls_Overlay_API), the web's own standard for it. An older Pi Pocket gets a plain band as tall as the buttons. Drag the window by the bar beside them. Desktop Settings → Window → Title bar → **System** brings back the normal title bar, after a restart.
 
 ### See-through background
 
@@ -93,7 +93,7 @@ Change the theme in Pi Pocket and the app follows: the settings screen, the wind
 
 ### Dictation, offline
 
-Pi Pocket's mic button (and Alt+V) works in the app, recognised on your computer: the audio never leaves it. Nothing comes with the app. In **GUI Settings → Dictation**, pick a speech model and press **Download**; the speech engine ([sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx), about 12 MB) comes with the first model. **Remove** deletes a model, and removing the last one deletes the engine too. Every file is checked against its SHA-256 before it is used.
+Pi Pocket's mic button (and Alt+V) works in the app, recognised on your computer: the audio never leaves it. Nothing comes with the app. In **Desktop Settings → Dictation**, pick a speech model and press **Download**; the speech engine ([sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx), about 12 MB) comes with the first model. **Remove** deletes a model, and removing the last one deletes the engine too. Every file is checked against its SHA-256 before it is used.
 
 | Model | Languages | Download |
 |---|---|---|
@@ -110,18 +110,18 @@ Words show while you speak and are corrected when you pause (**Words as you spea
 
 ### Dictation key
 
-One key turns dictation on, set in **GUI Settings → Dictation**: Right Option on macOS and Right Ctrl elsewhere by default. To pick another, click the key's button, press a key or a combination (Ctrl+Shift+D, Ctrl + Right Alt, F13), and let go: it is saved. Escape cancels, and **None** turns the key off. A key that types (a letter, a digit, Space) needs Ctrl, Alt, or ⌘/Windows/Super with it. A modifier key on its own counts only when pressed alone: with another key (Right Ctrl + C, Right Alt + E for €) it does what it always does.
+One key turns dictation on, set in **Desktop Settings → Dictation**: Right Option on macOS and Right Ctrl elsewhere by default. To pick another, click the key's button, press a key or a combination (Ctrl+Shift+D, Ctrl + Right Alt, F13), and let go: it is saved. Escape cancels, and **None** turns the key off. A key that types (a letter, a digit, Space) needs Ctrl, Alt, or ⌘/Windows/Super with it. A modifier key on its own counts only when pressed alone: with another key (Right Ctrl + C, Right Alt + E for €) it does what it always does.
 
 - **In Pi Pocket's window** it turns on the mic of the session in front (PiP's while PiP is open), so the button shows it listening and the words go into the message box. It needs no permission there. Pi Pocket's own Alt+V still works.
 - **Hold or tap:** hold the key while you talk and let go, or tap it once to start and again to stop. Both work by default; a press under 0.3 seconds is a tap.
 
 ### Dictate anywhere
 
-The dictation key in every app, not only Pi Pocket: turn on **Dictate anywhere** in **GUI Settings → Dictation**, then press the key wherever you type. A small pill shows that it listens, with the words so far (its dot grows with your voice). It sits at the bottom of the screen, or at the top when your pointer is in the lower half, so it does not cover where you type. The tray's π turns red, and the words are pasted where your cursor is when you stop. The clipboard gets back what it held a moment later.
+The dictation key in every app, not only Pi Pocket: turn on **Dictate anywhere** in **Desktop Settings → Dictation**, then press the key wherever you type. A small pill shows that it listens, with the words so far (its dot grows with your voice). It sits at the bottom of the screen, or at the top when your pointer is in the lower half, so it does not cover where you type. The tray's π turns red, and the words are pasted where your cursor is when you stop. The clipboard gets back what it held a moment later.
 
-- **Where it goes:** with Pi Pocket's window in front, the key still turns on the session's mic; in any other app, it pastes. In Pi Pocket with no message box showing (a sheet open), it pastes too. A recording ends where it started, even if you switch apps meanwhile. In GUI Settings it dictates anywhere too, so the words go into the box you are typing in.
+- **Where it goes:** with Pi Pocket's window in front, the key still turns on the session's mic; in any other app, it pastes. In Pi Pocket with no message box showing (a sheet open), it pastes too. A recording ends where it started, even if you switch apps meanwhile. In Desktop Settings it dictates anywhere too, so the words go into the box you are typing in.
 - **Esc** drops a recording. **Words go** where the cursor is, or only to the clipboard. The tray menu's **Dictate** starts and stops it too.
-- **macOS** asks for Accessibility (to see the key and press ⌘V) and the microphone. macOS gives Accessibility to one version of the app: when an update installs, Pi Pocket removes its own entry first (`tccutil reset Accessibility io.github.vitalnohj.pipocketgui`), so the new version is asked again instead of being refused silently. Each time the app starts without Accessibility while Dictate anywhere is on, it removes its old entry the same way and asks, once the window is open (so the question is not hidden behind it). If Dictate anywhere still says macOS does not let it see keys while System Settings shows it on, use **Ask again** in GUI Settings → Dictation.
+- **macOS** asks for Accessibility (to see the key and press ⌘V) and the microphone. macOS gives Accessibility to one version of the app: when an update installs, Pi Pocket removes its own entry first (`tccutil reset Accessibility io.github.vitalnohj.pipocketgui`), so the new version is asked again instead of being refused silently. Each time the app starts without Accessibility while Dictate anywhere is on, it removes its old entry the same way and asks, once the window is open (so the question is not hidden behind it). If Dictate anywhere still says macOS does not let it see keys while System Settings shows it on, use **Ask again** in Desktop Settings → Dictation.
 - **Windows** keeps apps run as administrator apart: to dictate into those, run Pi Pocket as administrator too. On many keyboards Right Alt is AltGr; pick another key if you type with it.
 - **Linux** works on X11. Wayland lets no app hear other apps' keys or type into them: there use the tray's **Dictate**, and the words are copied for you to paste.
 
@@ -141,13 +141,13 @@ I'd like to explore a Pi Pocket feature that adds "Agents". Agents would use thi
 - **Install and update automatically** is on by default. When this computer's Pi Pocket starts, the app installs and enables the extension once for each real data folder. A successful install is recorded in the app's `billion-context/offered.json`; removing the extension files later does not install them again automatically. Turn this option off to prevent the initial install and automatic updates.
 - The primary button is **Install**, **Update**, or **Reinstall**, according to the extension and runtime state. It installs newer integration files when needed, turns the module on even if it was off, and asks the extension to install its pinned runtime. **Reinstall** repairs or verifies an installed, current runtime without removing history. If installation fails after turning an existing module on, its off choice is restored.
 - Extension downloads use the newest commit of the integration's `main` branch on GitHub. The app checks each file against the git hash that the commit lists, then puts `billion-context-pi-pocket.ts` and the `billion-context-pi-pocket/` helper folder in Pi Pocket's `extensions` folder.
-- **Check for updates** uses the installed extension's own update route. The app checks at startup and when Settings opens, and reads local extension state every 10 seconds. The local poll does not check GitHub. Older extensions without the update route, and bundled helpers without routes, retain the GUI's GitHub check.
-- Automatic file updates keep the module's on/off choice. They install the runtime only when the module was on, and do not reinstall a program that you uninstalled. The extension page's **Update** request asks the GUI to replace GUI-installed files even with automatic updates off. This explicit update also enables the module and installs or repairs its runtime.
-- Existing GUI installations of `billion-context-pi-pocket-adapter.ts` and its helper folder remain manageable. **Update** migrates them to the new names. The old module is off before the new module can load. Migration copies settings to `billion-context-pi-pocket.json`, preserving all values and explicitly retaining the old `extensionName` and `stateDir` defaults (`billion-context-pi`) when no overrides exist. The old settings file stays as a backup. Conversation and compression state never move.
+- **Check for updates** uses the installed extension's own update route. The app checks at startup and when Settings opens, and reads local extension state every 10 seconds. The local poll does not check GitHub. Older extensions without the update route, and bundled helpers without routes, retain the desktop app's GitHub check.
+- Automatic file updates keep the module's on/off choice. They install the runtime only when the module was on, and do not reinstall a program that you uninstalled. The extension page's **Update** request asks the desktop app to replace app-installed files even with automatic updates off. This explicit update also enables the module and installs or repairs its runtime.
+- Existing desktop app installations of `billion-context-pi-pocket-adapter.ts` and its helper folder remain manageable. **Update** migrates them to the new names. The old module is off before the new module can load. Migration copies settings to `billion-context-pi-pocket.json`, preserving all values and explicitly retaining the old `extensionName` and `stateDir` defaults (`billion-context-pi`) when no overrides exist. The old settings file stays as a backup. Conversation and compression state never move.
 - A failed update restores the previous files, settings, and on/off choice. An interrupted update keeps a recovery record and backups; the next start of the local server or extension action restores them before other work. Do not remove its `_billion-context-pi-pocket.update/` folder during recovery.
-- The GUI refuses migration if both module names exist, either helper folder belongs to a differently named module, or old and new settings conflict. Resolve those copies or settings first; the GUI does not select one or overwrite them. An invalid new settings file never falls back to old settings.
-- A custom `stateDir` must stay outside both helper folders and the installer's transaction folder. The GUI stops a file update or a bundled-helper removal rather than remove state kept there. Move that state safely before continuing; changing only its setting would hide the existing state.
-- The card reads the extension's runtime state: active, bundled, not installed, uninstalled, or needing repair. It shows the installed BCP version, available updates, the last check time, and errors. Use **Menu → Extensions** to turn the module off or on; the GUI has no separate enable/disable buttons.
+- The desktop app refuses migration if both module names exist, either helper folder belongs to a differently named module, or old and new settings conflict. Resolve those copies or settings first; the desktop app does not select one or overwrite them. An invalid new settings file never falls back to old settings.
+- A custom `stateDir` must stay outside both helper folders and the installer's transaction folder. The desktop app stops a file update or a bundled-helper removal rather than remove state kept there. Move that state safely before continuing; changing only its setting would hide the existing state.
+- The card reads the extension's runtime state: active, bundled, not installed, uninstalled, or needing repair. It shows the installed BCP version, available updates, the last check time, and errors. Use **Menu → Extensions** to turn the module off or on; the desktop app has no separate enable/disable buttons.
 - **Uninstall** asks the enabled extension to remove only the downloaded program. The module stays on and its files, settings, chats, and compression history stay. Pi Pocket manages context normally until you install the program again. If the module is off, turn it on in **Menu → Extensions** first. Older bundled helpers have no runtime routes: their uninstall still disables the module and removes only its module and helper files, retaining settings and saved state. Reinstall uses the new settings when present; otherwise it migrates retained old settings.
 - A copy installed by hand under another file name is left alone: the card says so.
 
@@ -155,7 +155,7 @@ With **Another server**, the card shows the command that installs it on that ser
 
 ### Runner
 
-Use **Runner** in the GUI Settings sidebar, or the Runner tile on Home. A runner lets your server use this computer's files and commands. The agent, models, API keys, and history stay on the server. No SSH or open port is needed.
+Use **Runner** in the Desktop Settings sidebar, or the Runner tile on Home. A runner lets your server use this computer's files and commands. The agent, models, API keys, and history stay on the server. No SSH or open port is needed.
 
 The app has the same runner as `pi-pocket runner` built in, and links the same way: the server cannot tell them apart.
 
@@ -183,9 +183,9 @@ The server must support runners. For now, use [vitalNohj/pi-pocket](https://gith
 
 ### Settings
 
-Open **GUI Settings…** from the File menu, tray menu, Pi Pocket menu, or a right-click on the page. You can also press Ctrl+, (⌘, on macOS). This shortcut works even if the server page fails.
+Open **Desktop Settings…** from the File menu, tray menu, Pi Pocket menu, or a right-click on the page. You can also press Ctrl+, (⌘, on macOS). This shortcut works even if the server page fails.
 
-GUI Settings has a sidebar with two parts, **Home** and **Settings**. **Back to Pi Pocket** is at its top (or press Esc) whenever there is a Pi Pocket to go back to. Opened from a menu, GUI Settings starts on Home. When a server fails or is missing, the app shows Home with the reason.
+Desktop Settings has a sidebar with two parts, **Home** and **Settings**. **Back to Pi Pocket** is at its top (or press Esc) whenever there is a Pi Pocket to go back to. Opened from a menu, Desktop Settings starts on Home. When a server fails or is missing, the app shows Home with the reason.
 
 **Home** shows where Pi Pocket runs and the way into it: the server's status and address, with **Start**, **Connect**, or **Back to Pi Pocket**. Below are the two choices, **This computer** and **Another server**, and tiles for **Runner**, **Updates**, and **Dictation** that open their section.
 
@@ -205,9 +205,9 @@ The two choices on Home, **This computer** and **Another server**, only show tha
 
 Use the server address you open in a browser, not a model API address. A failed check keeps your saved address and any working connection. The status shows **Connected** when Pi Pocket is open. To change servers, enter and check the new address before you connect.
 
-If a sign-in page hides Pi Pocket, choose **Open webpage anyway**. This is available only for HTML pages. A **GUI Settings** button stays visible until Pi Pocket is detected. HTTP errors and other responses return to settings.
+If a sign-in page hides Pi Pocket, choose **Open webpage anyway**. This is available only for HTML pages. A **Desktop Settings** button stays visible until Pi Pocket is detected. HTTP errors and other responses return to settings.
 
-<img src="docs/images/settings.png" alt="GUI Settings: the sidebar with Home and Settings, and Home showing where Pi Pocket runs" width="100%" />
+<img src="docs/images/settings.png" alt="Desktop Settings: the sidebar with Home and Settings, and Home showing where Pi Pocket runs" width="100%" />
 
 In **Server → Another server**, **Other allowed addresses** can include a sign-in page, such as Cloudflare Access. Enter one address per line, without a path. By default, **Advanced** uses a 10-second server check interval, 3 failed checks before reconnecting, a 30-second maximum retry delay, and a 4-second check timeout. The app keeps trying after a connection fails.
 
@@ -218,6 +218,9 @@ The settings are also a JSON file you can edit by hand. A value that is not vali
 | Linux | `~/.config/pi-pocket-gui/config.json` |
 | macOS | `~/Library/Application Support/pi-pocket-gui/config.json` |
 | Windows | `%APPDATA%\pi-pocket-gui\config.json` |
+
+These folder names stay unchanged when the project becomes Pi Pocket Desktop. The installed app stays **Pi Pocket**:
+existing settings, sign-in, runner links, and launch-at-login entries do not move.
 
 ### When the page hangs
 
@@ -240,6 +243,10 @@ The app writes a diagnostics log. It records page hangs and crashes, failed load
 - **Windows and the AppImage** download it and install it when the app restarts. The app asks first. On Windows the installer runs without its window: it keeps your earlier choice (only for you, or for everyone) and folder, and asks for administrator rights only for an install for everyone. Then the app opens again.
 - **macOS:** until the app is signed by Apple, macOS will not let it replace itself. It downloads the new disk image to Downloads, checked against GitHub's checksum, then quits and opens it (macOS cannot replace an app that is running): drag the app into Applications over the old one, then open it again. Your settings and sign-in stay.
 - **The .deb** opens the release page: install the new .deb the same way.
+
+New release downloads use `pi-pocket-desktop-…`. Releases also include the old macOS disk-image names for installed
+0.2.x apps; Windows and AppImage updates follow the file names in their update metadata. Existing apps keep finding
+releases through GitHub's redirect from the old repository name.
 
 ## How it talks to Pi Pocket
 

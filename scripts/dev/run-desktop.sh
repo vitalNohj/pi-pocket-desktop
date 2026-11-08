@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Like run-headless.sh, on a private session bus with a fake desktop (fake-desktop.py): the tray shows, and each
+# Runs Pi Pocket Desktop like run-headless.sh, on a private session bus with a fake desktop (fake-desktop.py): the tray shows, and each
 # notification is logged to $FAKE_DESKTOP_LOG (default /tmp/fake-desktop.jsonl). The bus's address is written to
 # /tmp/gui-bus, for gdbus calls from another shell: DBUS_SESSION_BUS_ADDRESS=$(cat /tmp/gui-bus) gdbus …
 set -euo pipefail
