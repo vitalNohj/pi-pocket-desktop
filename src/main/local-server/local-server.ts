@@ -10,7 +10,6 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { LocalState, LocalStatus, LocalUpdate, ProbeResult, Settings } from "../../shared/types";
 import { downloadChecked } from "../core/download";
-import { withPath } from "../core/env-path";
 import type { LocalDown } from "../connection/server-choice";
 import { activity, diagnose } from "../diagnostics/stall-watchdog";
 import { UpdateSchedule } from "../updates/update-schedule";
@@ -334,7 +333,8 @@ export function setUpLocalServer(host: LocalHost) {
                 {
                     cwd: unpacked,
                     env: {
-                        ...withPath(await loginEnvironment(), where.bin, "first", host.platform),
+                        ...(await loginEnvironment()),
+                        PATH: `${where.bin}${host.platform === "win32" ? ";" : ":"}${process.env.PATH ?? ""}`,
                         npm_config_update_notifier: "false",
                     },
                 },
@@ -707,6 +707,7 @@ export function setUpLocalServer(host: LocalHost) {
         }
 
         const env = await loginEnvironment();
+        const separator = host.platform === "win32" ? ";" : ":";
         const args = [
             where.launcher,
             "--access",
@@ -725,8 +726,9 @@ export function setUpLocalServer(host: LocalHost) {
         const proc = spawn(where.node, args, {
             cwd: expand(local.folder) || defaults().folder,
             env: {
+                ...env,
                 // Its own Node and npm last: the person's come first, and Pi Pocket's updater finds one either way.
-                ...withPath(env, where.bin, "last", host.platform),
+                PATH: `${env.PATH ?? ""}${separator}${where.bin}`,
                 NO_COLOR: "1",
                 PI_POCKET_DESKTOP_APP: "1",
                 // What Computers tells another computer to install for its runner: this same Pi Pocket.

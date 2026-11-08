@@ -14,7 +14,6 @@ import { mkdir, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { RunnerState } from "../../shared/types";
-import { withPath } from "../core/env-path";
 import { cleanLine } from "../local-server/local-versions";
 
 /** `pi-pocket runner`'s exit code when the server ended the link for good: starting it again would not help. */
@@ -228,6 +227,8 @@ export function setUpRunner(host: RunnerHost) {
 
         await syncConfirmation();
         const env = await host.environment();
+        const separator = host.platform === "win32" ? ";" : ":";
+
         if (attempt !== generation || child !== undefined || quitting || holding || !host.enabled()) {
             return;
         }
@@ -241,7 +242,7 @@ export function setUpRunner(host: RunnerHost) {
         const proc = spawn(runtime.node, [runtime.launcher, "runner", ...(usesConfirmation ? ["--confirm-via", "stdio"] : []), "--config", linkFile], {
             cwd: homedir(),
             // The person's tools first, as in their terminal; the runtime's Node and npm after.
-            env: { ...withPath(env, runtime.bin, "last", host.platform), NO_COLOR: "1", PI_POCKET_DESKTOP_APP: "1" },
+            env: { ...env, PATH: `${env.PATH ?? ""}${separator}${runtime.bin}`, NO_COLOR: "1", PI_POCKET_DESKTOP_APP: "1" },
             stdio: ["pipe", "pipe", "pipe"],
             windowsHide: true,
         });
