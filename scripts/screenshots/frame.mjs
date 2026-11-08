@@ -24,6 +24,10 @@ const all = [
     { name: "linux-people", shot: "linux-people.png", style: "win", ground: GROUND, controls: "113" },
     { name: "linux-files", shot: "linux-files.png", style: "win", ground: GROUND, controls: "113" },
     { name: "linux-settings", shot: "linux-settings.png", style: "win", ground: GROUND, controls: "113" },
+    { name: "win-menu", shot: "win-menu.png", style: "win", ground: GROUND },
+    { name: "win-people", shot: "win-people.png", style: "win", ground: GROUND },
+    { name: "win-files", shot: "win-files.png", style: "win", ground: GROUND },
+    { name: "win-settings", shot: "win-settings.png", style: "win", ground: GROUND },
 ];
 // ONLY=linux,linux-menu: frame just those (the other platforms' shots come from their own machines).
 const only = process.env.ONLY?.split(",");

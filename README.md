@@ -71,9 +71,20 @@ Everything lives in the app's data folder (below), in `server/`: the runtimes an
 
 Pi Pocket runs to the window's top edge, and only what sits under the window's buttons makes room for them: on macOS the sidebar starts a little lower and the conversation keeps its whole height. On Windows and Linux the buttons sit at the top right instead, and the tiled window under them is notched around them: its border goes down and around the buttons rather than under them.
 
-<img src="docs/images/windows.png" alt="The Windows and Linux layout: minimize, maximize, and close at the top right, with the conversation's border notched around them" width="100%" />
+<img src="docs/images/windows.png" alt="Pi Pocket on Windows 11: minimize, maximize, and close at the top right, with the conversation's border notched around them" width="100%" />
 
 The app tells the page where the buttons are through the [Window Controls Overlay](https://developer.mozilla.org/en-US/docs/Web/API/Window_Controls_Overlay_API), the web's own standard for it. An older Pi Pocket gets a plain band as tall as the buttons. Drag the window by the bar beside them. Desktop Settings → Window → Title bar → **System** brings back the normal title bar, after a restart.
+
+#### On Windows
+
+The same window on Windows 11, taken in the app there against the demo server.
+
+| | |
+|---|---|
+| <img src="docs/images/win-menu.png" alt="On Windows, the session menu opens against the window's right edge, below the window's buttons" width="100%" /> | <img src="docs/images/win-people.png" alt="On Windows, the People panel beside the conversation, its close button clear of the window's buttons" width="100%" /> |
+| The session menu opens against the right edge, below the buttons. | The People panel (Discuss opens it): its close button keeps clear of the buttons. |
+| <img src="docs/images/win-files.png" alt="On Windows, the Files and Changes panel beside the conversation" width="100%" /> | <img src="docs/images/win-settings.png" alt="Desktop Settings on Windows, with the window's buttons at the top right" width="100%" /> |
+| Files and Changes beside the conversation. | Desktop Settings. |
 
 #### On Linux
 

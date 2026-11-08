@@ -33,6 +33,8 @@ Everything in them is made up: the people, folders, sessions, and the model's an
    still paints. Pi Pocket shows a Windows folder by its whole path in the top bar: set that line's text to the folder's
    name (`aurora-api`) before each shot.
 
+   On Windows take `win-menu.png`, `win-people.png`, `win-files.png`, and `win-settings.png` too, the same way.
+
    On Linux the app's own buttons are at the top right, as on Windows: take `linux-solid.png`, `linux-menu.png`,
    `linux-people.png`, `linux-files.png`, and `linux-settings.png` (the Linux overlay's buttons are 113 px wide, which
    `frame.mjs` passes as `controls`).
