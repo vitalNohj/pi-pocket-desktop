@@ -98,7 +98,7 @@
             ],
             "icon": "assets/icon-512.png",
             "executableName": "pi-pocket-gui",
-            "artifactName": "pi-pocket-desktop-win-${arch}.${ext}"
+            "artifactName": "pi-pocket-gui-win-${arch}.${ext}"
         },
         "nsis": {
             "oneClick": false,

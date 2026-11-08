@@ -26,7 +26,8 @@ test("the project name changes, but installed app identities do not", () => {
     assert.equal(pkg.build.deb.packageName, "pi-pocket-gui");
     assert.equal(pkg.build.publish[0].repo, "pi-pocket-desktop");
     assert.equal(pkg.build.artifactName, "pi-pocket-desktop-${version}-${os}-${arch}.${ext}");
-    assert.equal(pkg.build.win.artifactName, "pi-pocket-desktop-win-${arch}.${ext}");
+    // The Windows installer keeps its name: Microsoft reviewed Defender reports under it.
+    assert.equal(pkg.build.win.artifactName, "pi-pocket-gui-win-${arch}.${ext}");
     assert.match(source("src/main/index.ts"), /process\.env\.PI_POCKET_GUI_USER_DATA/);
     assert.match(source("src/main/index.ts"), /join\(app\.getPath\("appData"\), "pi-pocket-gui"\)/);
     assert.match(source("src/main/core/platform.ts"), /const AUTOSTART_NAME = "pi-pocket-gui\.desktop"/);

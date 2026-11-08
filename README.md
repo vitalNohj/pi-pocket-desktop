@@ -43,7 +43,7 @@ Download the app for your computer from [**Releases**](https://github.com/vitalN
 | | File | |
 |---|---|---|
 | **macOS** | `…-mac-arm64.dmg` (Apple Silicon) or `…-mac-x64.dmg` (Intel) | Drag the app into Applications. It is not signed by Apple yet: the first time, right-click it and choose **Open**. If macOS still refuses, use **Open Anyway** in System Settings → Privacy & Security, or run `xattr -cr "/Applications/Pi Pocket.app"`. |
-| **Windows** | `pi-pocket-desktop-win-x64.exe` (no version in its name until it is signed) | SmartScreen warns about an unsigned app: **More info** → **Run anyway**. |
+| **Windows** | `pi-pocket-gui-win-x64.exe` (no version in its name until it is signed) | SmartScreen warns about an unsigned app: **More info** → **Run anyway**. |
 | **Linux** | `…-linux-x86_64.AppImage` or `…-linux-amd64.deb` | Make the AppImage executable and run it, or install the .deb. |
 
 Open the app and pick where Pi Pocket runs:
