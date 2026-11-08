@@ -33,8 +33,14 @@ Everything in them is made up: the people, folders, sessions, and the model's an
    still paints. Pi Pocket shows a Windows folder by its whole path in the top bar: set that line's text to the folder's
    name (`aurora-api`) before each shot.
 
+   On Linux the app's own buttons are at the top right, as on Windows: take `linux-solid.png`, `linux-menu.png`,
+   `linux-people.png`, `linux-files.png`, and `linux-settings.png` (the Linux overlay's buttons are 113 px wide, which
+   `frame.mjs` passes as `controls`).
+
 4. Frame them (`frame.html`: a window with traffic lights or Windows' buttons, a shadow, and a background):
 
    ```bash
    SCALE=2 CHROME=/path/to/chrome node scripts/screenshots/frame.mjs <raw-folder> docs/images
    ```
+
+   `ONLY=linux,linux-menu` frames only those, so one platform's shots can be redone without the others'.

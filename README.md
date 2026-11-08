@@ -75,6 +75,19 @@ Pi Pocket runs to the window's top edge, and only what sits under the window's b
 
 The app tells the page where the buttons are through the [Window Controls Overlay](https://developer.mozilla.org/en-US/docs/Web/API/Window_Controls_Overlay_API), the web's own standard for it. An older Pi Pocket gets a plain band as tall as the buttons. Drag the window by the bar beside them. Desktop Settings → Window → Title bar → **System** brings back the normal title bar, after a restart.
 
+#### On Linux
+
+The same window on Linux (X11), where the buttons also sit at the top right. These are from the app itself, against a demo server with made-up sessions.
+
+<img src="docs/images/linux.png" alt="Pi Pocket on Linux: the session list on the left, a conversation on the right, and the conversation's border notched around minimize, maximize, and close" width="100%" />
+
+| | |
+|---|---|
+| <img src="docs/images/linux-menu.png" alt="On Linux, the session menu opens against the window's right edge, below the window's buttons" width="100%" /> | <img src="docs/images/linux-people.png" alt="On Linux, the People panel beside the conversation, its close button clear of the window's buttons" width="100%" /> |
+| The session menu opens against the right edge, below the buttons. | The People panel (Discuss opens it): its close button keeps clear of the buttons. |
+| <img src="docs/images/linux-files.png" alt="On Linux, the Files and Changes panel beside the conversation" width="100%" /> | <img src="docs/images/linux-settings.png" alt="Desktop Settings on Linux, with the window's buttons at the top right" width="100%" /> |
+| Files and Changes beside the conversation. | Desktop Settings. |
+
 ### See-through background
 
 Turn on **See-through background** in Settings → Appearance, and set the **Opacity** from 0% to 100%. Menus, sheets, and cards stay solid, so text stays readable.

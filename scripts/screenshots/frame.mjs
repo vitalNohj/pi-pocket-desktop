@@ -13,13 +13,21 @@ const WALLPAPER = "radial-gradient(circle at 20% 15%, #f7a072 0, transparent 45%
 const GROUND = "linear-gradient(140deg, #24283b 0%, #3b4261 55%, #565f89 100%)";
 const LIGHT = "linear-gradient(140deg, #dce0e8 0%, #c6d0f5 60%, #e6e9ef 100%)";
 
-const shots = [
+const all = [
     { name: "hero", shot: "mac-solid.png", style: "mac", ground: GROUND },
     { name: "see-through", shot: "mac-clear.png", style: "mac", ground: WALLPAPER, clear: "1" },
     { name: "light", shot: "mac-light.png", style: "mac", ground: LIGHT },
     { name: "windows", shot: "win-solid.png", style: "win", ground: GROUND },
     { name: "settings", shot: "settings.png", style: "mac", ground: GROUND },
+    { name: "linux", shot: "linux-solid.png", style: "win", ground: GROUND, controls: "113" },
+    { name: "linux-menu", shot: "linux-menu.png", style: "win", ground: GROUND, controls: "113" },
+    { name: "linux-people", shot: "linux-people.png", style: "win", ground: GROUND, controls: "113" },
+    { name: "linux-files", shot: "linux-files.png", style: "win", ground: GROUND, controls: "113" },
+    { name: "linux-settings", shot: "linux-settings.png", style: "win", ground: GROUND, controls: "113" },
 ];
+// ONLY=linux,linux-menu: frame just those (the other platforms' shots come from their own machines).
+const only = process.env.ONLY?.split(",");
+const shots = only === undefined ? all : all.filter((each) => only.includes(each.name));
 
 const profile = mkdtempSync(join(tmpdir(), "frame-"));
 const browser = spawn(chrome, [
@@ -60,7 +68,7 @@ await send("Emulation.setDeviceMetricsOverride", { width: 1600, height: 1100, de
 await send("Emulation.setDefaultBackgroundColorOverride", { color: { r: 0, g: 0, b: 0, a: 0 } });
 
 for (const each of shots) {
-    const query = new URLSearchParams({ shot: pathToFileURL(join(raw, each.shot)).href, style: each.style, ground: each.ground, ...(each.clear ? { clear: each.clear } : {}) });
+    const query = new URLSearchParams({ shot: pathToFileURL(join(raw, each.shot)).href, style: each.style, ground: each.ground, ...(each.clear ? { clear: each.clear } : {}), ...(each.controls ? { controls: each.controls } : {}) });
 
     await send("Page.navigate", { url: `${page}?${query}` });
 
