@@ -109,6 +109,10 @@ Turn on **See-through background** in Settings → Appearance, and set the **Opa
 - **Windows 11 (22H2 or newer):** Acrylic or Mica. Windows 10 cannot.
 - **Linux:** turning it on takes a restart (the settings screen offers one). Your compositor does the blur: on Hyprland, `decoration:blur`; on KDE, the Blur effect. GNOME shows it see-through, without blur.
 
+<img src="docs/images/win-see-through.png" alt="Pi Pocket on Windows 11 with the see-through background (Acrylic): the desktop's colors show through, blurred" width="100%" />
+
+On Windows 11, with Acrylic.
+
 ### It follows your theme
 
 Change the theme in Pi Pocket and the app follows: the settings screen, the window's own background, and the tray's π. It remembers the colors, so the next start looks right before the server answers.

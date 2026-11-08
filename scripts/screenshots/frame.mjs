@@ -24,6 +24,7 @@ const all = [
     { name: "linux-people", shot: "linux-people.png", style: "win", ground: GROUND, controls: "113" },
     { name: "linux-files", shot: "linux-files.png", style: "win", ground: GROUND, controls: "113" },
     { name: "linux-settings", shot: "linux-settings.png", style: "win", ground: GROUND, controls: "113" },
+    { name: "win-see-through", shot: "win-clear.png", style: "win", ground: WALLPAPER, clear: "1" },
     { name: "win-menu", shot: "win-menu.png", style: "win", ground: GROUND },
     { name: "win-people", shot: "win-people.png", style: "win", ground: GROUND },
     { name: "win-files", shot: "win-files.png", style: "win", ground: GROUND },
