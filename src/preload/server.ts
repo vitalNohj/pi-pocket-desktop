@@ -415,23 +415,23 @@ export function joinDictated(before: string, words: string): string {
 /**
  * The dictation key in any other text field of the page (an ask card's own answer, a search box, a rename): it
  * dictates into that field, and each finished phrase is typed at the caret, as if typed (an input event, one undo
- * step). The field shows that it listens by an outline. Returns the answer for the key, or undefined to press a mic.
+ * step), and only into that field. It shows that it listens by an outline. Returns the answer for the key, or undefined to press a mic.
  */
 function dictateIntoField(dictation: Dictation, shown: (element: Element | null) => element is HTMLElement) {
     let current: { id: number; field: HTMLElement } | undefined;
 
+    /** Its outline, set on the field itself: a preload may run before the page has a head to add a stylesheet to. */
     const mark = (field: HTMLElement, on: boolean): void => {
         if (on) {
             field.setAttribute("data-gui-dictating", "");
+            field.style.setProperty("outline", "2px solid var(--err, #e5484d)", "important");
+            field.style.setProperty("outline-offset", "1px", "important");
         } else {
             field.removeAttribute("data-gui-dictating");
+            field.style.removeProperty("outline");
+            field.style.removeProperty("outline-offset");
         }
     };
-
-    const style = document.createElement("style");
-
-    style.textContent = `[data-gui-dictating] { outline: 2px solid var(--err, #e5484d) !important; outline-offset: 1px !important; }`;
-    (document.head ?? document.documentElement).append(style);
 
     const type = (field: HTMLElement, words: string): void => {
         if (!field.isConnected) {
@@ -440,6 +440,11 @@ function dictateIntoField(dictation: Dictation, shown: (element: Element | null)
 
         if (document.activeElement !== field) {
             field.focus({ preventScroll: true });
+        }
+
+        // A field that can no longer take the caret (hidden, disabled): its words go nowhere else.
+        if (document.activeElement !== field) {
+            return;
         }
 
         let before = "";
