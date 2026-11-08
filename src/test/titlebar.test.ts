@@ -7,6 +7,8 @@ import {
     bandHeight,
     captionScheme,
     MENU_CSS,
+    CONTROLS_GAP,
+    ROOM_CSS,
     NOTCH_CSS,
     NOTCH_GAP,
     NOTCH_SHAPE,
@@ -43,6 +45,13 @@ test("with the controls on the right, the wide session menu opens against the wi
     assert.ok(MENU_CSS.includes(`:root[data-window-controls="right"] .nav-menu {`));
     assert.ok(MENU_CSS.includes("left: max(8px, calc(100vw - 360px - var(--gap-out, 8px))) !important;"));
     assert.ok(!MENU_CSS.includes(`data-window-controls="left"`));
+});
+
+test("with the controls on the right, a bar under them keeps a gap past the notch", () => {
+    assert.ok(CONTROLS_GAP > NOTCH_GAP);
+    assert.ok(ROOM_CSS.startsWith(`:root[data-window-controls="right"] [data-under-controls="bar"][data-under-controls="bar"] {`));
+    assert.ok(ROOM_CSS.includes(`padding-right: calc(var(--controls-room) + ${CONTROLS_GAP}px) !important;`));
+    assert.ok(!ROOM_CSS.includes(`"left"`));
 });
 
 test("seamless on macOS: hidden title bar, the traffic lights near the corner, told to the page as an overlay", () => {

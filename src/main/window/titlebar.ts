@@ -127,6 +127,18 @@ export const MENU_CSS = `@media (min-width: 700px) {
     }
 }`;
 
+/** How far a bar's last button stays clear of the controls on the right, in CSS pixels: past the notch's gap. */
+export const CONTROLS_GAP = 12;
+
+/**
+ * Pi Pocket's web/window-controls.js gives a bar under the controls exactly the room they cover (--controls-room), so
+ * its last button (the ⋯ menu, a panel's ✕) touches them, and the notch's curve cuts into it. With the controls on the
+ * right (Windows, Linux), the bar keeps a gap too. The doubled attribute outranks the page's own !important rule.
+ */
+export const ROOM_CSS = `:root[data-window-controls="right"] [data-under-controls="bar"][data-under-controls="bar"] {
+    padding-right: calc(var(--controls-room) + ${CONTROLS_GAP}px) !important;
+}`;
+
 /** Whether the page makes room for the controls itself: Pi Pocket's web/window-controls.js marks its root. */
 const OWN_ROOM = `document.documentElement.hasAttribute("data-window-controls")`;
 
@@ -336,6 +348,7 @@ export function setUpTitleBar(host: TitleBarHost): {
         void contents.insertCSS(DRAG_CSS).catch(() => undefined);
         void contents.insertCSS(NOTCH_CSS).catch(() => undefined);
         void contents.insertCSS(MENU_CSS).catch(() => undefined);
+        void contents.insertCSS(ROOM_CSS).catch(() => undefined);
         void check();
     });
     contents.on("did-finish-load", () => void check());
