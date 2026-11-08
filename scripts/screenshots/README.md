@@ -35,6 +35,9 @@ Everything in them is made up: the people, folders, sessions, and the model's an
 
    On Windows take `win-clear.png` (the see-through background on, Acrylic, with `CDP_CLEAR=1`), `win-menu.png`, `win-people.png`, `win-files.png`, and `win-settings.png` too, the same way.
 
+   `runner-clear.png`: Desktop Settings → Runner with the see-through background on (`appearance.translucent` in the
+   app's `config.json` before it starts, since Linux needs a restart), taken with `CDP_CLEAR=1`.
+
    On Linux the app's own buttons are at the top right, as on Windows: take `linux-solid.png`, `linux-menu.png`,
    `linux-people.png`, `linux-files.png`, and `linux-settings.png` (the Linux overlay's buttons are 113 px wide, which
    `frame.mjs` passes as `controls`).

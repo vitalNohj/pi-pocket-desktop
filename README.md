@@ -206,6 +206,8 @@ The app has the same runner as `pi-pocket runner` built in, and links the same w
 3. Under **Menu → Runners**, choose **New session** on this computer and pick a folder. The session title shows which computer it uses.
 4. Keep the app open, including in the tray. The **Runner** card shows the connection state. Use **Enable runner**, **Reconnect**, or **Unlink** to manage the link.
 
+<img src="docs/images/runner.png" alt="The Runner section of Desktop Settings with the see-through background on: the server address, the link code, the trust warning, and Link" width="100%" />
+
 By default, the app asks before the server starts a new session or a copy of a session in a folder that is not yet allowed on this computer. The question shows the server, person, and folder; **Deny** is the default. A session can read and change files and run commands as you, also outside that folder. Turn off **Ask before new sessions** in the **Runner** card to start sessions without asking. The app saves the choice with `runner settings confirm on|off --config FILE`; no runner restart is needed. This needs a runner with session confirmation support; the card shows an error for an older runner.
 
 **Allowed folders:** **Allow** saves the folder on this computer, so later sessions in it or its subfolders start without asking. A root, your home folder, or an ancestor of your home offers **Allow this session only** and saves nothing. The Runner card lists the folders and lets you **Remove** one; existing sessions keep running. Moving a session to another folder follows the same check. The list never goes to the server.

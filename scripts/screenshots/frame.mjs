@@ -20,6 +20,7 @@ const all = [
     { name: "windows", shot: "win-solid.png", style: "win", ground: GROUND },
     { name: "settings", shot: "settings.png", style: "mac", ground: GROUND },
     { name: "linux", shot: "linux-solid.png", style: "win", ground: GROUND, controls: "113" },
+    { name: "runner", shot: "runner-clear.png", style: "win", ground: WALLPAPER, clear: "1", controls: "113" },
     { name: "linux-menu", shot: "linux-menu.png", style: "win", ground: GROUND, controls: "113" },
     { name: "linux-people", shot: "linux-people.png", style: "win", ground: GROUND, controls: "113" },
     { name: "linux-files", shot: "linux-files.png", style: "win", ground: GROUND, controls: "113" },
