@@ -1401,14 +1401,96 @@ details.log pre {
     padding: 4px 0 12px 20px;
 }
 
-/* Recent dictations: the words, folded to three lines until clicked, and a Copy button. */
-#dictation-recent-section > .row-note {
-    padding-top: 0;
+/* Recent dictations: the note with Clear beside it, then each dictation as a light row like a speech model's: the
+ * words (folded to three lines until clicked), when and where below them, and a small copy button. */
+.recent-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 8px;
 }
 
-.row.recent-item > span:first-child {
+.recent-head .row-note {
+    padding: 0;
+}
+
+.recent-head button {
+    flex: none;
+}
+
+.recent {
+    display: grid;
+    padding-bottom: 8px;
+}
+
+.recent-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 12px 0;
+    border-top: 1px solid var(--hair);
+}
+
+.recent-body {
+    display: grid;
     flex: 1;
     min-width: 0;
+    gap: 4px;
+}
+
+.recent-meta {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 16px;
+}
+
+/* Tags on a dictation: "Dropped", "Stopped". Drawn as a speech model's tags. */
+.recent-meta em {
+    margin-left: 4px;
+    padding: 1px 8px;
+    border: 1px solid var(--hair);
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 16px;
+    font-style: normal;
+    font-weight: 500;
+}
+
+.recent-meta em.dropped {
+    border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+    color: var(--warn);
+}
+
+.recent-meta em.error {
+    border-color: color-mix(in srgb, var(--err) 45%, transparent);
+    color: var(--err);
+}
+
+.recent-error {
+    color: var(--err);
+    font-size: 12px;
+    line-height: 16px;
+    overflow-wrap: anywhere;
+}
+
+button.icon-button {
+    flex: none;
+    width: 32px;
+    min-height: 32px;
+    height: 32px;
+    padding: 0;
+    border-color: transparent;
+    color: var(--muted);
+    transition: background-color var(--quick) var(--ease), color var(--quick) var(--ease), transform var(--quick) var(--ease);
+}
+
+button.icon-button:hover {
+    color: var(--text);
+}
+
+button.icon-button.done {
+    color: var(--ok);
 }
 
 .recent-text {
@@ -1430,10 +1512,6 @@ details.log pre {
 .recent-text.open {
     display: block;
     cursor: text;
-}
-
-.row.recent-item small.error {
-    color: var(--err);
 }
 
 /* A long command scrolls in its own box rather than widening the card. */

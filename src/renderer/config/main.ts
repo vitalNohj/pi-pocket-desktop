@@ -1438,6 +1438,19 @@ function whenSaid(at: number): string {
     : `${date.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
 }
 
+/** A 16 px icon from the page's sprite. */
+function icon(name: string): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+
+  svg.setAttribute("class", "i sm");
+  svg.setAttribute("aria-hidden", "true");
+  use.setAttribute("href", `#i-${name}`);
+  svg.append(use);
+
+  return svg;
+}
+
 function recentRow(each: RecentDictation): HTMLElement {
   const row = document.createElement("div");
   const text = document.createElement("span");
@@ -1445,7 +1458,8 @@ function recentRow(each: RecentDictation): HTMLElement {
   const about = document.createElement("small");
   const copy = document.createElement("button");
 
-  row.className = "row recent-item";
+  row.className = "recent-item";
+  text.className = "recent-body";
   words.className = "recent-text";
   words.textContent = each.text;
   // Long words stay folded to a few lines; a click shows all of them.
@@ -1455,22 +1469,48 @@ function recentRow(each: RecentDictation): HTMLElement {
     if (window.getSelection()?.isCollapsed === false) return;
     words.classList.toggle("open");
   });
-  about.textContent = [
-    whenSaid(each.at),
-    each.where === "anywhere" ? "Dictate anywhere" : "Pi Pocket",
-    ...(each.dropped === true ? ["dropped, not pasted"] : []),
-    ...(each.error !== undefined ? [`stopped: ${each.error}`] : []),
-  ].join(" · ");
-  about.classList.toggle("error", each.error !== undefined);
+  about.className = "recent-meta";
+  about.textContent = `${whenSaid(each.at)} · ${each.where === "anywhere" ? "Dictate anywhere" : "Pi Pocket"}`;
+
+  // What went wrong, as a tag like a speech model's: dropped with Esc, or stopped by an error.
+  if (each.error !== undefined || each.dropped === true) {
+    const tag = document.createElement("em");
+
+    tag.className = each.error !== undefined ? "error" : "dropped";
+    tag.textContent = each.error !== undefined ? "Stopped" : "Dropped";
+    tag.title =
+      each.error !== undefined
+        ? `Stopped: ${each.error}`
+        : "Dropped with Esc, not pasted";
+    about.append(" ", tag);
+  }
+
   text.append(words, about);
+
+  if (each.error !== undefined) {
+    const error = document.createElement("small");
+
+    error.className = "recent-error";
+    error.textContent = each.error;
+    text.append(error);
+  }
+
   copy.type = "button";
-  copy.className = "secondary";
-  copy.textContent = "Copy";
+  copy.className = "ghost icon-button";
+  copy.title = "Copy";
+  copy.setAttribute("aria-label", "Copy");
+  copy.append(icon("copy"));
   copy.addEventListener("click", () => {
     void navigator.clipboard.writeText(each.text).then(() => {
-      copy.textContent = "Copied";
+      copy.classList.add("done");
+      copy.title = "Copied";
+      copy.setAttribute("aria-label", "Copied");
+      copy.replaceChildren(icon("check"));
       window.setTimeout(() => {
-        copy.textContent = "Copy";
+        copy.classList.remove("done");
+        copy.title = "Copy";
+        copy.setAttribute("aria-label", "Copy");
+        copy.replaceChildren(icon("copy"));
       }, 1500);
     });
   });
@@ -1488,7 +1528,7 @@ function renderRecent(next: ConfigState): void {
 
   element("dictation-recent-summary").textContent =
     recent.length === 0 ? "· none yet" : `· ${String(recent.length)}`;
-  element("dictation-recent-actions").hidden = recent.length === 0;
+  element("dictation-recent-clear").hidden = recent.length === 0;
 
   if (shown === recentShown) return;
 
