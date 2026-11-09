@@ -200,6 +200,8 @@ Use **Runner** in the Desktop Settings sidebar, or the Runner tile on Home. A ru
 
 The app has the same runner as `pi-pocket runner` built in, and links the same way: the server cannot tell them apart.
 
+**Continue a Pi session:** the server can list Pi's session titles and folders here; seeing a session's last messages and model asks **Allow seeing a Pi session?**, with **Deny** as the default. Continuing it asks the normal new-session question.
+
 > [!WARNING]
 > A linked computer trusts its server fully. Sessions started on it run commands and change files as your user on that computer, with everything you can reach. Nothing runs in a sandbox. Link only to a server you trust. The **Runner** card says this next to **Link**.
 

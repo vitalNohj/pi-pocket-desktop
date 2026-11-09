@@ -31,7 +31,8 @@ export interface RunnerConfirmation {
     computer: string;
     person: string;
     folder: string;
-    kind: "new" | "fork" | "move";
+    kind: "new" | "fork" | "move" | "pi-preview";
+    title?: string;
     /** Older runners omit this: use the session-only warning rather than promise a saved folder. */
     broad?: boolean;
 }
@@ -617,7 +618,9 @@ function isConfirmation(value: { id: number }): value is RunnerConfirmation {
     const request = value as Partial<RunnerConfirmation>;
 
     return typeof request.server === "string" && typeof request.computer === "string" && typeof request.person === "string"
-        && typeof request.folder === "string" && (request.kind === "new" || request.kind === "fork" || request.kind === "move")
+        && typeof request.folder === "string" && (request.kind === "new" || request.kind === "fork" || request.kind === "move" || request.kind === "pi-preview")
+        && (request.kind !== "pi-preview" || typeof request.title === "string")
+        && (request.title === undefined || typeof request.title === "string")
         && (request.broad === undefined || typeof request.broad === "boolean");
 }
 

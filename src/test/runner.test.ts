@@ -225,6 +225,27 @@ test("the runner always gets --confirm-via stdio and replies with one JSON line 
     }
 });
 
+test("Pi preview confirmation lines preserve their kind and title", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const preview: RunnerConfirmation = { ...request, kind: "pi-preview", title: "Fix the cart" };
+    const runtime = fakeRuntime(home, { script: confirmLine(preview) });
+    const asked: RunnerConfirmation[] = [];
+    const runner = setUpRunner(host(home, {
+        runtime: () => runtime,
+        ask: async (value) => { asked.push(value); return false; },
+    }));
+
+    try {
+        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        await until(() => recorded(home, "answers.jsonl").length === 1, "preview answer");
+        assert.deepEqual(asked, [preview]);
+        assert.deepEqual(recorded(home, "answers.jsonl"), ['{"id":7,"allow":false}']);
+    } finally {
+        await runner.quit();
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
 test("questions wait for the previous answer, including forks and denials", async () => {
     const home = mkdtempSync(join(tmpdir(), "runner-"));
     const fork = { ...request, id: 8, kind: "fork" as const };
