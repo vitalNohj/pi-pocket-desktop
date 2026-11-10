@@ -18,12 +18,19 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
     let focused: unknown;
     const makeElement = () => ({
         value: "", textContent: "", hidden: false, disabled: false, checked: false, title: "", open: false,
-        className: "", type: "", children: [] as unknown[],
+        className: "", type: "", id: "", children: [] as unknown[],
+        /** Three lines (60 px) show; the words need a line (20 px) for every 80 characters. */
+        clientHeight: 60,
+        get scrollHeight(): number { return Math.ceil(String(this.textContent).length / 80) * 20; },
         dataset: {} as Record<string, string>,
+        attributes: {} as Record<string, string>,
+        classes: new Set<string>(),
         firstElementChild: { style: { width: "" } },
         style: { setProperty() {} },
-        classList: { toggle() {} },
-        scrollIntoView() {}, setAttribute() {}, removeAttribute() {}, focus() { focused = this; },
+        classList: { toggle(this: void, _name: string, _force?: boolean) {} },
+        scrollIntoView() {}, setAttribute(name: string, value: string) { this.attributes[name] = value; }, removeAttribute(name: string) { delete this.attributes[name]; },
+        getAttribute(name: string) { return this.attributes[name] ?? null; },
+        focus() { focused = this; },
         listeners: new Map<string, (event: { preventDefault(): void; stopPropagation(): void; key?: string; target?: unknown }) => void>(),
         addEventListener(name: string, listener: (event: { preventDefault(): void; stopPropagation(): void; key?: string; target?: unknown }) => void) { this.listeners.set(name, listener); },
         fire(name: string, key?: string, target?: unknown) {
@@ -31,13 +38,41 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
             this.listeners.get(name)?.({ preventDefault() { prevented = true; }, stopPropagation() {}, ...(key === undefined ? {} : { key }), target });
             return prevented;
         },
-        querySelectorAll: () => [],
-        contains() { return false; },
+        /** Only "button" is understood: the buttons inside, at any depth. */
+        querySelectorAll(selector: string): unknown[] {
+            if (selector !== "button") return [];
+            const found: unknown[] = [];
+            const walk = (node: { type?: string; children?: unknown[] }) => {
+                for (const child of (node.children ?? []) as { type?: string; children?: unknown[] }[]) {
+                    if (child.type === "button") found.push(child);
+                    walk(child);
+                }
+            };
+            walk(this);
+            return found;
+        },
+        contains(other: unknown): boolean {
+            return (this.children as { contains?: (o: unknown) => boolean }[]).some((child) => child === other || child.contains?.(other) === true);
+        },
         append(...children: unknown[]) { this.children.push(...children); },
-        replaceChildren() { this.children = []; },
+        replaceChildren(...children: unknown[]) { this.children = children; },
     });
+    /** Elements with a classList that keeps its classes, so tests can read them. */
+    const withClasses = () => {
+        const node = makeElement();
+        node.classList = {
+            toggle(name: string, force?: boolean) {
+                const on = force ?? !node.classes.has(name);
+                if (on) node.classes.add(name); else node.classes.delete(name);
+            },
+        };
+        return node;
+    };
+    const timers: { run: () => void; ms: number }[] = [];
+    const selection = { isCollapsed: true };
+    let trackFocus = false;
     const html = readFileSync(join(__dirname, "..", "renderer", "config", "index.html"), "utf8");
-    const nodes = new Map([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => [match[1]!, makeElement()]));
+    const nodes = new Map([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => [match[1]!, withClasses()]));
     const element = (id: string) => { const node = nodes.get(id); assert.ok(node, `Missing #${id}`); return node; };
     const radio = { ...makeElement(), value: "url", checked: true };
     // The one setting input the stub page renders: the dictation key, set by its buttons.
@@ -73,7 +108,13 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
     const folderActions: (string | undefined)[] = [];
     const authenticatorActions: string[] = [];
     const copies: string[] = [];
+    let recentClears = 0;
     const gui = {
+        clearRecentDictations: async () => {
+            recentClears++;
+            state = { ...state, dictation: { ...state.dictation, recent: [] } };
+            render(state);
+        },
         startAuthenticatorSetup: async () => {
             authenticatorActions.push("start");
             return { secret: "JBSWY3DPEHPK3PXP", link: "otpauth://totp/test?secret=JBSWY3DPEHPK3PXP", dataUrl: "data:image/png;base64,qr" };
@@ -128,9 +169,16 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
         URL,
         navigator: { clipboard: { writeText: async (text: string) => { copies.push(text); } } },
         HTMLInputElement: class {},
-        window: { gui, clearInterval() {}, setInterval() {}, clearTimeout() {}, setTimeout() {}, scrollTo() {}, addEventListener() {} },
+        window: {
+            gui, clearInterval() {}, setInterval() {}, clearTimeout() {}, scrollTo() {}, addEventListener() {},
+            setTimeout(run: () => void, ms: number) { timers.push({ run, ms }); return timers.length; },
+            getSelection: () => selection,
+        },
         document: {
-            documentElement: makeElement(), body: makeElement(), getElementById: (id: string) => element(id), createElement: makeElement,
+            documentElement: makeElement(), body: makeElement(), getElementById: (id: string) => element(id), createElement: withClasses,
+            createElementNS: makeElement,
+            // Off until a test asks: the stub has no tree, so code that checks where focus is would see it lost.
+            get activeElement() { return trackFocus ? focused : undefined; },
             querySelectorAll: (selector: string) => selector === 'input[name="mode"]' ? [radio, parts] : selector === 'input[name="where"]' ? [where.local, where.remote] : selector === "[data-key]" ? [keyInput] : [],
             querySelector: (selector: string) => selector.includes('name="mode"') ? radio : selector.includes("translucent") ? translucent : opacity,
         },
@@ -138,7 +186,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
     await flush();
 
     return {
-        element, connections, views, folderActions, authenticatorActions, copies, settingsOpened: () => settingsOpened, focused: () => focused,
+        element, connections, views, folderActions, authenticatorActions, copies, timers, selection, recentClears: () => recentClears, trackFocus: () => { trackFocus = true; }, settingsOpened: () => settingsOpened, focused: () => focused,
         focus: async (section: string) => { focus(section); await flush(); },
         push: async (patch: Partial<ConfigState>, drop: (keyof ConfigState)[] = []) => {
             state = { ...state, ...patch };
@@ -280,25 +328,215 @@ test("a dropped connection shows Disconnected with its reason, an error on the c
     assert.equal(screen.element("connect").disabled, false, "Connect works as before");
 });
 
+type Node = { textContent: string; children: Node[]; type: string; className: string; title: string; disabled: boolean; hidden: boolean; dataset: Record<string, string>; classes: Set<string>; attributes: Record<string, string>; fire(name: string): boolean };
+
+/** The first node under this one (itself included) whose class list has this class. */
+function find(node: Node, className: string): Node | undefined {
+    if (node.className.split(" ").includes(className)) return node;
+    for (const child of node.children ?? []) {
+        if (typeof child !== "object" || child === null) continue;
+        const found = find(child, className);
+        if (found !== undefined) return found;
+    }
+    return undefined;
+}
+
+/** Every text under this node, in order, as a person (or screen reader) reads it. */
+function text(node: Node | string): string {
+    if (typeof node === "string") return node;
+    return node.children.length === 0 ? node.textContent : node.children.map(text).join("");
+}
+
+const linked = (folders?: string[], extra: Partial<ConfigState["runner"]> = {}): Partial<ConfigState> => ({
+    runner: { status: "connected", enabled: true, available: true, log: [], ...(folders === undefined ? {} : { folders }), link: { server: url, id: "id", name: "Computer" }, ...extra },
+});
+
 test("the Runner card reads allowed folders when the screen loads, renders paths as text, and removes one", async () => {
     const folder = "/home/person/<project>";
-    const screen = await page(async () => found, {
-        runner: { status: "connected", enabled: true, available: true, log: [], folders: [folder], link: { server: url, id: "id", name: "Computer" } },
-    });
+    const screen = await page(async () => found, linked([folder]));
 
     await flush();
     assert.deepEqual(screen.folderActions, [undefined]);
-    const row = screen.element("runner-folders").children[0] as ReturnType<typeof screen.element>;
-    const [name, remove] = row.children as ReturnType<typeof screen.element>[];
+    const row = screen.element("runner-folders").children[0] as Node;
+    const remove = find(row, "danger")!;
 
-    assert.equal(name!.textContent, folder);
-    assert.equal(remove!.textContent, "Remove");
-    remove!.fire("click");
+    assert.equal(find(row, "folder-text")!.children[0]!.textContent, "<project>", "the folder's own name, as text");
+    assert.equal(text(find(row, "folder-text")!.children[1]!), folder, "its full path under it, whole");
+    assert.equal(find(row, "folder-text")!.children[1]!.title, folder);
+    assert.equal(remove.textContent, "Remove");
+    assert.equal(remove.attributes["aria-label"], `Remove allowed folder ${folder}`);
+    remove.fire("click");
     await flush();
     assert.deepEqual(screen.folderActions, [undefined, folder]);
-    const empty = screen.element("runner-folders").children[0] as ReturnType<typeof screen.element>;
+    assert.equal(screen.element("runner-folders").hidden, true);
+    assert.equal(screen.element("runner-folders-empty").hidden, false);
+    assert.equal(screen.element("runner-folders-empty").textContent, "No allowed folders yet. A folder is added when you allow a session in it.");
+    assert.equal(screen.element("runner-folders-count").hidden, true, "no count while none are allowed");
+    assert.equal(screen.focused(), screen.element("runner-folders-toggle"), "with the last one removed, focus goes to the panel's title");
+});
 
-    assert.equal(empty.textContent, "No allowed folders yet. A folder is added when you allow a session in it.");
+test("allowed folders: a count at a glance, open with a few, folded with many, and the person's choice holds", async () => {
+    const few = ["/a/one", "C:\\Users\\Person\\two", "/a/three"];
+    const many = Array.from({ length: 12 }, (_, index) => `/Users/person/Projects/project-${String(index)}`);
+    const screen = await page(async () => found, linked());
+    const section = screen.element("runner-folders-section");
+
+    assert.equal(screen.element("runner-folders-empty").textContent, "Loading allowed folders…");
+    assert.equal(screen.element("runner-folders-count").hidden, true);
+    await screen.push(linked(few));
+    assert.equal(screen.element("runner-folders-count").hidden, false);
+    assert.equal(screen.element("runner-folders-count").textContent, "3");
+    assert.equal(section.open, true, "a few folders show at once");
+    assert.deepEqual((screen.element("runner-folders").children as Node[]).map((item) => find(item, "folder-text")!.children[0]!.textContent), ["one", "two", "three"]);
+    await screen.push(linked(many));
+    assert.equal(screen.element("runner-folders-count").textContent, "12");
+    assert.equal(section.open, false, "many folders fold to the title and its count");
+    // The person opens it: it stays open, also when the list grows.
+    section.open = true;
+    screen.element("runner-folders-toggle").fire("click");
+    await screen.push(linked([...many, "/one/more"]));
+    assert.equal(section.open, true);
+    assert.equal(screen.element("runner-folders-count").textContent, "13");
+    await screen.push({}, []);
+    assert.equal(screen.element("runner-folders").children.length, 13);
+});
+
+test("allowed folders: the list is not redrawn while it stays the same, Remove follows busy, and an error shows", async () => {
+    const folders = ["/a/one", "/a/two", "/a/three"];
+    const screen = await page(async () => found, linked(folders));
+    const first = screen.element("runner-folders").children[0];
+
+    await screen.push(linked([...folders], { busy: "Linking…" }));
+    assert.equal(screen.element("runner-folders").children[0], first, "the same list is kept, with its scroll and focus");
+    assert.equal(find(first as Node, "danger")!.disabled, true, "Remove waits while the runner is busy");
+    await screen.push(linked([...folders]));
+    assert.equal(find(first as Node, "danger")!.disabled, false);
+    // Remove the second: focus goes on to the folder now at its place.
+    find((screen.element("runner-folders").children[1] as Node), "danger")!.fire("click");
+    await flush();
+    assert.deepEqual(screen.folderActions, [undefined, "/a/two"]);
+    await screen.push(linked(["/a/one", "/a/three"]));
+    assert.equal(screen.focused(), find(screen.element("runner-folders").children[1] as Node, "danger"));
+    await screen.push(linked(undefined, { foldersError: "Could not read allowed folders: no runner" }));
+    assert.equal(screen.element("runner-folders-error").hidden, false);
+    assert.equal(screen.element("runner-folders-error").textContent, "Could not read allowed folders: no runner");
+    assert.equal(screen.element("runner-folders-empty").textContent, "Allowed folders are unavailable.");
+});
+
+const NOW = Date.now();
+const recentSamples: ConfigState["dictation"]["recent"] = [
+    { id: 4, text: "Ship it.", at: NOW, where: "pi-pocket" },
+    { id: 3, text: "word ".repeat(80).trim(), at: NOW - 1000, where: "anywhere" },
+    { id: 2, text: "Delete the old screenshots", at: NOW - 2000, where: "anywhere", dropped: true },
+    { id: 1, text: "Rename the section to", at: NOW - 3000, where: "pi-pocket", error: "The speech model stopped (code 9)" },
+];
+const withRecent = (recent: ConfigState["dictation"]["recent"]): Partial<ConfigState> => ({
+    dictation: { supported: true, status: "idle", engine: { installed: false, size: 11e6 }, folder: "/test/dictation", models: [], downloading: false, recent },
+});
+
+test("recent dictations: an empty panel says none yet; with some, a count, Clear, and one card each", async () => {
+    const screen = await page(async () => found);
+
+    assert.equal(screen.element("dictation-recent-empty").hidden, false);
+    assert.match(readFileSync(join(__dirname, "..", "renderer", "config", "index.html"), "utf8"), /id="dictation-recent-empty"[^>]*>None yet\. What you dictate shows here\.</);
+    assert.equal(screen.element("dictation-recent-count").hidden, true);
+    assert.equal(screen.element("dictation-recent-clear").hidden, true);
+    assert.equal(screen.element("dictation-recent").hidden, true);
+    await screen.push(withRecent(recentSamples));
+    assert.equal(screen.element("dictation-recent-empty").hidden, true);
+    assert.equal(screen.element("dictation-recent-count").hidden, false);
+    assert.equal(screen.element("dictation-recent-count").textContent, "4");
+    assert.equal(screen.element("dictation-recent-clear").hidden, false);
+    const items = screen.element("dictation-recent").children as Node[];
+    assert.equal(items.length, 4, "newest first, as the app keeps them");
+    assert.deepEqual(items.map((item) => find(item, "recent-text")!.textContent), recentSamples.map((each) => each.text));
+    assert.match(text(find(items[0]!, "recent-meta")!), / · Pi Pocket$/);
+    assert.match(text(find(items[1]!, "recent-meta")!), / · Dictate anywhere$/);
+});
+
+test("recent dictations: Dropped and Stopped show as pills with their reasons, and a stopped one its error", async () => {
+    const screen = await page(async () => found, withRecent(recentSamples));
+    const items = screen.element("dictation-recent").children as Node[];
+    const dropped = find(items[2]!, "recent-tag")!;
+    const stopped = find(items[3]!, "recent-tag")!;
+
+    assert.equal(find(items[0]!, "recent-tag"), undefined);
+    assert.equal(dropped.textContent, "Dropped");
+    assert.equal(dropped.title, "Dropped with Esc, not pasted");
+    assert.equal(dropped.dataset.state, "other");
+    assert.equal(items[2]!.dataset.state, "dropped");
+    assert.equal(stopped.textContent, "Stopped");
+    assert.equal(stopped.title, "Stopped: The speech model stopped (code 9)");
+    assert.equal(stopped.dataset.state, "not-detected");
+    assert.equal(find(items[3]!, "recent-error")!.textContent, "The speech model stopped (code 9)");
+    assert.equal(find(items[2]!, "recent-error"), undefined);
+});
+
+test("recent dictations: long words fold, Show all or a click opens them, and a selection is no click", async () => {
+    const screen = await page(async () => found, withRecent(recentSamples));
+    const items = screen.element("dictation-recent").children as Node[];
+    const short = find(items[0]!, "recent-more")!;
+    const more = find(items[1]!, "recent-more")!;
+    const words = find(items[1]!, "recent-text")!;
+
+    assert.equal(short.hidden, true, "short words need no Show all");
+    assert.equal(more.hidden, false);
+    assert.equal(more.textContent, "Show all");
+    assert.equal(more.attributes["aria-expanded"], "false");
+    assert.equal(more.attributes["aria-controls"], "dictation-recent-3-text");
+    more.fire("click");
+    assert.equal(words.classes.has("open"), true);
+    assert.equal(more.textContent, "Show less");
+    assert.equal(more.attributes["aria-expanded"], "true");
+    screen.selection.isCollapsed = false;
+    words.fire("click");
+    assert.equal(words.classes.has("open"), true, "selecting some words does not fold them");
+    screen.selection.isCollapsed = true;
+    words.fire("click");
+    assert.equal(words.classes.has("open"), false);
+    find(items[0]!, "recent-text")!.fire("click");
+    assert.equal(find(items[0]!, "recent-text")!.classes.has("open"), false, "short words do not open");
+    // An opened one stays open through a state push with the same dictations.
+    more.fire("click");
+    await screen.push(withRecent(recentSamples.map((each) => ({ ...each }))));
+    assert.equal(screen.element("dictation-recent").children[1], items[1]);
+    assert.equal(words.classes.has("open"), true);
+});
+
+test("recent dictations: Copy copies the exact words, says Copied for 1.5 s, and tells a screen reader", async () => {
+    const screen = await page(async () => found, withRecent(recentSamples));
+    const item = (screen.element("dictation-recent").children as Node[])[1]!;
+    const copy = find(item, "recent-copy")!;
+
+    assert.equal(text(copy), "Copy");
+    assert.equal(copy.attributes["aria-describedby"], "dictation-recent-3-meta", "Copy says which dictation it copies");
+    copy.fire("click");
+    await flush();
+    assert.deepEqual(screen.copies, [recentSamples[1]!.text]);
+    assert.equal(text(copy), "Copied");
+    assert.equal(copy.classes.has("done"), true);
+    assert.equal(screen.element("dictation-recent-status").textContent, "Copied.");
+    // A state push with the same ids keeps the Copied state.
+    await screen.push(withRecent(recentSamples.map((each) => ({ ...each }))));
+    assert.equal(text(copy), "Copied");
+    for (const timer of screen.timers.filter((each) => each.ms === 1500)) timer.run();
+    assert.equal(text(copy), "Copy");
+    assert.equal(copy.classes.has("done"), false);
+    assert.equal(screen.element("dictation-recent-status").textContent, "");
+});
+
+test("recent dictations: Clear empties the panel and keeps focus in it", async () => {
+    const screen = await page(async () => found, withRecent(recentSamples));
+
+    screen.trackFocus();
+    screen.element("dictation-recent-clear").focus();
+    await screen.click("dictation-recent-clear");
+    assert.equal(screen.recentClears(), 1);
+    assert.equal(screen.element("dictation-recent").hidden, true);
+    assert.equal(screen.element("dictation-recent-empty").hidden, false);
+    assert.equal(screen.element("dictation-recent-clear").hidden, true);
+    assert.equal(screen.focused(), screen.element("dictation-recent-empty"));
+    assert.equal(screen.element("dictation-recent-status").textContent, "Cleared.");
 });
 
 test("the authenticator row is linked-only, explains availability, and shows lockout time", async () => {

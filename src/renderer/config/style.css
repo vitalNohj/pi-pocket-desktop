@@ -1310,19 +1310,21 @@ details.log pre {
 }
 
 /* Dictation: the speech models, each with its download, use, and remove. */
-#dictation-models-toggle > span,
-#dictation-recent-section > summary > span {
+#dictation-models-toggle > span {
     display: block;
 }
 
-#dictation-models-summary,
-#dictation-recent-summary {
+#dictation-models-summary {
     white-space: nowrap;
 }
 
 .models {
     display: grid;
     max-height: 370px;
+}
+
+.models,
+.scroll-list {
     margin-right: -10px;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -1330,34 +1332,40 @@ details.log pre {
     scrollbar-color: var(--muted) transparent;
 }
 
-.models.has-more {
+.models.has-more,
+.scroll-list.has-more {
     mask-image: linear-gradient(to bottom, black calc(100% - 22px), transparent);
 }
 
 /* Chromium gives scrollbar-width precedence over its arrow-free scrollbar rules. */
 @supports selector(::-webkit-scrollbar) {
-    .models {
+    .models,
+    .scroll-list {
         scrollbar-width: auto;
         scrollbar-color: auto;
     }
 }
 
-.models::-webkit-scrollbar {
+.models::-webkit-scrollbar,
+.scroll-list::-webkit-scrollbar {
     width: 10px;
 }
 
-.models::-webkit-scrollbar-thumb {
+.models::-webkit-scrollbar-thumb,
+.scroll-list::-webkit-scrollbar-thumb {
     border: 3px solid transparent;
     border-radius: 999px;
     background: var(--muted);
     background-clip: padding-box;
 }
 
-.models::-webkit-scrollbar-track {
+.models::-webkit-scrollbar-track,
+.scroll-list::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.models::-webkit-scrollbar-button {
+.models::-webkit-scrollbar-button,
+.scroll-list::-webkit-scrollbar-button {
     display: none;
     width: 0;
     height: 0;
@@ -1401,79 +1409,6 @@ details.log pre {
     padding: 4px 0 12px 20px;
 }
 
-/* Recent dictations: the note with Clear beside it, then each dictation as a light row like a speech model's: the
- * words (folded to three lines until clicked), when and where below them, and a small copy button. */
-.recent-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding-bottom: 8px;
-}
-
-.recent-head .row-note {
-    padding: 0;
-}
-
-.recent-head button {
-    flex: none;
-}
-
-.recent {
-    display: grid;
-    padding-bottom: 8px;
-}
-
-.recent-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-    padding: 12px 0;
-    border-top: 1px solid var(--hair);
-}
-
-.recent-body {
-    display: grid;
-    flex: 1;
-    min-width: 0;
-    gap: 4px;
-}
-
-.recent-meta {
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 16px;
-}
-
-/* Tags on a dictation: "Dropped", "Stopped". Drawn as a speech model's tags. */
-.recent-meta em {
-    margin-left: 4px;
-    padding: 1px 8px;
-    border: 1px solid var(--hair);
-    border-radius: 999px;
-    font-size: 12px;
-    line-height: 16px;
-    font-style: normal;
-    font-weight: 500;
-}
-
-.recent-meta em.dropped {
-    border-color: color-mix(in srgb, var(--warn) 45%, transparent);
-    color: var(--warn);
-}
-
-.recent-meta em.error {
-    border-color: color-mix(in srgb, var(--err) 45%, transparent);
-    color: var(--err);
-}
-
-.recent-error {
-    color: var(--err);
-    font-size: 12px;
-    line-height: 16px;
-    overflow-wrap: anywhere;
-}
-
 button.icon-button {
     flex: none;
     width: 32px;
@@ -1493,27 +1428,6 @@ button.icon-button.done {
     color: var(--ok);
 }
 
-.recent-text {
-    margin: 0;
-    color: var(--text);
-    font-size: 14px;
-    line-height: 20px;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    user-select: text;
-    cursor: pointer;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-    overflow: hidden;
-}
-
-.recent-text.open {
-    display: block;
-    cursor: text;
-}
-
 /* A long command scrolls in its own box rather than widening the card. */
 .rows > *,
 .rows .steps li {
@@ -1524,10 +1438,10 @@ button.icon-button.done {
     overflow-wrap: anywhere;
 }
 
-/* The authenticator: a row with its state as a pill (On, Off, Locked), and under it, while one is open, a panel set
- * in from the card. Setup is two numbered steps (scan or type the key, then enter the code); turning off is one short
- * confirmation. Its controls are the card's own small size (36 px), as the row's buttons. */
-.authenticator-panel {
+/* A panel set in from its card: the authenticator's setup, Recent dictations, Allowed folders. A title (with a count or
+ * state pill beside it), a short muted text, and its items as small cards. Controls are the card's own small size
+ * (36 px), as the rows' buttons. */
+.inset-panel {
     display: grid;
     gap: 16px;
     margin: 0 0 16px;
@@ -1542,17 +1456,76 @@ button.icon-button.done {
     border-color: color-mix(in srgb, var(--err) 35%, transparent);
 }
 
-.authenticator-title {
+.inset-title {
     color: var(--text);
     font-size: 14px;
     line-height: 20px;
     font-weight: 600;
 }
 
-.authenticator-text {
+.inset-text,
+.inset-empty {
     color: var(--muted);
     font-size: 14px;
     line-height: 20px;
+}
+
+/* Its title row: the title with its count, the short text under it, and the panel's own button (Clear) at the right. */
+.inset-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px 16px;
+}
+
+.inset-head-text {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.inset-head > button {
+    flex: none;
+}
+
+/* A count beside a title: a pill without the state dot. */
+.pill.count {
+    padding: 2px 8px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.pill.count::before {
+    display: none;
+}
+
+/* Nothing to list yet: a dashed slot where the items go. */
+.inset-empty {
+    padding: 16px;
+    border: 1px dashed var(--hair-2);
+    border-radius: var(--radius-lg);
+    text-align: center;
+}
+
+.inset-empty:focus {
+    outline: none;
+}
+
+.inset-list {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* One item as a small card in the panel. */
+.inset-item {
+    min-width: 0;
+    padding: 12px 16px;
+    border: 1px solid var(--hair);
+    border-radius: var(--radius-lg);
+    background: color-mix(in srgb, var(--body) 4%, transparent);
 }
 
 .authenticator-loading {
@@ -1562,7 +1535,7 @@ button.icon-button.done {
     gap: 8px 16px;
 }
 
-.authenticator-panel > .authenticator-text {
+.inset-panel > .inset-text {
     margin-top: -8px;
 }
 
@@ -1686,7 +1659,7 @@ input#runner-authenticator-code[aria-invalid="true"] {
     border-color: var(--err);
 }
 
-.authenticator-error {
+.inset-error {
     color: var(--err);
     font-size: 14px;
     line-height: 20px;
@@ -1695,8 +1668,213 @@ input#runner-authenticator-code[aria-invalid="true"] {
 }
 
 @container (max-width: 520px) {
-    .authenticator-panel {
+    .inset-panel {
         padding: 16px;
+    }
+}
+
+/* Recent dictations: each a small card with when and where (and a Dropped or Stopped pill) over its words, Copy at its
+ * top right. Long words fold to three lines, with Show all under them; a stopped one ends with its error. */
+.recent-item {
+    display: grid;
+    gap: 8px;
+}
+
+.recent-item[data-state="dropped"] {
+    border-color: color-mix(in srgb, var(--warn) 30%, transparent);
+}
+
+.recent-item[data-state="stopped"] {
+    border-color: color-mix(in srgb, var(--err) 30%, transparent);
+}
+
+.recent-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    min-height: 36px;
+}
+
+.recent-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    min-width: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 16px;
+}
+
+.recent-meta > span:first-child > span {
+    white-space: nowrap;
+}
+
+.pill.recent-tag {
+    gap: 6px;
+    padding: 2px 8px;
+    font-weight: 500;
+}
+
+.pill.recent-tag::before {
+    width: 6px;
+    height: 6px;
+}
+
+.pill.recent-tag[data-state="other"] {
+    border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+    color: var(--warn);
+}
+
+.pill.recent-tag[data-state="not-detected"] {
+    border-color: color-mix(in srgb, var(--err) 45%, transparent);
+    color: var(--err);
+}
+
+button.recent-copy {
+    flex: none;
+    gap: 6px;
+    padding-inline: 10px 12px;
+}
+
+button.recent-copy.done {
+    color: var(--ok);
+}
+
+.recent-text {
+    margin: 0;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 20px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    user-select: text;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+}
+
+.recent-item:has(.recent-more:not([hidden])) .recent-text:not(.open) {
+    cursor: pointer;
+}
+
+.recent-text.open {
+    display: block;
+}
+
+/* Show all, Show less: a quiet text button under the words. */
+button.recent-more {
+    justify-self: start;
+    min-height: 0;
+    margin-top: -4px;
+    padding: 0;
+    border-radius: 4px;
+    color: var(--accent);
+    font-size: 13px;
+    line-height: 20px;
+    font-weight: 500;
+}
+
+button.recent-more:hover {
+    text-decoration: underline;
+}
+
+.recent-error {
+    padding-top: 8px;
+    border-top: 1px solid var(--hair);
+    color: var(--err);
+    font-size: 13px;
+    line-height: 18px;
+    overflow-wrap: anywhere;
+}
+
+/* Allowed folders: a panel that folds to its title and count, as the list can grow long. Each folder is a small card with
+ * its own name over its full path (wrapped, never cut), and Remove. A long list scrolls in the panel. */
+details.folders-panel {
+    display: block;
+}
+
+.folders-panel > summary {
+    min-height: 0;
+    padding: 0;
+    border-radius: var(--radius-lg);
+}
+
+.folders-panel:not([open]) {
+    padding-bottom: 16px;
+}
+
+.folders-panel > .inset-body {
+    display: grid;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+#runner-folders {
+    max-height: 392px;
+    padding-right: 10px;
+}
+
+.folder-item {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+}
+
+.folder-item > svg {
+    color: var(--muted);
+}
+
+.folder-text {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.folder-text strong {
+    color: var(--text);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+}
+
+.folder-text code {
+    color: var(--muted);
+    font: 12px/16px var(--mono);
+    overflow-wrap: anywhere;
+}
+
+.folder-text strong {
+    align-self: center;
+}
+
+/* Narrow: no icon; the name with Remove beside it, and the path under both, on the card's whole width. */
+@container (max-width: 520px) {
+    .folder-item {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 4px 12px;
+    }
+
+    .folder-item > svg {
+        display: none;
+    }
+
+    .folder-text {
+        display: contents;
+    }
+
+    .folder-text code {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    .inset-item {
+        padding: 12px;
     }
 }
 
