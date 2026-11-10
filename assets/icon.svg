@@ -1,9 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
 	<!--
-		Pi Pocket's icon (Pi Pocket's web/icon.svg), with nothing outside the frame: the desktop app's icon is the
-		rounded frame alone, so a taskbar or dock shows its corners rounded rather than a dark square around it.
-		icon-512.png and icon-192.png are Pi Pocket's PNGs with the same cut (a rounded rectangle at 35, 442 wide,
-		corner 80, just inside the frame's outer edge), so the π keeps the font it was drawn in.
+		Pi Pocket's icon (Pi Pocket's web/icon.svg) on a rounded tile: the dark frame keeps its place around the card,
+		and its outer edge is a continuous-corner rounded square, the shape of a macOS app icon (radius 22.5%, smoothing
+		0.6). The card's corners (75) follow the tile's, as Pi Pocket drew them to follow Apple's mask. The π is
+		Gelasio's (Georgia's metrics) as an outline, so every renderer draws the same glyph. scripts/icons.mjs renders
+		the PNGs from this file, with each system's margin around the tile.
 	-->
 	<defs>
 		<linearGradient id="active" x1="0" y1="1" x2="1" y2="0">
@@ -11,6 +12,7 @@
 			<stop offset="1" stop-color="#00ff99" />
 		</linearGradient>
 	</defs>
+	<path fill="#13141c" d="M 327.68 0 c 64.52 0 96.78 0 121.42 12.56 a 115.2 115.2 0 0 1 50.34 50.34 c 12.56 24.64 12.56 56.9 12.56 121.42 L 512 327.68 c 0 64.52 0 96.78 -12.56 121.42 a 115.2 115.2 0 0 1 -50.34 50.34 c -24.64 12.56 -56.9 12.56 -121.42 12.56 L 184.32 512 c -64.52 0 -96.78 0 -121.42 -12.56 a 115.2 115.2 0 0 1 -50.34 -50.34 c -12.56 -24.64 -12.56 -56.9 -12.56 -121.42 L 0 184.32 c 0 -64.52 0 -96.78 12.56 -121.42 a 115.2 115.2 0 0 1 50.34 -50.34 c 24.64 -12.56 56.9 -12.56 121.42 -12.56 Z" />
 	<rect x="40" y="40" width="432" height="432" rx="75" fill="#1a1b26" stroke="url(#active)" stroke-width="12" />
-	<text x="256" y="350" font-family="Georgia, 'Times New Roman', serif" font-size="280" text-anchor="middle" fill="#ff9e64">π</text>
+	<path fill="#ff9e64" d="M198.24 353.96Q194.68 353.96 190.79 350.34Q186.89 346.72 184.22 340.91Q181.56 335.10 181.56 328.81Q181.56 324.30 183.68 323.00Q185.79 321.70 189.62 321.70L211.50 321.70Q215.46 305.43 218.68 282.80Q221.89 260.18 224.21 235.98L213.96 235.98Q204.80 235.98 198.71 239.60Q192.63 243.22 190.31 248.28L180.19 243.36Q180.19 233.79 185.73 227.29Q191.26 220.80 200.42 217.38Q209.58 213.96 220.11 213.96L338.10 213.96L335.23 236.11L305.70 236.11L303.65 317.05Q303.51 326.48 306.52 331.13Q309.53 335.78 319.10 335.78Q322.65 335.78 325.73 334.69Q328.80 333.59 332.22 331.68Q333.86 330.86 335.64 334.55Q337.42 338.24 337.42 341.39Q337.42 343.57 336.60 344.39Q333.31 346.99 325.59 350.48Q317.87 353.96 303.65 353.96Q288.47 353.96 281.70 346.58Q274.94 339.20 274.94 325.39Q274.94 323.75 275.07 321.56Q275.21 319.38 275.82 314.52Q276.44 309.67 277.53 300.44Q278.63 291.21 280.61 275.63Q282.59 260.04 285.60 236.11L244.31 235.98L239.25 311.31Q238.84 316.50 237.13 323.75Q235.42 331.00 231.12 337.90Q226.81 344.80 218.88 349.38Q210.95 353.96 198.24 353.96Z" />
 </svg>
