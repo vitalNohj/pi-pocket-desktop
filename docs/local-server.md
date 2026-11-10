@@ -1,23 +1,26 @@
-# Pi Pocket on this computer (phase 1)
+# Pi Pocket on this computer
 
 The app can run Pi Pocket itself, on this computer, instead of opening a server that runs elsewhere. Nothing of Pi
 Pocket ships with the app: the app downloads it the first time it is needed, keeps it current, and runs it while the
-app runs.
+app runs. The same install also gives the app its [runner](runner.md).
 
-This is phase 1 of three:
+## Which Pi Pocket
 
-1. **Pi Pocket on this computer** (this document).
-2. **The runner** in Pi Pocket: a server executes a session's tools on another computer (see Pi Pocket's `docs/runners.md`).
-3. **The app as a runner:** the app offers this computer to a server it is connected to.
+The app installs the `live-0.28` branch of [vitalNohj/pi-pocket](https://github.com/vitalNohj/pi-pocket/tree/live-0.28)
+(`SOURCE` and `FORK` in `src/main/local-server/local-server.ts`), not the npm release. That branch is Pi Pocket 0.28
+with runners ([TannerMidd/pi-pocket#312](https://github.com/TannerMidd/pi-pocket/pull/312), not merged yet) and the
+app bridge's newer parts, such as the New session event. Once a Pi Pocket release has them, `SOURCE` goes back to
+`"npm"`; that path is kept as it is.
 
 ## What the person sees
 
-Settings → Connection offers two choices:
+Home in Desktop Settings offers two choices:
 
 - **This computer:** "Pi Pocket runs on this computer while the app runs." The first time, Install downloads it (about
   60 MB, about 400 MB on disk), then it starts and the app opens it, signed in as its owner. Settings: the folder new
   sessions start in, the port, who can connect (this computer only, the local network, Tailscale, or a Cloudflare
-  tunnel), and the data folder. A change takes a restart of Pi Pocket, which the card offers.
+  tunnel), and the data folder (under **Advanced**, with **Uninstall the server**). A change takes a restart of Pi
+  Pocket, which the card offers. The server log is below it.
 - **Another server:** the address of a Pi Pocket that runs elsewhere, as before.
 
 A Pi Pocket that already answers at the chosen port (one started from a terminal) is offered instead: **Open it**
@@ -53,8 +56,9 @@ Pocket an always-on server for a phone.
   or `.zip` (Windows), checked against nodejs.org's `SHASUMS256.txt`, unpacked with the system's `tar` (Windows 10 and
   later have one). Not Electron's Node: it has no npm, and Pi Pocket's own updater needs one beside the Node that runs
   it.
-- **Pi Pocket:** `npm install --global --prefix <runtime> pi-pocket@<latest>` with that Node's own npm, so the runtime is an ordinary
-  global install and Pi Pocket's own updater (Settings → Updates in Pi Pocket) works in it. npm checks each package
+- **Pi Pocket:** `npm install --global --prefix <runtime> <spec>` with that Node's own npm, where `<spec>` is the fork
+  branch's newest commit as a GitHub tarball (or `pi-pocket@<latest>` from npm), so the runtime is an ordinary global
+  install and Pi Pocket's own updater (Settings → Updates in Pi Pocket) works in it. npm checks each package
   against the registry's integrity hash. Install scripts are off (`--ignore-scripts`): Pi Pocket needs none.
 - **The runtime's npm stays its own:** Pi Pocket's updater runs the npm beside its Node and asks it for the global
   folder. On macOS and Linux `bin/npm` is a script that runs the first `node` on PATH (the person's, with another
@@ -99,7 +103,7 @@ The app starts Pi Pocket's launcher, the same command a person types, with the r
 - "Keep Pi Pocket up to date" (on by default) turns the app's checks on or off; Pi Pocket's own setting is separate.
   The checks follow Settings → Updates → How often.
 
-## Not in phase 1
+## Not done yet
 
 - A QR code or link for a phone in the app: Pi Pocket's own sharing does it once the server is reachable.
 - Updating while the app runs without a restart: a restart is the safe moment, as in Pi Pocket.

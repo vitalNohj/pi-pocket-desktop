@@ -216,15 +216,18 @@ server.on("upgrade", (request, socket, head) => {
 await new Promise<void>((done) => server.listen(port, host, done));
 
 const runners = app.runners === undefined ? [] : await demoRunners();
+/** A one-time code for the app's own runner (Desktop Settings → Runner), to link it as a third made-up computer. */
+const runnerCode = app.runners?.makeCode("Workstation", owner.id).code;
 
 /**
- * Two made-up computers: "Studio Mac", online, with saved folders, two approved sessions, and Sam allowed; "Build box",
- * linked but not connected. Each runner is this checkout's own `pi-pocket runner`, in-process, with its settings in
+ * Two made-up computers: "Studio", online, with saved folders, two approved sessions, Sam allowed, and an
+ * authenticator set up; "Build box", linked but not connected. Each runner is this checkout's own `pi-pocket runner`, in-process, with its settings in
  * memory and its folders under $HOME.
  */
 async function demoRunners(): Promise<{ stop(): Promise<void> }[]> {
     const { Runner } = await load("src/runner/runner.ts");
-    const studio = app.runners.redeem(app.runners.makeCode("Studio Mac", owner.id).code);
+    const { newSecret } = await load("src/runner/totp.ts");
+    const studio = app.runners.redeem(app.runners.makeCode("Studio", owner.id).code);
 
     app.runners.redeem(app.runners.makeCode("Build box", owner.id).code);
     app.config.setRunnerUsers(studio.id, [sam.id]);
@@ -236,7 +239,7 @@ async function demoRunners(): Promise<{ stop(): Promise<void> }[]> {
         mkdirSync(folder, { recursive: true });
     }
 
-    const settings: Record<string, unknown> = { confirm: false, folders, network: true, totpDays: 7 };
+    const settings: Record<string, unknown> = { confirm: false, folders, network: true, totpDays: 7, totp: { secret: newSecret() } };
     const runner = new Runner({
         link: { server: `http://${host}:${port}`, ...studio },
         version: "0.28.0",
@@ -268,6 +271,7 @@ console.log(
         login: `http://${host}:${port}/login?token=${encodeURIComponent(app.config.ownerToken)}`,
         base: `http://${host}:${port}`,
         sessions: made,
+        ...(runnerCode === undefined ? {} : { runnerCode }),
     }),
 );
 

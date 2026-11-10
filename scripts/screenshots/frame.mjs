@@ -8,6 +8,8 @@ import { pathToFileURL } from "node:url";
 
 const [raw, out] = process.argv.slice(2).map((each) => resolve(each));
 const chrome = process.env.CHROME ?? "chromium";
+// FRAME_PORT: the headless Chromium's DevTools port, when 9335 is taken.
+const port = process.env.FRAME_PORT ?? "9335";
 const page = pathToFileURL(resolve(import.meta.dirname, "frame.html")).href;
 const WALLPAPER = "radial-gradient(circle at 20% 15%, #f7a072 0, transparent 45%), radial-gradient(circle at 85% 30%, #7aa2f7 0, transparent 50%), radial-gradient(circle at 50% 100%, #bb9af7 0, transparent 55%), #1a1b26";
 const GROUND = "linear-gradient(140deg, #24283b 0%, #3b4261 55%, #565f89 100%)";
@@ -19,6 +21,8 @@ const all = [
     { name: "light", shot: "mac-light.png", style: "mac", ground: LIGHT },
     { name: "windows", shot: "win-solid.png", style: "win", ground: GROUND },
     { name: "settings", shot: "settings.png", style: "mac", ground: GROUND },
+    { name: "runner", shot: "runner-card.png", style: "mac", ground: GROUND },
+    { name: "runners", shot: "mac-runners.png", style: "mac", ground: GROUND },
     { name: "linux", shot: "linux-solid.png", style: "win", ground: GROUND, controls: "113" },
     { name: "linux-menu", shot: "linux-menu.png", style: "win", ground: GROUND, controls: "113" },
     { name: "linux-people", shot: "linux-people.png", style: "win", ground: GROUND, controls: "113" },
@@ -40,7 +44,7 @@ const shots = only === undefined ? all : all.filter((each) => only.includes(each
 const profile = mkdtempSync(join(tmpdir(), "frame-"));
 const browser = spawn(chrome, [
     "--headless=new",
-    "--remote-debugging-port=9335",
+    `--remote-debugging-port=${port}`,
     `--user-data-dir=${profile}`,
     "--allow-file-access-from-files",
     
@@ -52,7 +56,7 @@ let targets;
 
 for (let tries = 0; tries < 50 && targets === undefined; tries++) {
     await new Promise((done) => setTimeout(done, 200));
-    targets = await fetch("http://127.0.0.1:9335/json/list").then((response) => response.json(), () => undefined);
+    targets = await fetch(`http://127.0.0.1:${port}/json/list`).then((response) => response.json(), () => undefined);
 }
 
 const socket = new WebSocket(targets.find((each) => each.type === "page").webSocketDebuggerUrl);
