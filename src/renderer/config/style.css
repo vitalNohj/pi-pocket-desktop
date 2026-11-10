@@ -1538,10 +1538,6 @@ button.icon-button.done {
     animation: enter 300ms var(--ease);
 }
 
-.authenticator-panel:focus {
-    outline: none;
-}
-
 .authenticator-panel[data-mode="off"] {
     border-color: color-mix(in srgb, var(--err) 35%, transparent);
 }
@@ -1557,6 +1553,13 @@ button.icon-button.done {
     color: var(--muted);
     font-size: 14px;
     line-height: 20px;
+}
+
+.authenticator-loading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
 }
 
 .authenticator-panel > .authenticator-text {

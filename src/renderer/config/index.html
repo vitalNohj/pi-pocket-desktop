@@ -246,9 +246,9 @@
                     <label class="row" id="runner-confirm-row"><span><strong>Ask before new sessions</strong><small>Shows who wants to start a session and in which folder. Off: sessions start without asking.</small></span><input type="checkbox" data-key="runner.confirmSessions" /></label>
                     <label class="row" id="runner-http-row"><span><strong>Allow plain HTTP</strong><small>The runner uses HTTPS, or plain HTTP only to this computer or a device on your tailnet. Turn on only for a server on a network you trust.</small></span><input type="checkbox" data-key="runner.allowHttp" /></label>
                     <div class="row" id="runner-authenticator-row" hidden><span><span class="title-row"><strong>Authenticator</strong><span class="pill" id="runner-authenticator-state" hidden></span></span><small id="runner-authenticator-detail">Checking the authenticator…</small></span><button type="button" class="secondary" id="runner-authenticator-action" aria-expanded="false" aria-controls="runner-authenticator-panel" hidden>Set up</button></div>
-                    <div id="runner-authenticator-panel" class="authenticator-panel" role="group" aria-labelledby="runner-authenticator-title" tabindex="-1" hidden>
+                    <div id="runner-authenticator-panel" class="authenticator-panel" role="group" aria-labelledby="runner-authenticator-title" hidden>
                         <p class="authenticator-title" id="runner-authenticator-title">Set up an authenticator</p>
-                        <p class="authenticator-text" id="runner-authenticator-loading" hidden>Making a new key…</p>
+                        <div class="authenticator-loading" id="runner-authenticator-loading" hidden><span class="authenticator-text" role="status">Making a new key…</span><button type="button" class="ghost small" id="runner-authenticator-stop">Cancel</button></div>
                         <div class="authenticator-step" id="runner-authenticator-setup" hidden>
                             <span class="authenticator-number">1</span>
                             <div class="authenticator-step-body">

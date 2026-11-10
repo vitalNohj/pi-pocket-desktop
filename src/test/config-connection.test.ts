@@ -389,6 +389,19 @@ test("authenticator turn-off shows inline errors; Escape cancels and a right cod
     assert.deepEqual(screen.authenticatorActions, ["off:000000", "cancel", "off:123456"]);
 });
 
+test("authenticator setup can be cancelled while the runner makes its key", async () => {
+    const screen = await page(async () => found, { runner: { status: "connected", enabled: true, available: true, log: [], link: { server: url, id: "id", name: "Computer" }, authenticator: { set: false, locked: false } } });
+    screen.element("runner-authenticator-action").fire("click");
+    assert.equal(screen.element("runner-authenticator-loading").hidden, false);
+    assert.equal(screen.element("runner-authenticator-action").hidden, true);
+    assert.equal(screen.focused(), screen.element("runner-authenticator-stop"), "the loading line's Cancel holds focus");
+    await screen.click("runner-authenticator-stop");
+    assert.equal(screen.element("runner-authenticator-panel").hidden, true);
+    assert.equal(screen.element("runner-authenticator-secret").children.length, 0, "a key that arrives after Cancel is not shown");
+    assert.equal(screen.focused(), screen.element("runner-authenticator-action"));
+    assert.deepEqual(screen.authenticatorActions, ["start", "cancel"]);
+});
+
 test("authenticator focus waits for the row's button while a runner step keeps it disabled", async () => {
     const runner: ConfigState["runner"] = { status: "connected", enabled: true, available: true, log: [], link: { server: url, id: "id", name: "Computer" }, authenticator: { set: true, locked: false } };
     const screen = await page(async () => found, { runner });

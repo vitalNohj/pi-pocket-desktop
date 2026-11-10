@@ -1977,8 +1977,8 @@ async function openAuthenticator(): Promise<void> {
   authenticatorWorking = !status.set;
   authenticatorControls();
   renderAuthenticator(state!.runner, false);
-  // The row's button is gone while the panel is open: keep focus in the panel until the code field can take it.
-  if (!status.set) panel.focus();
+  // The row's button is gone while the panel is open: its Cancel holds focus until the code field can take it.
+  if (!status.set) element("runner-authenticator-stop").focus();
 
   try {
     if (!status.set) {
@@ -2041,6 +2041,7 @@ async function confirmAuthenticator(): Promise<void> {
 element("runner-authenticator-action").addEventListener("click", () => { void openAuthenticator(); });
 element("runner-authenticator-confirm").addEventListener("click", () => { void confirmAuthenticator(); });
 element("runner-authenticator-cancel").addEventListener("click", () => cancelAuthenticator());
+element("runner-authenticator-stop").addEventListener("click", () => cancelAuthenticator());
 element("runner-authenticator-panel").addEventListener("keydown", (event) => {
   const key = (event as KeyboardEvent).key;
   if (key === "Escape") {
