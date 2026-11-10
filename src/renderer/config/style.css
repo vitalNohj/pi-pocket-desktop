@@ -1524,40 +1524,181 @@ button.icon-button.done {
     overflow-wrap: anywhere;
 }
 
-/* The authenticator stays inline, with the same fields and buttons as the Runner link form. */
+/* The authenticator: a row with its state as a pill (On, Off, Locked), and under it, while one is open, a panel set
+ * in from the card. Setup is two numbered steps (scan or type the key, then enter the code); turning off is one short
+ * confirmation. Its controls are the card's own small size (36 px), as the row's buttons. */
 .authenticator-panel {
     display: grid;
+    gap: 16px;
+    margin: 0 0 16px;
+    padding: 16px 20px 20px;
+    border: 1px solid var(--hair);
+    border-radius: var(--radius-xl);
+    background: color-mix(in srgb, var(--body) 3%, transparent);
+    animation: enter 300ms var(--ease);
+}
+
+.authenticator-panel:focus {
+    outline: none;
+}
+
+.authenticator-panel[data-mode="off"] {
+    border-color: color-mix(in srgb, var(--err) 35%, transparent);
+}
+
+.authenticator-title {
+    color: var(--text);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+}
+
+.authenticator-text {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 20px;
+}
+
+.authenticator-panel > .authenticator-text {
+    margin-top: -8px;
+}
+
+.authenticator-step {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
     gap: 12px;
-    padding: 4px 0 20px;
+}
+
+.authenticator-step.plain {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.authenticator-number {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: var(--accent);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+}
+
+.authenticator-step-body {
+    display: grid;
+    gap: 12px;
+    min-width: 0;
+}
+
+.authenticator-step-title {
+    padding-top: 2px;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+}
+
+.authenticator-scan {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px 24px;
+}
+
+/* The QR stays dark on light in every theme: its own white, widened into a quiet zone around it. */
+.authenticator-qr {
+    flex: none;
+    display: block;
+    padding: 8px;
+    border-radius: var(--radius-lg);
+    background: #fff;
+    line-height: 0;
 }
 
 #runner-authenticator-qr {
     display: block;
+    width: 176px;
+    height: 176px;
     max-width: 100%;
-    height: auto;
-    border-radius: var(--radius-lg);
 }
 
 .authenticator-key {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
+    display: grid;
+    flex: 1 1 240px;
+    gap: 8px;
+    min-width: 0;
 }
 
-.authenticator-key code {
-    font: 14px/20px var(--mono);
-    overflow-wrap: anywhere;
+.authenticator-key-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+/* The key in groups of 4, apart by spacing only, so a selection copies it without spaces, as Copy does. */
+#runner-authenticator-secret {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    min-width: 0;
+    padding: 6px 12px;
+    border: 1px solid var(--hair);
+    border-radius: var(--radius-lg);
+    background: var(--code-bg);
+    color: var(--text);
+    font: 500 15px/24px var(--mono);
+    letter-spacing: 0.04em;
     user-select: all;
 }
 
-.authenticator-code {
-    width: min(100%, 220px);
+#runner-authenticator-copy.done {
+    color: var(--ok);
+}
+
+.authenticator-entry {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+input#runner-authenticator-code {
+    width: 132px;
+    min-height: 36px;
+    padding: 4px 12px;
+    font: 500 18px/26px var(--mono);
+    letter-spacing: 0.3em;
+    text-align: center;
+}
+
+input#runner-authenticator-code::placeholder {
+    color: var(--muted);
+    opacity: 0.5;
+}
+
+input#runner-authenticator-code[aria-invalid="true"] {
+    border-color: var(--err);
+}
+
+.authenticator-error {
+    color: var(--err);
+    font-size: 14px;
+    line-height: 20px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+@container (max-width: 520px) {
+    .authenticator-panel {
+        padding: 16px;
+    }
 }
 
 /* Keep a runner command error readable in a narrow card. */
 #runner-confirm-error,
-#runner-authenticator-error,
 #runner-authenticator-start-error {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
