@@ -21,6 +21,7 @@ import { openLocal, localAction } from "../local-server/use";
 import { LINKS } from "../app/links";
 import { billionContextAction } from "../billion-context/action";
 import { state as appState } from "../app/state";
+import { authenticatorCode } from "../runner/authenticator";
 
 export function fromConfigPage(event: IpcMainInvokeEvent): boolean {
     const frame = event.senderFrame;
@@ -255,6 +256,24 @@ export function registerIpc(): void {
         }
 
         return runner.removeFolder(remove);
+    });
+
+    handle("config:authenticator-status", () => appState.gui!.runner!.authenticatorStatus());
+    handle("config:authenticator-setup", () => appState.gui!.runner!.startAuthenticatorSetup());
+    handle("config:authenticator-cancel", () => appState.gui!.runner!.cancelAuthenticatorSetup());
+    handle("config:authenticator-confirm", (_event, code: unknown) => {
+        if (!authenticatorCode(code)) {
+            return { ok: false, error: "Enter a 6-digit code from your authenticator." };
+        }
+
+        return appState.gui!.runner!.confirmAuthenticatorCode(code);
+    });
+    handle("config:authenticator-off", (_event, code: unknown) => {
+        if (!authenticatorCode(code)) {
+            return { ok: false, error: "Enter a 6-digit code from your authenticator." };
+        }
+
+        return appState.gui!.runner!.turnOffAuthenticator(code);
     });
 
     handle("config:runner", async (_event, action) => {

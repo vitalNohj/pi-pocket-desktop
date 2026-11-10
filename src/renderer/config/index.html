@@ -241,9 +241,43 @@
                 <div class="card rows" id="runner-card">
                     <p class="row-note">The agent, models, API keys, and history stay on the server. The runner works while this app is open, including in the tray.</p>
                     <div class="row"><span><strong id="runner-status">Not linked</strong><small id="runner-detail"></small></span><span class="buttons"><button type="button" class="secondary" id="runner-restart">Reconnect</button><button type="button" class="secondary danger" id="runner-unlink">Unlink</button></span></div>
+                    <p class="row-note security-note" id="runner-linked-note">This computer trusts its server fully: sessions run commands as your user here, not in a sandbox. Only you can start sessions here. They are private unless the server owner enables sharing. Anyone who can prompt a shared session can run commands here.</p>
                     <label class="row" id="runner-enabled-row"><span><strong>Enable runner</strong><small>When off, the server shows this computer as offline.</small></span><input type="checkbox" data-key="runner.enabled" /></label>
                     <label class="row" id="runner-confirm-row"><span><strong>Ask before new sessions</strong><small>Shows who wants to start a session and in which folder. Off: sessions start without asking.</small></span><input type="checkbox" data-key="runner.confirmSessions" /></label>
                     <label class="row" id="runner-http-row"><span><strong>Allow plain HTTP</strong><small>The runner uses HTTPS, or plain HTTP only to this computer or a device on your tailnet. Turn on only for a server on a network you trust.</small></span><input type="checkbox" data-key="runner.allowHttp" /></label>
+                    <div class="row" id="runner-authenticator-row" hidden><span><span class="title-row"><strong>Authenticator</strong><span class="pill" id="runner-authenticator-state" hidden></span></span><small id="runner-authenticator-detail">Checking the authenticator…</small></span><button type="button" class="secondary" id="runner-authenticator-action" aria-expanded="false" aria-controls="runner-authenticator-panel" hidden>Set up</button></div>
+                    <div id="runner-authenticator-panel" class="authenticator-panel" role="group" aria-labelledby="runner-authenticator-title" hidden>
+                        <p class="authenticator-title" id="runner-authenticator-title">Set up an authenticator</p>
+                        <div class="authenticator-loading" id="runner-authenticator-loading" hidden><span class="authenticator-text" role="status">Making a new key…</span><button type="button" class="ghost small" id="runner-authenticator-stop">Cancel</button></div>
+                        <div class="authenticator-step" id="runner-authenticator-setup" hidden>
+                            <span class="authenticator-number">1</span>
+                            <div class="authenticator-step-body">
+                                <p class="authenticator-step-title">Scan this QR code with your authenticator app</p>
+                                <div class="authenticator-scan">
+                                    <span class="authenticator-qr"><img id="runner-authenticator-qr" width="220" height="220" alt="QR code with the authenticator key" /></span>
+                                    <div class="authenticator-key">
+                                        <span class="authenticator-text" id="runner-authenticator-key-label">Or type this key in the app:</span>
+                                        <span class="authenticator-key-line"><code id="runner-authenticator-secret"></code><button type="button" class="secondary small" id="runner-authenticator-copy">Copy</button></span>
+                                        <span class="authenticator-text">Google Authenticator, 1Password, Authy, and others work.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="authenticator-text" id="runner-authenticator-off" hidden>Pi Pocket then cannot approve sessions and folders here with a code, and runner settings change only on this computer.</p>
+                        <div class="authenticator-step" id="runner-authenticator-enter">
+                            <span class="authenticator-number" id="runner-authenticator-enter-number">2</span>
+                            <div class="authenticator-step-body">
+                                <label class="authenticator-step-title" for="runner-authenticator-code" id="runner-authenticator-code-label">Enter the 6-digit code it shows</label>
+                                <div class="authenticator-entry">
+                                    <input type="text" id="runner-authenticator-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" spellcheck="false" placeholder="000000" aria-describedby="runner-authenticator-error" />
+                                    <button type="button" class="primary small" id="runner-authenticator-confirm">Confirm</button>
+                                    <button type="button" class="ghost small" id="runner-authenticator-cancel">Cancel</button>
+                                </div>
+                                <p class="authenticator-error" id="runner-authenticator-error" role="alert" hidden></p>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="row-note error" id="runner-authenticator-start-error" role="alert" hidden></p>
                     <p class="row-note error" id="runner-confirm-error" role="alert" hidden></p>
                     <div id="runner-link-form" class="runner-link-form">
                         <p class="row-note">In Pi Pocket, open <strong>Menu → Runners → Link a computer</strong>, name this computer, and choose <strong>Get a link code</strong>. Enter the address and code it shows. The first link installs the runner (about 60 MB).</p>
@@ -255,7 +289,6 @@
                         <p class="row-note error" id="runner-link-error" role="alert" hidden></p>
                         <div class="actions"><button type="button" class="primary" id="runner-link">Link</button></div>
                     </div>
-                    <p class="row-note security-note" id="runner-linked-note">This computer trusts its server fully: sessions run commands as your user here, not in a sandbox. Only you can start sessions here. They are private unless the server owner enables sharing. Anyone who can prompt a shared session can run commands here.</p>
                     <h4 class="row-group" id="runner-folders-heading">Allowed folders</h4>
                     <p class="row-note">Sessions in these folders, and folders inside them, start without asking. A folder is added when you allow a session in it.</p>
                     <p class="row-note error" id="runner-folders-error" role="alert" hidden></p>

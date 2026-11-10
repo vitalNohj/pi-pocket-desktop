@@ -54,7 +54,7 @@ test("without a link it is unlinked, and with one but no runtime it says what to
 /** A stand-in launcher: links, saves confirmation choices, and records its arguments and stdin. */
 function fakeRuntime(
     home: string,
-    options: { script?: string; confirmError?: string; legacyError?: string; foldersWarning?: string } = {},
+    options: { script?: string; confirmError?: string; legacyError?: string; foldersWarning?: string; totpError?: string } = {},
 ): { node: string; launcher: string; bin: string } {
     const launcher = join(home, "fake-launcher.mjs");
 
@@ -70,6 +70,30 @@ if (args[1] === "link") {
     if (args[3] === "BAD-CODE") { console.error("pi-pocket runner: refused the code"); process.exit(1); }
     writeFileSync(file, JSON.stringify({ server: args[2], id: "id", name: "Mac", key: "k" }));
     console.log("Linked.");
+} else if (args[1] === "totp") {
+    const error = ${JSON.stringify(options.totpError ?? "")};
+    if (error) { console.error(error); process.exit(1); }
+    const saved = () => JSON.parse(readFileSync(file, "utf8"));
+    const save = (totp) => { const link = saved(); link.settings = { ...link.settings, totp }; writeFileSync(file, JSON.stringify(link)); };
+    const totp = saved().settings?.totp;
+    if (args[2] === "status") {
+        console.log(JSON.stringify({ totp: !!totp, locked: !!totp?.lockedUntil, ...(totp?.lockedUntil ? { lockedUntil: totp.lockedUntil } : {}) }));
+    } else if (args[2] === "setup") {
+        const secret = "JBSWY3DPEHPK3PXP";
+        console.log(JSON.stringify({ secret, link: "otpauth://totp/test?secret=" + secret }));
+        const input = createInterface({ input: process.stdin });
+        input.on("line", code => {
+            if (code !== "123456") { console.log(JSON.stringify({ ok: false, error: "Wrong code." })); return; }
+            save({ secret }); console.log(JSON.stringify({ ok: true, totp: true })); process.exit(0);
+        });
+        input.on("close", () => { console.log(JSON.stringify({ ok: false, error: "Cancelled." })); process.exit(1); });
+    } else if (args[2] === "off") {
+        if (args[3] !== "123456") {
+            save({ ...totp, lockedUntil: 1800000000000 });
+            console.log(JSON.stringify({ ok: false, error: "Wrong code." })); process.exit(1);
+        }
+        save(undefined); console.log(JSON.stringify({ ok: true, totp: false }));
+    }
 } else if (args[1] === "folders") {
     const link = JSON.parse(readFileSync(file, "utf8"));
     if (args[2] === "remove") {
@@ -554,6 +578,61 @@ test("linking installs Pi Pocket first when no runtime has the runner, and says 
         assert.equal(prepared, 1);
         assert.equal(runner.state().busy, undefined);
     } finally {
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test("authenticator status is cached, setup renders a QR privately, and off/unlink refresh the card", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const runtime = fakeRuntime(home);
+    const runner = setUpRunner(host(home, { runtime: () => runtime }));
+    const secret = "JBSWY3DPEHPK3PXP";
+
+    try {
+        assert.equal(runner.state().authenticator, undefined);
+        assert.equal(calls(home).length, 0, "not linked: do not ask the CLI");
+        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        assert.deepEqual(runner.state().authenticator, { set: false, locked: false });
+        const before = calls(home).filter((args) => args[1] === "totp").length;
+        runner.state(); runner.state();
+        assert.equal(calls(home).filter((args) => args[1] === "totp").length, before, "reads reuse the cached status");
+        const setup = await runner.startAuthenticatorSetup();
+        assert.equal(setup.secret, secret);
+        assert.match(setup.dataUrl, /^data:image\/png;base64,/);
+        assert.equal(Buffer.from(setup.dataUrl.split(",")[1]!, "base64").readUInt32BE(16), 220);
+        runner.runtimeChanged(); // An unrelated local-server state/log change must not cancel setup.
+        assert.deepEqual(await runner.confirmAuthenticatorCode("123456"), { ok: true });
+        assert.deepEqual(runner.state().authenticator, { set: true, locked: false });
+        assert.deepEqual(await runner.turnOffAuthenticator("000000"), { ok: false, error: "Wrong code." });
+        assert.deepEqual(runner.state().authenticator, { set: true, locked: true, lockedUntil: 1800000000000 });
+        assert.deepEqual(await runner.turnOffAuthenticator("123456"), { ok: true });
+        assert.deepEqual(runner.state().authenticator, { set: false, locked: false });
+        const snapshot = JSON.stringify(runner.state());
+        assert.equal(snapshot.includes(secret), false);
+        assert.equal(snapshot.includes("otpauth:"), false);
+        assert.equal(snapshot.includes("data:image"), false);
+        await runner.unlink();
+        assert.equal(runner.state().authenticator, undefined);
+        assert.ok(calls(home).filter((args) => args[1] === "totp").every((args) => args.at(-2) === "--config" && args.at(-1) === join(home, "runner.json")));
+    } finally {
+        await runner.quit();
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test("the first linked state reads authenticator status, and an older runner shows an unavailable row", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const runtime = fakeRuntime(home, { totpError: "Unknown command: totp. Use: pi-pocket runner" });
+    const runner = setUpRunner(host(home, { runtime: () => runtime, enabled: () => false }));
+
+    try {
+        writeFileSync(join(home, "runner.json"), JSON.stringify({ server: "https://pocket.example", id: "id", name: "Mac", key: "k" }));
+        assert.equal(runner.state().authenticator, undefined);
+        await until(() => runner.state().authenticator !== undefined, "the authenticator's first read");
+        assert.deepEqual(runner.state().authenticator, { unavailable: "Update Pi Pocket to set up an authenticator here" });
+        assert.equal(runner.state().log.some((line) => line.includes("Unknown command")), false);
+    } finally {
+        await runner.quit();
         rmSync(home, { recursive: true, force: true });
     }
 });

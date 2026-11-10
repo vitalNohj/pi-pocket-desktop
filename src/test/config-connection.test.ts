@@ -15,6 +15,7 @@ const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 /** Run the actual built renderer. Only its DOM and IPC boundary are stubbed, not its connection logic. */
 async function page(probe: (input: string) => Promise<ProbeResult>, initial: Partial<ConfigState> = {}) {
+    let focused: unknown;
     const makeElement = () => ({
         value: "", textContent: "", hidden: false, disabled: false, checked: false, title: "", open: false,
         className: "", type: "", children: [] as unknown[],
@@ -22,11 +23,16 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
         firstElementChild: { style: { width: "" } },
         style: { setProperty() {} },
         classList: { toggle() {} },
-        scrollIntoView() {}, setAttribute() {}, removeAttribute() {},
-        listeners: new Map<string, (event: { preventDefault(): void }) => void>(),
-        addEventListener(name: string, listener: (event: { preventDefault(): void }) => void) { this.listeners.set(name, listener); },
-        fire(name: string) { this.listeners.get(name)?.({ preventDefault() {} }); },
+        scrollIntoView() {}, setAttribute() {}, removeAttribute() {}, focus() { focused = this; },
+        listeners: new Map<string, (event: { preventDefault(): void; stopPropagation(): void; key?: string; target?: unknown }) => void>(),
+        addEventListener(name: string, listener: (event: { preventDefault(): void; stopPropagation(): void; key?: string; target?: unknown }) => void) { this.listeners.set(name, listener); },
+        fire(name: string, key?: string, target?: unknown) {
+            let prevented = false;
+            this.listeners.get(name)?.({ preventDefault() { prevented = true; }, stopPropagation() {}, ...(key === undefined ? {} : { key }), target });
+            return prevented;
+        },
         querySelectorAll: () => [],
+        contains() { return false; },
         append(...children: unknown[]) { this.children.push(...children); },
         replaceChildren() { this.children = []; },
     });
@@ -65,7 +71,28 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
     const connections: { url: string; unverified: boolean }[] = [];
     const views: string[] = [];
     const folderActions: (string | undefined)[] = [];
+    const authenticatorActions: string[] = [];
+    const copies: string[] = [];
     const gui = {
+        startAuthenticatorSetup: async () => {
+            authenticatorActions.push("start");
+            return { secret: "JBSWY3DPEHPK3PXP", link: "otpauth://totp/test?secret=JBSWY3DPEHPK3PXP", dataUrl: "data:image/png;base64,qr" };
+        },
+        cancelAuthenticatorSetup: async () => { authenticatorActions.push("cancel"); },
+        confirmAuthenticatorCode: async (code: string) => {
+            authenticatorActions.push(`confirm:${code}`);
+            if (code !== "123456") return { ok: false, error: "Wrong code." };
+            state = { ...state, runner: { ...state.runner, authenticator: { set: true, locked: false } } };
+            render(state);
+            return { ok: true };
+        },
+        turnOffAuthenticator: async (code: string) => {
+            authenticatorActions.push(`off:${code}`);
+            if (code !== "123456") return { ok: false, error: "Wrong code." };
+            state = { ...state, runner: { ...state.runner, authenticator: { set: false, locked: false } } };
+            render(state);
+            return { ok: true };
+        },
         runnerFolders: async (folder?: string) => {
             folderActions.push(folder);
 
@@ -99,6 +126,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
 
     runInNewContext(source, {
         URL,
+        navigator: { clipboard: { writeText: async (text: string) => { copies.push(text); } } },
         HTMLInputElement: class {},
         window: { gui, clearInterval() {}, setInterval() {}, clearTimeout() {}, setTimeout() {}, scrollTo() {}, addEventListener() {} },
         document: {
@@ -110,7 +138,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
     await flush();
 
     return {
-        element, connections, views, folderActions, settingsOpened: () => settingsOpened,
+        element, connections, views, folderActions, authenticatorActions, copies, settingsOpened: () => settingsOpened, focused: () => focused,
         focus: async (section: string) => { focus(section); await flush(); },
         push: async (patch: Partial<ConfigState>, drop: (keyof ConfigState)[] = []) => {
             state = { ...state, ...patch };
@@ -271,6 +299,120 @@ test("the Runner card reads allowed folders when the screen loads, renders paths
     const empty = screen.element("runner-folders").children[0] as ReturnType<typeof screen.element>;
 
     assert.equal(empty.textContent, "No allowed folders yet. A folder is added when you allow a session in it.");
+});
+
+test("the authenticator row is linked-only, explains availability, and shows lockout time", async () => {
+    const screen = await page(async () => found);
+    assert.equal(screen.element("runner-authenticator-row").hidden, true);
+    const runner: ConfigState["runner"] = { status: "connected", enabled: true, available: true, log: [], link: { server: url, id: "id", name: "Computer" } };
+    await screen.push({ runner: { ...runner, authenticator: { unavailable: "Update Pi Pocket to set up an authenticator here" } } });
+    assert.equal(screen.element("runner-authenticator-row").hidden, false);
+    assert.equal(screen.element("runner-authenticator-action").hidden, true);
+    assert.equal(screen.element("runner-authenticator-detail").textContent, "Update Pi Pocket to set up an authenticator here");
+    assert.equal(screen.element("runner-authenticator-state").hidden, true, "no state pill when it cannot be set up here");
+    await screen.push({ runner: { ...runner, authenticator: { set: false, locked: false } } });
+    assert.equal(screen.element("runner-authenticator-state").hidden, false);
+    assert.equal(screen.element("runner-authenticator-state").textContent, "Off");
+    await screen.push({ runner: { ...runner, authenticator: { set: true, locked: false } } });
+    assert.equal(screen.element("runner-authenticator-state").textContent, "On");
+    assert.equal(screen.element("runner-authenticator-state").dataset.state, "connected");
+    await screen.push({ runner: { ...runner, authenticator: { set: true, locked: true, lockedUntil: 1800000000000 } } });
+    assert.equal(screen.element("runner-authenticator-action").textContent, "Turn off");
+    assert.equal(screen.element("runner-authenticator-state").textContent, "Locked");
+    assert.match(screen.element("runner-authenticator-detail").textContent, /^Too many wrong codes\. Codes are refused until .+\.$/);
+});
+
+test("the trust note follows the runner's status row, not the authenticator", () => {
+    const html = readFileSync(join(__dirname, "..", "renderer", "config", "index.html"), "utf8");
+    const at = (id: string) => html.indexOf(`id="${id}"`);
+    assert.ok(at("runner-status") < at("runner-linked-note"));
+    assert.ok(at("runner-linked-note") < at("runner-enabled-row"));
+    assert.ok(at("runner-linked-note") < at("runner-authenticator-row"));
+});
+
+test("authenticator inline setup copies its key, keeps errors open, confirms with Enter, and clears secrets", async () => {
+    const screen = await page(async () => found, { runner: { status: "connected", enabled: true, available: true, log: [], link: { server: url, id: "id", name: "Computer" }, authenticator: { set: false, locked: false } } });
+    assert.equal(screen.element("runner-authenticator-action").textContent, "Set up");
+    await screen.click("runner-authenticator-action");
+    assert.equal(screen.element("runner-authenticator-panel").hidden, false);
+    assert.equal(screen.element("runner-authenticator-action").hidden, true, "the row offers no second Set up while the panel is open");
+    assert.equal(screen.element("runner-authenticator-setup").hidden, false);
+    assert.equal(screen.element("runner-authenticator-enter").hidden, false);
+    assert.equal(screen.element("runner-authenticator-loading").hidden, true);
+    const groups = screen.element("runner-authenticator-secret").children as { textContent: string }[];
+    assert.deepEqual(groups.map((group) => group.textContent), ["JBSW", "Y3DP", "EHPK", "3PXP"], "the key reads in groups of 4");
+    await screen.click("runner-authenticator-copy");
+    assert.deepEqual(screen.copies, ["JBSWY3DPEHPK3PXP"], "Copy copies the exact key, without spaces");
+    assert.equal(screen.element("runner-authenticator-copy").textContent, "Copied");
+    const code = screen.element("runner-authenticator-code");
+    code.value = "000000";
+    await screen.click("runner-authenticator-confirm");
+    assert.equal(screen.element("runner-authenticator-error").textContent, "Wrong code.");
+    assert.equal(screen.element("runner-authenticator-panel").hidden, false);
+    code.value = "123456";
+    assert.equal(screen.element("runner-authenticator-panel").fire("keydown", "Enter", code), true);
+    await flush();
+    assert.deepEqual(screen.authenticatorActions, ["start", "confirm:000000", "confirm:123456"]);
+    assert.equal(screen.element("runner-authenticator-panel").hidden, true);
+    assert.deepEqual(screen.element("runner-authenticator-secret").children, []);
+    assert.equal(code.value, "");
+    assert.equal(screen.element("runner-authenticator-action").hidden, false, "the row's button comes back when the panel closes");
+    assert.equal(screen.element("runner-authenticator-action").textContent, "Turn off");
+    assert.equal(screen.element("runner-authenticator-state").textContent, "On");
+});
+
+test("authenticator turn-off shows inline errors; Escape cancels and a right code turns it off", async () => {
+    const screen = await page(async () => found, { runner: { status: "connected", enabled: true, available: true, log: [], link: { server: url, id: "id", name: "Computer" }, authenticator: { set: true, locked: false } } });
+    await screen.click("runner-authenticator-action");
+    assert.equal(screen.element("runner-authenticator-off").hidden, false);
+    assert.equal(screen.element("runner-authenticator-setup").hidden, true);
+    assert.equal(screen.element("runner-authenticator-action").hidden, true);
+    assert.equal(screen.element("runner-authenticator-title").textContent, "Turn off the authenticator?");
+    assert.equal(screen.element("runner-authenticator-enter").hidden, false);
+    assert.equal(screen.element("runner-authenticator-enter-number").hidden, true, "turning off is one step, not numbered");
+    assert.equal(screen.element("runner-authenticator-confirm").textContent, "Turn off");
+    screen.element("runner-authenticator-code").value = "000000";
+    await screen.click("runner-authenticator-confirm");
+    assert.equal(screen.element("runner-authenticator-error").textContent, "Wrong code.");
+    assert.equal(screen.focused(), screen.element("runner-authenticator-code"), "a wrong code keeps focus in the code field");
+    assert.equal(screen.element("runner-authenticator-panel").fire("keydown", "Escape"), true);
+    await flush();
+    assert.equal(screen.element("runner-authenticator-panel").hidden, true);
+    assert.equal(screen.element("runner-authenticator-action").hidden, false);
+    assert.equal(screen.focused(), screen.element("runner-authenticator-action"), "focus goes back to the row's button");
+    await screen.click("runner-authenticator-action");
+    assert.equal(screen.focused(), screen.element("runner-authenticator-code"));
+    screen.element("runner-authenticator-code").value = "123456";
+    await screen.click("runner-authenticator-confirm");
+    assert.equal(screen.element("runner-authenticator-panel").hidden, true);
+    assert.equal(screen.element("runner-authenticator-action").textContent, "Set up");
+    assert.deepEqual(screen.authenticatorActions, ["off:000000", "cancel", "off:123456"]);
+});
+
+test("authenticator setup can be cancelled while the runner makes its key", async () => {
+    const screen = await page(async () => found, { runner: { status: "connected", enabled: true, available: true, log: [], link: { server: url, id: "id", name: "Computer" }, authenticator: { set: false, locked: false } } });
+    screen.element("runner-authenticator-action").fire("click");
+    assert.equal(screen.element("runner-authenticator-loading").hidden, false);
+    assert.equal(screen.element("runner-authenticator-action").hidden, true);
+    assert.equal(screen.focused(), screen.element("runner-authenticator-stop"), "the loading line's Cancel holds focus");
+    await screen.click("runner-authenticator-stop");
+    assert.equal(screen.element("runner-authenticator-panel").hidden, true);
+    assert.equal(screen.element("runner-authenticator-secret").children.length, 0, "a key that arrives after Cancel is not shown");
+    assert.equal(screen.focused(), screen.element("runner-authenticator-action"));
+    assert.deepEqual(screen.authenticatorActions, ["start", "cancel"]);
+});
+
+test("authenticator focus waits for the row's button while a runner step keeps it disabled", async () => {
+    const runner: ConfigState["runner"] = { status: "connected", enabled: true, available: true, log: [], link: { server: url, id: "id", name: "Computer" }, authenticator: { set: true, locked: false } };
+    const screen = await page(async () => found, { runner });
+    await screen.click("runner-authenticator-action");
+    await screen.push({ runner: { ...runner, busy: "Turning off the authenticator…" } });
+    assert.equal(screen.element("runner-authenticator-panel").fire("keydown", "Escape"), true);
+    await flush();
+    assert.equal(screen.element("runner-authenticator-action").disabled, true);
+    assert.notEqual(screen.focused(), screen.element("runner-authenticator-action"));
+    await screen.push({ runner });
+    assert.equal(screen.focused(), screen.element("runner-authenticator-action"));
 });
 
 test("a menu opens Home, a section opens Settings at it, and a new failure brings Home back", async () => {
