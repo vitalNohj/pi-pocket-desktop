@@ -1783,6 +1783,7 @@ function renderRunner(next: ConfigState): void {
   element("runner-enabled-row").classList.toggle("off", link === undefined);
   element("runner-confirm-error").hidden = runner.confirmError === undefined;
   element("runner-confirm-error").textContent = runner.confirmError ?? "";
+  renderAuthenticator(runner, linking);
 
   const restart = element<HTMLButtonElement>("runner-restart");
   const unlink = element<HTMLButtonElement>("runner-unlink");
@@ -1835,6 +1836,171 @@ function renderRunner(next: ConfigState): void {
   element("runner-log-box").hidden = runner.log.length === 0;
   element("runner-log").textContent = runner.log.join("\n");
 }
+
+let authenticatorPanel: "starting" | "setup" | "off" | undefined;
+let authenticatorWorking = false;
+let authenticatorAttempt = 0;
+
+function authenticatorError(id: string, failure?: unknown): void {
+  const note = element(id);
+
+  note.hidden = failure === undefined;
+  note.textContent = failure === undefined ? "" : (failure as Error).message.replace(
+    /^Error invoking remote method '[^']+': (Error: )?/, "",
+  );
+}
+
+function renderAuthenticator(runner: RunnerState, linking: boolean): void {
+  element("runner-authenticator-row").hidden = linking;
+  if (linking) {
+    if (authenticatorPanel !== undefined) cancelAuthenticator(false);
+    element("runner-authenticator-start-error").hidden = true;
+  }
+  const status = runner.authenticator;
+  const action = element<HTMLButtonElement>("runner-authenticator-action");
+  let detail: string;
+
+  if (status === undefined) {
+    detail = "Loading authenticator…";
+  } else if ("unavailable" in status) {
+    detail = status.unavailable;
+  } else {
+    detail = status.set
+      ? "Set up. Approvals and settings from Pi Pocket need a code from it."
+      : "Not set up. With one, Pi Pocket can approve sessions and folders here with a code when nobody is at this computer, and its settings for this computer change only with a code.";
+    if (status.locked) {
+      detail += ` Codes are refused until ${status.lockedUntil === undefined ? "the lockout ends" : new Date(status.lockedUntil).toLocaleTimeString()} after too many wrong ones.`;
+    }
+  }
+  element("runner-authenticator-detail").textContent = detail;
+  action.hidden = linking || status === undefined || "unavailable" in status;
+  action.textContent = authenticatorPanel === "starting" ? "Starting…"
+    : status !== undefined && "set" in status && status.set ? "Turn off" : "Set up";
+  action.disabled = runner.busy !== undefined || authenticatorPanel !== undefined || authenticatorWorking;
+  action.setAttribute("aria-expanded", String(authenticatorPanel !== undefined));
+}
+
+/** Clear the key and QR as soon as the panel closes, including after unlink or Escape. */
+function closeAuthenticatorPanel(focus = true): void {
+  authenticatorAttempt += 1;
+  authenticatorPanel = undefined;
+  authenticatorWorking = false;
+  element("runner-authenticator-panel").hidden = true;
+  element("runner-authenticator-secret").textContent = "";
+  element("runner-authenticator-qr").removeAttribute("src");
+  element<HTMLInputElement>("runner-authenticator-code").value = "";
+  element("runner-authenticator-copy").textContent = "Copy";
+  authenticatorError("runner-authenticator-error");
+  if (state !== undefined) renderAuthenticator(state.runner, state.runner.link === undefined || state.runner.status === "ended");
+  if (focus) element("runner-authenticator-action").focus();
+}
+
+function cancelAuthenticator(focus = true): void {
+  closeAuthenticatorPanel(focus);
+  void gui.cancelAuthenticatorSetup().catch(() => {});
+}
+
+function authenticatorControls(): void {
+  element<HTMLInputElement>("runner-authenticator-code").disabled = authenticatorWorking;
+  element<HTMLButtonElement>("runner-authenticator-confirm").disabled = authenticatorWorking;
+}
+
+async function openAuthenticator(): Promise<void> {
+  const status = state?.runner.authenticator;
+  if (status === undefined || "unavailable" in status || authenticatorPanel !== undefined) return;
+  const attempt = ++authenticatorAttempt;
+
+  authenticatorError("runner-authenticator-start-error");
+  authenticatorError("runner-authenticator-error");
+  element("runner-authenticator-panel").hidden = false;
+  element("runner-authenticator-setup").hidden = true;
+  element("runner-authenticator-off").hidden = !status.set;
+  element<HTMLInputElement>("runner-authenticator-code").value = "";
+  element("runner-authenticator-confirm").textContent = status.set ? "Turn off" : "Confirm";
+  authenticatorPanel = status.set ? "off" : "starting";
+  authenticatorWorking = !status.set;
+  authenticatorControls();
+  renderAuthenticator(state!.runner, false);
+
+  try {
+    if (!status.set) {
+      const setup = await gui.startAuthenticatorSetup();
+      if (attempt !== authenticatorAttempt) return;
+      element("runner-authenticator-secret").textContent = setup.secret;
+      element<HTMLImageElement>("runner-authenticator-qr").src = setup.dataUrl;
+      element("runner-authenticator-setup").hidden = false;
+      authenticatorPanel = "setup";
+      authenticatorWorking = false;
+      authenticatorControls();
+      renderAuthenticator(state!.runner, false);
+    }
+    element<HTMLInputElement>("runner-authenticator-code").focus();
+  } catch (failure) {
+    if (attempt !== authenticatorAttempt) return;
+    closeAuthenticatorPanel();
+    authenticatorError("runner-authenticator-start-error", failure);
+  }
+}
+
+async function confirmAuthenticator(): Promise<void> {
+  if (authenticatorWorking || authenticatorPanel === undefined || authenticatorPanel === "starting") return;
+  const code = element<HTMLInputElement>("runner-authenticator-code");
+  const attempt = authenticatorAttempt;
+
+  if (!/^\d{6}$/.test(code.value.trim())) {
+    authenticatorError("runner-authenticator-error", new Error("Enter a 6-digit code from your authenticator."));
+    code.focus();
+    return;
+  }
+  authenticatorWorking = true;
+  authenticatorControls();
+  authenticatorError("runner-authenticator-error");
+
+  try {
+    const result = authenticatorPanel === "setup"
+      ? await gui.confirmAuthenticatorCode(code.value.trim())
+      : await gui.turnOffAuthenticator(code.value.trim());
+    if (attempt !== authenticatorAttempt) return;
+    if (result.ok) {
+      closeAuthenticatorPanel();
+    } else {
+      authenticatorError("runner-authenticator-error", new Error(result.error));
+      code.value = "";
+    }
+  } catch (failure) {
+    if (attempt === authenticatorAttempt) authenticatorError("runner-authenticator-error", failure);
+  } finally {
+    if (attempt === authenticatorAttempt) {
+      authenticatorWorking = false;
+      authenticatorControls();
+      code.focus();
+    }
+  }
+}
+
+element("runner-authenticator-action").addEventListener("click", () => { void openAuthenticator(); });
+element("runner-authenticator-confirm").addEventListener("click", () => { void confirmAuthenticator(); });
+element("runner-authenticator-cancel").addEventListener("click", () => cancelAuthenticator());
+element("runner-authenticator-panel").addEventListener("keydown", (event) => {
+  const key = (event as KeyboardEvent).key;
+  if (key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    cancelAuthenticator();
+  } else if (key === "Enter" && event.target === element("runner-authenticator-code")) {
+    event.preventDefault();
+    void confirmAuthenticator();
+  }
+});
+element("runner-authenticator-copy").addEventListener("click", () => {
+  const attempt = authenticatorAttempt;
+  const secret = element("runner-authenticator-secret").textContent ?? "";
+
+  void navigator.clipboard.writeText(secret).then(() => {
+    if (attempt === authenticatorAttempt) element("runner-authenticator-copy").textContent = "Copied";
+  }).catch(() => authenticatorError("runner-authenticator-error", new Error("Could not copy the key. Select it and copy it by hand.")));
+});
+window.addEventListener("pagehide", () => { void gui.cancelAuthenticatorSetup().catch(() => {}); });
 
 /** The Runner card's Link: `runner link <server> <code>`, as on any computer. (Inside the settings form: no form here.) */
 function linkRunner(): void {
@@ -2111,6 +2277,11 @@ if (typeof document.addEventListener === "function") {
 // Esc: back to Pi Pocket, as the sidebar's button.
 if (typeof document.addEventListener === "function") {
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !event.defaultPrevented && authenticatorPanel !== undefined) {
+      event.preventDefault();
+      cancelAuthenticator();
+      return;
+    }
     if (
       event.key === "Escape" &&
       !back.hidden &&

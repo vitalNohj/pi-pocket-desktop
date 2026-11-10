@@ -13,7 +13,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { RunnerState } from "../../shared/types";
+import type { AuthenticatorResult, AuthenticatorSetup, RunnerState } from "../../shared/types";
+import { toDataURL } from "qrcode";
+import { AUTHENTICATOR_UNAVAILABLE, authenticatorCode, authenticatorCommand, parseAuthenticatorResult, parseAuthenticatorStatus, setUpAuthenticatorSetup } from "./authenticator";
 import { withPath } from "../core/env-path";
 import { cleanLine } from "../local-server/local-versions";
 
@@ -91,6 +93,10 @@ export function setUpRunner(host: RunnerHost) {
     let folders: string[] | undefined;
     let foldersError: string | undefined;
     let foldersSync = Promise.resolve();
+    let authenticator: RunnerState["authenticator"];
+    let authenticatorRead = false;
+    let authenticatorSync = Promise.resolve();
+    let authenticatorRuntime = host.runtime()?.launcher;
 
     const readLink = (): Link | undefined => {
         try {
@@ -118,8 +124,8 @@ export function setUpRunner(host: RunnerHost) {
         }
     };
 
-    /** Runs the launcher with these runner arguments to its end: its output, or its last lines as the error. */
-    const runOnce = async (args: string[]): Promise<string> => {
+    /** All runner commands use the same runtime, link file, working folder, and environment. */
+    const spawnCommand = async (args: string[]) => {
         const runtime = host.runtime();
 
         if (runtime === undefined) {
@@ -128,13 +134,21 @@ export function setUpRunner(host: RunnerHost) {
 
         const env = await host.environment();
 
+        return spawn(runtime.node, [runtime.launcher, "runner", ...args, "--config", linkFile], {
+            cwd: homedir(),
+            env: { ...env, NO_COLOR: "1" },
+            stdio: ["pipe", "pipe", "pipe"],
+            windowsHide: true,
+        });
+    };
+
+    /** Runs the launcher with these runner arguments to its end: its output, or its last lines as the error. */
+    const runOnce = async (args: string[]): Promise<string> => {
+        const proc = await spawnCommand(args);
+
+        proc.stdin.on("error", () => {});
+        proc.stdin.end();
         return new Promise((done, fail) => {
-            const proc = spawn(runtime.node, [runtime.launcher, "runner", ...args, "--config", linkFile], {
-                cwd: homedir(),
-                env: { ...env, NO_COLOR: "1" },
-                stdio: ["ignore", "pipe", "pipe"],
-                windowsHide: true,
-            });
             const folderJson = args[0] === "folders" && args[1] === "--json";
             let stdout = "";
             let output = "";
@@ -181,6 +195,36 @@ export function setUpRunner(host: RunnerHost) {
 
         return foldersSync;
     };
+
+    /** Cache only the status, never the setup key, link, QR image, or a code. */
+    const authenticatorStatus = (): Promise<void> => {
+        authenticatorRead = true;
+        authenticatorSync = authenticatorSync.then(async () => {
+            const link = readLink();
+            let next: RunnerState["authenticator"];
+
+            if (link !== undefined) {
+                try {
+                    next = parseAuthenticatorStatus(await authenticatorCommand(() => spawnCommand(["totp", "status", "--json"])));
+                } catch {
+                    next = { unavailable: AUTHENTICATOR_UNAVAILABLE };
+                }
+            }
+
+            const now = readLink();
+
+            if (now?.id === link?.id && now?.server === link?.server) {
+                authenticator = next;
+                host.changed();
+            }
+        });
+
+        return authenticatorSync;
+    };
+
+    const setup = setUpAuthenticatorSetup(() => spawnCommand(["totp", "setup", "--json"]), {
+        onEnd: () => { void authenticatorStatus(); },
+    });
 
     /** Serialize writes so a quick second setting change is always applied last. No link yet is not an error. */
     const syncConfirmation = (): Promise<void> => {
@@ -473,6 +517,11 @@ export function setUpRunner(host: RunnerHost) {
     return {
         state(): RunnerState {
             const link = readLink();
+
+            if (link !== undefined && !authenticatorRead) {
+                void authenticatorStatus();
+            }
+
             const confirmationProblem = confirmError ?? (legacyLauncher !== undefined && legacyLauncher === host.runtime()?.launcher ? LEGACY_WARNING : undefined);
 
             return {
@@ -485,6 +534,7 @@ export function setUpRunner(host: RunnerHost) {
                 available: host.runtime() !== undefined,
                 ...(folders === undefined ? {} : { folders: [...folders] }),
                 ...(foldersError === undefined ? {} : { foldersError }),
+                ...(link === undefined || authenticator === undefined ? {} : { authenticator: { ...authenticator } }),
                 log: lines.slice(-40),
             };
         },
@@ -519,6 +569,7 @@ export function setUpRunner(host: RunnerHost) {
                 holding = true;
 
                 try {
+                    await setup.cancel();
                     await stop();
                     await mkdir(host.home, { recursive: true });
                     busy = "Linking this computer…";
@@ -528,6 +579,7 @@ export function setUpRunner(host: RunnerHost) {
                     failures = 0;
                     await host.setEnabled(true);
                     await refreshFolders();
+                    await authenticatorStatus();
                 } finally {
                     // Linked, or not: the link there is now (the new one, or the one before) runs again.
                     holding = false;
@@ -540,9 +592,11 @@ export function setUpRunner(host: RunnerHost) {
                 holding = true;
 
                 try {
+                    await setup.cancel();
                     await stop();
                     await confirmationSync;
                     await rm(linkFile, { force: true });
+                    await authenticatorStatus();
                     confirmError = undefined;
                     folders = [];
                     foldersError = undefined;
@@ -568,6 +622,52 @@ export function setUpRunner(host: RunnerHost) {
                     }
                 });
             }
+        },
+        authenticatorStatus,
+        startAuthenticatorSetup: async (): Promise<AuthenticatorSetup> => {
+            if (busy !== undefined || quitting || readLink() === undefined) {
+                throw new Error("Link this computer first, and wait for the current step to end.");
+            }
+
+            const first = await setup.start();
+
+            try {
+                const dataUrl = await toDataURL(first.link, { margin: 1, width: 220 });
+
+                return { ...first, dataUrl };
+            } catch {
+                await setup.cancel();
+                throw new Error("Could not draw the authenticator QR code. Try setup again.");
+            }
+        },
+        confirmAuthenticatorCode: async (code: string): Promise<AuthenticatorResult> => {
+            const result = await setup.confirm(code);
+
+            await authenticatorStatus();
+            return result;
+        },
+        cancelAuthenticatorSetup: (): Promise<void> => setup.cancel(),
+        turnOffAuthenticator: async (code: string): Promise<AuthenticatorResult> => {
+            if (!authenticatorCode(code)) {
+                return { ok: false, error: "Enter a 6-digit code from your authenticator." };
+            }
+
+            if (busy !== undefined || quitting || readLink() === undefined) {
+                return { ok: false, error: "Link this computer first, and wait for the current step to end." };
+            }
+
+            return step("Turning off the authenticator…", async () => {
+                let result: AuthenticatorResult;
+
+                try {
+                    result = parseAuthenticatorResult(await authenticatorCommand(() => spawnCommand(["totp", "off", code, "--json"])), false);
+                } catch (error) {
+                    result = { ok: false, error: (error as Error).message };
+                }
+
+                await authenticatorStatus();
+                return result;
+            });
         },
         refreshFolders,
         removeFolder: (folder: string): Promise<void> =>
@@ -595,6 +695,13 @@ export function setUpRunner(host: RunnerHost) {
         runtimeChanged: (): void => {
             const now = host.runtime()?.launcher;
 
+            // Local server state/log changes call this too; only a different runtime ends an open setup.
+            if (now !== authenticatorRuntime) {
+                authenticatorRuntime = now;
+                void setup.cancel();
+                void authenticatorStatus();
+            }
+
             if (child !== undefined && now !== undefined && now !== runningFrom) {
                 void stop().then(start);
             } else if (child === undefined && status === "failed" && now !== undefined && host.enabled()) {
@@ -604,8 +711,10 @@ export function setUpRunner(host: RunnerHost) {
         linked: (): boolean => existsSync(linkFile),
         quit: async (): Promise<void> => {
             quitting = true;
+            await setup.cancel();
             await stop();
             await foldersSync;
+            await authenticatorSync;
         },
     };
 }

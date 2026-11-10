@@ -244,6 +244,19 @@
                     <label class="row" id="runner-enabled-row"><span><strong>Enable runner</strong><small>When off, the server shows this computer as offline.</small></span><input type="checkbox" data-key="runner.enabled" /></label>
                     <label class="row" id="runner-confirm-row"><span><strong>Ask before new sessions</strong><small>Shows who wants to start a session and in which folder. Off: sessions start without asking.</small></span><input type="checkbox" data-key="runner.confirmSessions" /></label>
                     <label class="row" id="runner-http-row"><span><strong>Allow plain HTTP</strong><small>The runner uses HTTPS, or plain HTTP only to this computer or a device on your tailnet. Turn on only for a server on a network you trust.</small></span><input type="checkbox" data-key="runner.allowHttp" /></label>
+                    <div class="row" id="runner-authenticator-row" hidden><span><strong>Authenticator</strong><small id="runner-authenticator-detail">Loading authenticator…</small></span><button type="button" class="secondary" id="runner-authenticator-action" aria-expanded="false" aria-controls="runner-authenticator-panel" hidden>Set up</button></div>
+                    <div id="runner-authenticator-panel" class="authenticator-panel" aria-label="Authenticator" hidden>
+                        <div id="runner-authenticator-setup" hidden>
+                            <img id="runner-authenticator-qr" width="220" height="220" alt="Scan this QR code with your authenticator app" />
+                            <p class="row-note">Scan this with your authenticator app (Google Authenticator, 1Password, Authy, …), or enter this key by hand:</p>
+                            <div class="authenticator-key"><code id="runner-authenticator-secret"></code><button type="button" class="secondary small" id="runner-authenticator-copy">Copy</button></div>
+                        </div>
+                        <p class="row-note" id="runner-authenticator-off" hidden>Enter a code from your authenticator to turn it off.</p>
+                        <label class="field authenticator-code"><span>6-digit code</span><input type="text" id="runner-authenticator-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" spellcheck="false" aria-describedby="runner-authenticator-error" /></label>
+                        <p class="row-note error" id="runner-authenticator-error" role="alert" hidden></p>
+                        <div class="actions"><button type="button" class="primary" id="runner-authenticator-confirm">Confirm</button><button type="button" class="secondary" id="runner-authenticator-cancel">Cancel</button></div>
+                    </div>
+                    <p class="row-note error" id="runner-authenticator-start-error" role="alert" hidden></p>
                     <p class="row-note error" id="runner-confirm-error" role="alert" hidden></p>
                     <div id="runner-link-form" class="runner-link-form">
                         <p class="row-note">In Pi Pocket, open <strong>Menu → Runners → Link a computer</strong>, name this computer, and choose <strong>Get a link code</strong>. Enter the address and code it shows. The first link installs the runner (about 60 MB).</p>

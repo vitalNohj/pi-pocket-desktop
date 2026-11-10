@@ -216,6 +216,8 @@ By default, the app asks before the server starts a new session or a copy of a s
 
 The runner sends this computer's key and every command to the server, so it uses HTTPS. It uses plain HTTP only to this computer or to a device on your tailnet, which it checks with Tailscale itself. To link a server on another plain HTTP address, turn on **Allow plain HTTP** in the **Runner** card first, and only on a network you trust.
 
+Set up the runner’s authenticator in **Desktop Settings → Runner**, or run `pi-pocket runner totp setup` in a terminal.
+
 When the runner is off or the app is closed, the server shows this computer as offline. Its sessions cannot use tools here until it reconnects. Running commands continue through a connection drop of up to 2 minutes.
 
 **Link another computer:** the same code from **Menu → Runners → Link a computer**. Pi Pocket shows the commands for a computer without this app.

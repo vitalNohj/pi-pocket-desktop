@@ -1524,8 +1524,41 @@ button.icon-button.done {
     overflow-wrap: anywhere;
 }
 
+/* The authenticator stays inline, with the same fields and buttons as the Runner link form. */
+.authenticator-panel {
+    display: grid;
+    gap: 12px;
+    padding: 4px 0 20px;
+}
+
+#runner-authenticator-qr {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-lg);
+}
+
+.authenticator-key {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.authenticator-key code {
+    font: 14px/20px var(--mono);
+    overflow-wrap: anywhere;
+    user-select: all;
+}
+
+.authenticator-code {
+    width: min(100%, 220px);
+}
+
 /* Keep a runner command error readable in a narrow card. */
-#runner-confirm-error {
+#runner-confirm-error,
+#runner-authenticator-error,
+#runner-authenticator-start-error {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }

@@ -162,6 +162,8 @@ export interface RunnerState {
     /** Allowed folders on this computer, read by the runner CLI. Undefined until first read. */
     folders?: string[];
     foldersError?: string;
+    /** Read through the runner CLI; undefined when not linked or not known yet. Never includes the secret. */
+    authenticator?: { set: boolean; locked: boolean; lockedUntil?: number } | { unavailable: string };
     /** An installed Pi Pocket on this computer has the runner. */
     available: boolean;
     /** The server the app uses now, to fill in the link form's address. */
@@ -170,6 +172,15 @@ export interface RunnerState {
 }
 
 export type RunnerAction = "unlink" | "restart";
+
+/** The settings page alone receives the setup key and its locally rendered QR image. */
+export interface AuthenticatorSetup {
+    secret: string;
+    link: string;
+    dataUrl: string;
+}
+
+export type AuthenticatorResult = { ok: true } | { ok: false; error: string };
 
 /** The Runner card's link form: the server's address and the one-time code from its Menu → Runners. */
 export interface RunnerLinkRequest {
@@ -585,6 +596,11 @@ export interface GuiConfigApi {
     runnerFolders(remove?: string): Promise<void>;
     /** Link this computer with a code from the server's Menu → Runners; rejects with the runner's message. */
     linkRunner(request: RunnerLinkRequest): Promise<void>;
+    authenticatorStatus(): Promise<void>;
+    startAuthenticatorSetup(): Promise<AuthenticatorSetup>;
+    confirmAuthenticatorCode(code: string): Promise<AuthenticatorResult>;
+    cancelAuthenticatorSetup(): Promise<void>;
+    turnOffAuthenticator(code: string): Promise<AuthenticatorResult>;
     /** The main process asks to show a section of the settings, such as "dictation". */
     onFocus(listener: (section: string) => void): () => void;
     onState(listener: (state: ConfigState) => void): () => void;

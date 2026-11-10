@@ -22,10 +22,14 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
         firstElementChild: { style: { width: "" } },
         style: { setProperty() {} },
         classList: { toggle() {} },
-        scrollIntoView() {}, setAttribute() {}, removeAttribute() {},
-        listeners: new Map<string, (event: { preventDefault(): void }) => void>(),
-        addEventListener(name: string, listener: (event: { preventDefault(): void }) => void) { this.listeners.set(name, listener); },
-        fire(name: string) { this.listeners.get(name)?.({ preventDefault() {} }); },
+        scrollIntoView() {}, setAttribute() {}, removeAttribute() {}, focus() {},
+        listeners: new Map<string, (event: { preventDefault(): void; stopPropagation(): void; key?: string; target?: unknown }) => void>(),
+        addEventListener(name: string, listener: (event: { preventDefault(): void; stopPropagation(): void; key?: string; target?: unknown }) => void) { this.listeners.set(name, listener); },
+        fire(name: string, key?: string, target?: unknown) {
+            let prevented = false;
+            this.listeners.get(name)?.({ preventDefault() { prevented = true; }, stopPropagation() {}, ...(key === undefined ? {} : { key }), target });
+            return prevented;
+        },
         querySelectorAll: () => [],
         append(...children: unknown[]) { this.children.push(...children); },
         replaceChildren() { this.children = []; },
@@ -65,7 +69,28 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
     const connections: { url: string; unverified: boolean }[] = [];
     const views: string[] = [];
     const folderActions: (string | undefined)[] = [];
+    const authenticatorActions: string[] = [];
+    const copies: string[] = [];
     const gui = {
+        startAuthenticatorSetup: async () => {
+            authenticatorActions.push("start");
+            return { secret: "JBSWY3DPEHPK3PXP", link: "otpauth://totp/test?secret=JBSWY3DPEHPK3PXP", dataUrl: "data:image/png;base64,qr" };
+        },
+        cancelAuthenticatorSetup: async () => { authenticatorActions.push("cancel"); },
+        confirmAuthenticatorCode: async (code: string) => {
+            authenticatorActions.push(`confirm:${code}`);
+            if (code !== "123456") return { ok: false, error: "Wrong code." };
+            state = { ...state, runner: { ...state.runner, authenticator: { set: true, locked: false } } };
+            render(state);
+            return { ok: true };
+        },
+        turnOffAuthenticator: async (code: string) => {
+            authenticatorActions.push(`off:${code}`);
+            if (code !== "123456") return { ok: false, error: "Wrong code." };
+            state = { ...state, runner: { ...state.runner, authenticator: { set: false, locked: false } } };
+            render(state);
+            return { ok: true };
+        },
         runnerFolders: async (folder?: string) => {
             folderActions.push(folder);
 
@@ -99,6 +124,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
 
     runInNewContext(source, {
         URL,
+        navigator: { clipboard: { writeText: async (text: string) => { copies.push(text); } } },
         HTMLInputElement: class {},
         window: { gui, clearInterval() {}, setInterval() {}, clearTimeout() {}, setTimeout() {}, scrollTo() {}, addEventListener() {} },
         document: {
@@ -110,7 +136,7 @@ async function page(probe: (input: string) => Promise<ProbeResult>, initial: Par
     await flush();
 
     return {
-        element, connections, views, folderActions, settingsOpened: () => settingsOpened,
+        element, connections, views, folderActions, authenticatorActions, copies, settingsOpened: () => settingsOpened,
         focus: async (section: string) => { focus(section); await flush(); },
         push: async (patch: Partial<ConfigState>, drop: (keyof ConfigState)[] = []) => {
             state = { ...state, ...patch };
@@ -271,6 +297,62 @@ test("the Runner card reads allowed folders when the screen loads, renders paths
     const empty = screen.element("runner-folders").children[0] as ReturnType<typeof screen.element>;
 
     assert.equal(empty.textContent, "No allowed folders yet. A folder is added when you allow a session in it.");
+});
+
+test("the authenticator row is linked-only, explains availability, and shows lockout time", async () => {
+    const screen = await page(async () => found);
+    assert.equal(screen.element("runner-authenticator-row").hidden, true);
+    const runner: ConfigState["runner"] = { status: "connected", enabled: true, available: true, log: [], link: { server: url, id: "id", name: "Computer" } };
+    await screen.push({ runner: { ...runner, authenticator: { unavailable: "Update Pi Pocket to set up an authenticator here" } } });
+    assert.equal(screen.element("runner-authenticator-row").hidden, false);
+    assert.equal(screen.element("runner-authenticator-action").hidden, true);
+    assert.equal(screen.element("runner-authenticator-detail").textContent, "Update Pi Pocket to set up an authenticator here");
+    await screen.push({ runner: { ...runner, authenticator: { set: true, locked: true, lockedUntil: 1800000000000 } } });
+    assert.equal(screen.element("runner-authenticator-action").textContent, "Turn off");
+    assert.match(screen.element("runner-authenticator-detail").textContent, /Codes are refused until .+ after too many wrong ones\./);
+});
+
+test("authenticator inline setup copies its key, keeps errors open, confirms with Enter, and clears secrets", async () => {
+    const screen = await page(async () => found, { runner: { status: "connected", enabled: true, available: true, log: [], link: { server: url, id: "id", name: "Computer" }, authenticator: { set: false, locked: false } } });
+    assert.equal(screen.element("runner-authenticator-action").textContent, "Set up");
+    await screen.click("runner-authenticator-action");
+    assert.equal(screen.element("runner-authenticator-panel").hidden, false);
+    assert.equal(screen.element("runner-authenticator-action").textContent, "Set up", "the row stops saying Starting once the QR is ready");
+    assert.equal(screen.element("runner-authenticator-secret").textContent, "JBSWY3DPEHPK3PXP");
+    await screen.click("runner-authenticator-copy");
+    assert.deepEqual(screen.copies, ["JBSWY3DPEHPK3PXP"]);
+    const code = screen.element("runner-authenticator-code");
+    code.value = "000000";
+    await screen.click("runner-authenticator-confirm");
+    assert.equal(screen.element("runner-authenticator-error").textContent, "Wrong code.");
+    assert.equal(screen.element("runner-authenticator-panel").hidden, false);
+    code.value = "123456";
+    assert.equal(screen.element("runner-authenticator-panel").fire("keydown", "Enter", code), true);
+    await flush();
+    assert.deepEqual(screen.authenticatorActions, ["start", "confirm:000000", "confirm:123456"]);
+    assert.equal(screen.element("runner-authenticator-panel").hidden, true);
+    assert.equal(screen.element("runner-authenticator-secret").textContent, "");
+    assert.equal(code.value, "");
+    assert.equal(screen.element("runner-authenticator-action").textContent, "Turn off");
+});
+
+test("authenticator turn-off shows inline errors; Escape cancels and a right code turns it off", async () => {
+    const screen = await page(async () => found, { runner: { status: "connected", enabled: true, available: true, log: [], link: { server: url, id: "id", name: "Computer" }, authenticator: { set: true, locked: false } } });
+    await screen.click("runner-authenticator-action");
+    assert.equal(screen.element("runner-authenticator-off").hidden, false);
+    assert.equal(screen.element("runner-authenticator-setup").hidden, true);
+    screen.element("runner-authenticator-code").value = "000000";
+    await screen.click("runner-authenticator-confirm");
+    assert.equal(screen.element("runner-authenticator-error").textContent, "Wrong code.");
+    assert.equal(screen.element("runner-authenticator-panel").fire("keydown", "Escape"), true);
+    await flush();
+    assert.equal(screen.element("runner-authenticator-panel").hidden, true);
+    await screen.click("runner-authenticator-action");
+    screen.element("runner-authenticator-code").value = "123456";
+    await screen.click("runner-authenticator-confirm");
+    assert.equal(screen.element("runner-authenticator-panel").hidden, true);
+    assert.equal(screen.element("runner-authenticator-action").textContent, "Set up");
+    assert.deepEqual(screen.authenticatorActions, ["off:000000", "cancel", "off:123456"]);
 });
 
 test("a menu opens Home, a section opens Settings at it, and a new failure brings Home back", async () => {

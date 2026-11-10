@@ -32,6 +32,11 @@ const api: GuiConfigApi = {
     runner: (action) => ipcRenderer.invoke("config:runner", action) as Promise<void>,
     runnerFolders: (remove) => ipcRenderer.invoke("config:runner-folders", remove) as Promise<void>,
     linkRunner: (request) => ipcRenderer.invoke("config:link-runner", request) as Promise<void>,
+    authenticatorStatus: () => ipcRenderer.invoke("config:authenticator-status") as Promise<void>,
+    startAuthenticatorSetup: () => ipcRenderer.invoke("config:authenticator-setup") as ReturnType<GuiConfigApi["startAuthenticatorSetup"]>,
+    confirmAuthenticatorCode: (code) => ipcRenderer.invoke("config:authenticator-confirm", code) as ReturnType<GuiConfigApi["confirmAuthenticatorCode"]>,
+    cancelAuthenticatorSetup: () => ipcRenderer.invoke("config:authenticator-cancel") as Promise<void>,
+    turnOffAuthenticator: (code) => ipcRenderer.invoke("config:authenticator-off", code) as ReturnType<GuiConfigApi["turnOffAuthenticator"]>,
     onFocus: (listener) => {
         const handler = (_event: unknown, section: string) => {
             listener(section);
