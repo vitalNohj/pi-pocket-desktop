@@ -489,7 +489,7 @@ export async function start(): Promise<void> {
         showWindow();
     });
 
-    // Every page and helper process that goes away, for the diagnostics log (README, Diagnostics).
+    // Every page and helper process that goes away, for the diagnostics log (docs/settings.md, Diagnostics).
     app.on("render-process-gone", (_event, contents, details) => {
         const which = contents === appState.gui?.server.webContents ? "server page" : contents === appState.gui?.config.webContents ? "settings page" : "a page";
 
