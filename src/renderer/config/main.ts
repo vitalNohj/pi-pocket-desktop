@@ -1345,17 +1345,7 @@ const modelsSection = element<HTMLDetailsElement>("dictation-models-section");
 const modelsList = element("dictation-models");
 let modelsDownloading = false;
 
-function updateModelsFade(): void {
-  modelsList.classList.toggle(
-    "has-more",
-    modelsList.scrollTop + modelsList.clientHeight <
-      modelsList.scrollHeight - 1,
-  );
-}
-
-modelsList.addEventListener("scroll", updateModelsFade);
-if (typeof ResizeObserver !== "undefined")
-  new ResizeObserver(updateModelsFade).observe(modelsList);
+const updateModelsFade = fadeWhenMore(modelsList);
 
 function revealImportantModel(): void {
   const list = element("dictation-models");
@@ -1451,93 +1441,194 @@ function icon(name: string): SVGSVGElement {
   return svg;
 }
 
-function recentRow(each: RecentDictation): HTMLElement {
-  const row = document.createElement("div");
-  const text = document.createElement("span");
+/** A list that scrolls in its own box fades at its foot while more is below (the speech models, the allowed folders). */
+function fadeWhenMore(list: HTMLElement): () => void {
+  const update = () => {
+    list.classList.toggle(
+      "has-more",
+      list.scrollTop + list.clientHeight < list.scrollHeight - 1,
+    );
+  };
+
+  list.addEventListener("scroll", update);
+  if (typeof ResizeObserver !== "undefined") new ResizeObserver(update).observe(list);
+
+  return update;
+}
+
+const recentStatus = element("dictation-recent-status");
+let recentStatusTimer: number | undefined;
+
+/** Says something short to a screen reader (Copied, Cleared), then clears it so the same words are said again. */
+function announceRecent(words: string): void {
+  recentStatus.textContent = words;
+  window.clearTimeout(recentStatusTimer);
+  recentStatusTimer = window.setTimeout(() => {
+    recentStatus.textContent = "";
+  }, 1500);
+}
+
+/** Each shown dictation's fold: it measures whether its words need "Show all" (again when the list's width changes). */
+let recentFolds: (() => void)[] = [];
+
+function recentItem(each: RecentDictation): HTMLElement {
+  const item = document.createElement("li");
   const words = document.createElement("p");
+  const more = document.createElement("button");
+  const head = document.createElement("div");
   const about = document.createElement("small");
   const copy = document.createElement("button");
+  const copyLabel = document.createElement("span");
+  const wordsId = `dictation-recent-${String(each.id)}-text`;
+  let open = false;
 
-  row.className = "recent-item";
-  text.className = "recent-body";
+  item.className = "inset-item recent-item";
   words.className = "recent-text";
+  words.id = wordsId;
   words.textContent = each.text;
-  // Long words stay folded to a few lines; a click shows all of them.
-  words.title = "Click to show all";
+
+  // Long words stay folded to a few lines; a click, or Show all, shows all of them.
+  const fit = () => {
+    more.hidden = !open && !(words.scrollHeight > words.clientHeight + 1);
+  };
+  const setOpen = (value: boolean) => {
+    open = value;
+    words.classList.toggle("open", open);
+    more.textContent = open ? "Show less" : "Show all";
+    more.setAttribute("aria-expanded", String(open));
+    fit();
+  };
+
+  more.type = "button";
+  more.className = "recent-more";
+  more.setAttribute("aria-controls", wordsId);
+  more.addEventListener("click", () => setOpen(!open));
   words.addEventListener("click", () => {
     // Selecting some of the words is no click to fold them.
     if (window.getSelection()?.isCollapsed === false) return;
-    words.classList.toggle("open");
+    if (open || !more.hidden) setOpen(!open);
   });
+  setOpen(false);
+  recentFolds.push(fit);
+
   about.className = "recent-meta";
-  about.textContent = `${whenSaid(each.at)} · ${each.where === "anywhere" ? "Dictate anywhere" : "Pi Pocket"}`;
+  about.id = `dictation-recent-${String(each.id)}-meta`;
+  // When, then where: each kept whole on its line, so a narrow card breaks between them.
+  const when = document.createElement("span");
+  const said = document.createElement("span");
+  const where = document.createElement("span");
 
-  // What went wrong, as a tag like a speech model's: dropped with Esc, or stopped by an error.
+  said.textContent = whenSaid(each.at);
+  where.textContent = each.where === "anywhere" ? "Dictate anywhere" : "Pi Pocket";
+  when.append(said, " · ", where);
+  about.append(when);
+
+  // What went wrong, as a state pill like the authenticator's: dropped with Esc, or stopped by an error.
   if (each.error !== undefined || each.dropped === true) {
-    const tag = document.createElement("em");
+    const tag = document.createElement("span");
+    const why = document.createElement("span");
+    const stopped = each.error !== undefined;
 
-    tag.className = each.error !== undefined ? "error" : "dropped";
-    tag.textContent = each.error !== undefined ? "Stopped" : "Dropped";
-    tag.title =
-      each.error !== undefined
-        ? `Stopped: ${each.error}`
-        : "Dropped with Esc, not pasted";
-    about.append(" ", tag);
+    tag.className = "pill recent-tag";
+    tag.dataset.state = stopped ? "not-detected" : "other";
+    tag.textContent = stopped ? "Stopped" : "Dropped";
+    tag.title = stopped ? `Stopped: ${each.error ?? ""}` : "Dropped with Esc, not pasted";
+    why.className = "sr";
+    why.textContent = stopped ? "" : ", with Esc, not pasted";
+    item.dataset.state = stopped ? "stopped" : "dropped";
+    about.append(tag);
+    if (!stopped) about.append(why);
   }
 
-  text.append(words, about);
+  copy.type = "button";
+  copy.className = "secondary small recent-copy";
+  copy.setAttribute("aria-describedby", about.id);
+  copyLabel.textContent = "Copy";
+  copy.append(icon("copy"), copyLabel);
+  copy.addEventListener("click", () => {
+    void navigator.clipboard.writeText(each.text).then(
+      () => {
+        element("dictation-recent-error").hidden = true;
+        copy.classList.toggle("done", true);
+        copyLabel.textContent = "Copied";
+        copy.replaceChildren(icon("check"), copyLabel);
+        announceRecent("Copied.");
+        window.setTimeout(() => {
+          copy.classList.toggle("done", false);
+          copyLabel.textContent = "Copy";
+          copy.replaceChildren(icon("copy"), copyLabel);
+        }, 1500);
+      },
+      () => {
+        const error = element("dictation-recent-error");
+
+        error.textContent = "Could not copy. Select the words and copy them by hand.";
+        error.hidden = false;
+      },
+    );
+  });
+
+  head.className = "recent-head";
+  head.append(about, copy);
+  item.append(head, words, more);
 
   if (each.error !== undefined) {
     const error = document.createElement("small");
 
     error.className = "recent-error";
     error.textContent = each.error;
-    text.append(error);
+    item.append(error);
   }
 
-  copy.type = "button";
-  copy.className = "ghost icon-button";
-  copy.title = "Copy";
-  copy.setAttribute("aria-label", "Copy");
-  copy.append(icon("copy"));
-  copy.addEventListener("click", () => {
-    void navigator.clipboard.writeText(each.text).then(() => {
-      copy.classList.add("done");
-      copy.title = "Copied";
-      copy.setAttribute("aria-label", "Copied");
-      copy.replaceChildren(icon("check"));
-      window.setTimeout(() => {
-        copy.classList.remove("done");
-        copy.title = "Copy";
-        copy.setAttribute("aria-label", "Copy");
-        copy.replaceChildren(icon("copy"));
-      }, 1500);
-    });
-  });
-  row.append(text, copy);
+  return item;
+}
 
-  return row;
+const recentList = element("dictation-recent");
+
+if (typeof ResizeObserver !== "undefined") {
+  new ResizeObserver(() => {
+    for (const fit of recentFolds) fit();
+  }).observe(recentList);
 }
 
 /** The ids the list shows now: it is drawn again only when they change, so a click on Copy or on folded words holds. */
-let recentShown = "";
+let recentShown: string | undefined;
 
 function renderRecent(next: ConfigState): void {
   const recent = next.dictation.recent;
   const shown = recent.map((each) => each.id).join(",");
+  const count = element("dictation-recent-count");
 
-  element("dictation-recent-summary").textContent =
-    recent.length === 0 ? "· none yet" : `· ${String(recent.length)}`;
-  element("dictation-recent-clear").hidden = recent.length === 0;
+  const clear = element("dictation-recent-clear");
+  const empty = element("dictation-recent-empty");
+  // Clear goes away with the list: its focus moves to the empty line, in the same panel.
+  const focusEmpty = recent.length === 0 && document.activeElement === clear;
+
+  count.hidden = recent.length === 0;
+  count.textContent = String(recent.length);
+  clear.hidden = recent.length === 0;
+  empty.hidden = recent.length > 0;
+  if (focusEmpty) empty.focus();
+  recentList.hidden = recent.length === 0;
 
   if (shown === recentShown) return;
 
   recentShown = shown;
-  element("dictation-recent").replaceChildren(...recent.map(recentRow));
+  recentFolds = [];
+  recentList.replaceChildren(...recent.map(recentItem));
+  for (const fit of recentFolds) fit();
 }
 
 element("dictation-recent-clear").addEventListener("click", () => {
-  void gui.clearRecentDictations();
+  void gui.clearRecentDictations().then(
+    () => announceRecent("Cleared."),
+    () => {
+      const error = element("dictation-recent-error");
+
+      error.textContent = "Could not clear the recent dictations.";
+      error.hidden = false;
+    },
+  );
 });
 
 /** Dictate anywhere's card: its status, and the notes for this computer's keyboard and desktop. */
@@ -1796,42 +1887,7 @@ function renderRunner(next: ConfigState): void {
 
   element("runner-folders-error").hidden = runner.foldersError === undefined;
   element("runner-folders-error").textContent = runner.foldersError ?? "";
-  const folders = element("runner-folders");
-
-  folders.replaceChildren();
-
-  if (runner.folders === undefined || runner.folders.length === 0) {
-    const empty = document.createElement("p");
-
-    empty.className = "row-note";
-    empty.textContent =
-      runner.folders === undefined
-        ? runner.foldersError === undefined
-          ? "Loading allowed folders…"
-          : "Allowed folders are unavailable."
-        : "No allowed folders yet. A folder is added when you allow a session in it.";
-    folders.append(empty);
-  } else {
-    for (const folder of runner.folders) {
-      const row = document.createElement("div");
-      const name = document.createElement("span");
-      const remove = document.createElement("button");
-
-      row.className = "row";
-      name.textContent = folder;
-      name.style.overflowWrap = "anywhere";
-      remove.type = "button";
-      remove.className = "secondary danger";
-      remove.textContent = "Remove";
-      remove.disabled = busy;
-      remove.setAttribute("aria-label", `Remove allowed folder ${folder}`);
-      remove.addEventListener("click", () => {
-        void gui.runnerFolders(folder).catch(() => {});
-      });
-      row.append(name, remove);
-      folders.append(row);
-    }
-  }
+  renderFolders(runner.folders, runner.foldersError !== undefined, busy);
 
   element("runner-log-box").hidden = runner.log.length === 0;
   element("runner-log").textContent = runner.log.join("\n");
@@ -2063,6 +2119,103 @@ element("runner-authenticator-copy").addEventListener("click", () => {
   }).catch(() => authenticatorError("runner-authenticator-error", new Error("Could not copy the key. Select it and copy it by hand.")));
 });
 window.addEventListener("pagehide", () => { void gui.cancelAuthenticatorSetup().catch(() => {}); });
+
+// ——— Allowed folders ———
+
+/** Up to this many, the list starts open; more start folded to the title and its count, until the person opens it. */
+const FOLDERS_OPEN_UP_TO = 5;
+const foldersSection = element<HTMLDetailsElement>("runner-folders-section");
+const foldersList = element("runner-folders");
+const updateFoldersFade = fadeWhenMore(foldersList);
+/** The person opened or closed the list: their choice holds from then on. */
+let foldersChosen = false;
+/** What the list shows now: drawn again only when it changes, so its scroll and focus hold through state pushes. */
+let foldersShown: string | undefined;
+/** After a Remove, focus goes to the folder now at its place (or the list's title when none is left). */
+let foldersFocusAt: number | undefined;
+
+element("runner-folders-toggle").addEventListener("click", () => {
+  foldersChosen = true;
+});
+foldersSection.addEventListener("toggle", () => {
+  if (foldersSection.open) updateFoldersFade();
+});
+
+/** A folder's own name (its last part), for a list that is read at a glance; its full path stays under it. */
+function folderName(folder: string): string {
+  return folder.split(/[\\/]+/).filter((part) => part !== "").at(-1) ?? folder;
+}
+
+function folderItem(folder: string, index: number, busy: boolean): HTMLElement {
+  const item = document.createElement("li");
+  const text = document.createElement("span");
+  const name = document.createElement("strong");
+  const path = document.createElement("code");
+  const remove = document.createElement("button");
+
+  item.className = "inset-item folder-item";
+  text.className = "folder-text";
+  name.textContent = folderName(folder);
+  // The full path, never cut: it may break after each / or \ (and anywhere in a part too long for a line).
+  for (const part of folder.split(/(?<=[\\/])/)) path.append(part, document.createElement("wbr"));
+  path.title = folder;
+  text.append(name, path);
+  remove.type = "button";
+  remove.className = "secondary small danger";
+  remove.textContent = "Remove";
+  remove.disabled = busy;
+  remove.setAttribute("aria-label", `Remove allowed folder ${folder}`);
+  remove.addEventListener("click", () => {
+    foldersFocusAt = index;
+    void gui.runnerFolders(folder).catch(() => {});
+  });
+  item.append(icon("folder"), text, remove);
+
+  return item;
+}
+
+function renderFolders(folders: string[] | undefined, failed: boolean, busy: boolean): void {
+  const count = element("runner-folders-count");
+  const empty = element("runner-folders-empty");
+  const shown = JSON.stringify([folders ?? null, failed]);
+
+  count.hidden = folders === undefined || folders.length === 0;
+  count.textContent = String(folders?.length ?? 0);
+  empty.hidden = folders !== undefined && folders.length > 0;
+  empty.textContent =
+    folders === undefined
+      ? failed
+        ? "Allowed folders are unavailable."
+        : "Loading allowed folders…"
+      : "No allowed folders yet. A folder is added when you allow a session in it.";
+  foldersList.hidden = !empty.hidden;
+  if (folders !== undefined && !foldersChosen) {
+    foldersSection.open = folders.length <= FOLDERS_OPEN_UP_TO;
+  }
+
+  if (shown === foldersShown) {
+    for (const button of foldersList.querySelectorAll<HTMLButtonElement>("button")) button.disabled = busy;
+    return;
+  }
+
+  // A Remove that worked takes its button away: focus goes on to the folder now at its place, not to the page.
+  const active = document.activeElement;
+  const focusLost = active === null || active === undefined || active === document.body || foldersList.contains(active);
+
+  foldersShown = shown;
+  foldersList.replaceChildren(
+    ...(folders ?? []).map((folder, index) => folderItem(folder, index, busy)),
+  );
+  updateFoldersFade();
+
+  if (foldersFocusAt !== undefined && folders !== undefined && focusLost) {
+    const buttons = foldersList.querySelectorAll<HTMLButtonElement>("button");
+    const next = buttons[Math.min(foldersFocusAt, buttons.length - 1)];
+
+    (next ?? element("runner-folders-toggle")).focus();
+  }
+  foldersFocusAt = undefined;
+}
 
 /** The Runner card's Link: `runner link <server> <code>`, as on any computer. (Inside the settings form: no form here.) */
 function linkRunner(): void {
