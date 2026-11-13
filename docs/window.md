@@ -28,6 +28,9 @@ The window's buttons sit over the sidebar, so the panels on the right need no ro
 
 The same window on Windows 11, taken in the app there against the demo server.
 
+A right-click on a bar opens the app's own menu, as it does anywhere else in Pi Pocket. Windows' own window menu
+(Restore, Move, Size, Minimize, Maximize, Close) opens with Alt+Space.
+
 <img src="images/windows.png" alt="Pi Pocket on Windows 11: minimize, maximize, and close at the top right, with the conversation's border notched around them" width="100%" />
 
 |                                                                                                                                                       |                                                                                                                                                         |

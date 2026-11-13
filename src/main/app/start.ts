@@ -7,6 +7,7 @@ import { CONFIG_URL, serveAppPages } from "../settings-screen/config-protocol";
 import { eventCovered, PAGE_CLICK_WAIT_MS, pageClickInfo, readPageClick } from "../window/themed-menu";
 import { setUpAppearance, windowOptions } from "../window/appearance";
 import { parseAppsUseLightTheme, setUpTitleBar, titleBarOptions } from "../window/titlebar";
+import { keepSystemMenuOffRightClicks } from "../window/system-menu";
 import { loadTheme, sameTheme, saveTheme } from "../window/theme";
 import { setUpDesktop } from "../bridge/desktop";
 import { offerNewSession } from "../bridge/new-session";
@@ -190,6 +191,11 @@ export async function start(): Promise<void> {
                 );
             }),
     });
+
+    // With the system's title bar, Windows' menu on it is the usual one and stays.
+    if (process.platform === "win32" && titleBarAtStart === "seamless") {
+        keepSystemMenuOffRightClicks(window, [server.webContents, config.webContents]);
+    }
 
     appState.gui.appearance = setUpAppearance({
         platform: process.platform,
