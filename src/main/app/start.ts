@@ -17,7 +17,6 @@ import { setUpDictationKey } from "../dictation/dictation-key";
 import { setUpPageMic } from "../dictation/page-mic";
 import { setUpBillionContext } from "../billion-context/billion-context";
 import { setUpRunner } from "../runner/runner";
-import { askRunnerSession } from "../runner/runner-dialog";
 import { setUpLocalServer } from "../local-server/local-server";
 import { LocalStopNotice } from "../connection/server-choice";
 import { setUpUpdates } from "../updates/updates";
@@ -292,9 +291,6 @@ export async function start(): Promise<void> {
         home: join(app.getPath("userData"), "runner"),
         platform: process.platform,
         enabled: () => appState.gui!.settings.runner.enabled,
-        confirmSessions: () => appState.gui!.settings.runner.confirmSessions,
-        allowHttp: () => appState.gui!.settings.runner.allowHttp,
-        ask: (request, signal) => askRunnerSession(window, request, signal),
         setEnabled: async (enabled) => {
             const state = appState.gui!;
 

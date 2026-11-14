@@ -42,7 +42,7 @@ Everything Pi Pocket does in a browser works the same here. The app adds what a 
 
 - **Your server, this computer's files.** A Pi Pocket server runs sessions here, on your files and tools, while the
   agent and its keys stay on the server. No SSH, no open port.
-- **You approve** each new session and folder, here or with a code from your authenticator app.
+- **You decide on the server** who may use this computer, in which folders, and who approves a new session.
 
 **Dictation**
 
@@ -116,14 +116,9 @@ into the app: it is the same as `pi-pocket runner`, and the server cannot tell t
 
 <img src="docs/images/runners.png" alt="Pi Pocket's Runners sheet: three made-up linked computers, Studio online with its authenticator set up, saved folders, and approved sessions" width="100%" />
 
-**Approvals.** Before the server starts a session in a folder that is not yet allowed, the app asks you, with the
-server, person, and folder; **Deny** is the default. **Allow** saves the folder, so later sessions in it or below it
-start without asking. You can see and remove allowed folders in the Runner card. Turn off **Ask before new sessions**
-to start sessions without asking.
-
-**Authenticator.** Set one up in **Desktop Settings → Runner → Authenticator**: scan the QR code with an authenticator
-app and enter its code. Then you can approve sessions and folders, and change runner settings, from Pi Pocket with a
-6-digit code, without going to this computer.
+**People, folders, and approvals** are set in Pi Pocket, under **Menu → Runners**, not in the app. Whoever linked this
+computer chooses the people who may use it and gives each their folders. A person who is not in charge approves a new
+session with a code from their own authenticator, linked to their account in Pi Pocket, or waits for **Allow**.
 
 <img src="docs/images/runner.png" alt="The Runner card in Desktop Settings: connected, with the trust warning, Enable runner, Ask before new sessions, Allow plain HTTP, and the authenticator on" width="100%" />
 
@@ -196,7 +191,7 @@ shows how to install it there. It is experimental and can still change. Details:
 
 ## More
 
-- [The runner](docs/runner.md): linking, approvals, allowed folders, the authenticator, offline behaviour, and access.
+- [The runner](docs/runner.md): linking, who decides on people, folders, and approvals, offline behaviour, and access.
 - [Pi Pocket on this computer](docs/local-server.md): what is downloaded, how it runs, and how it is kept current.
 - [Desktop Settings, updates, and troubleshooting](docs/settings.md): every section, the settings file, updates on each
   system, page-hang recovery, and the diagnostics log.

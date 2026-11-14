@@ -42,7 +42,7 @@ export function defaultSettings(): Settings {
         dictation: { model: "", live: true, words: [], key: "auto", keyMode: "both" },
         anywhere: { enabled: false, output: "paste", sound: true },
         billionContext: { autoUpdate: true },
-        runner: { enabled: true, confirmSessions: true, allowHttp: false },
+        runner: { enabled: true, allowHttp: false },
     };
 }
 
@@ -205,7 +205,7 @@ const schema: { [S in keyof Settings]: { [K in keyof Settings[S]]: Check<Setting
         sound: bool,
     },
     billionContext: { autoUpdate: bool },
-    runner: { enabled: bool, confirmSessions: bool, allowHttp: bool },
+    runner: { enabled: bool, allowHttp: bool },
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -251,6 +251,12 @@ export function validateSettings(input: unknown): { settings: Settings; problems
         const target = settings[section as keyof Settings] as Record<string, unknown>;
 
         for (const [key, raw] of Object.entries(value)) {
+            // `runner.confirmSessions` asked on this computer before a new session: the server decides that now (its
+            // Menu → Runners), so an older file's value is dropped quietly.
+            if (section === "runner" && key === "confirmSessions") {
+                continue;
+            }
+
             const check = checks[key];
 
             if (check === undefined) {

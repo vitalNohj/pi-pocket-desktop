@@ -1441,7 +1441,7 @@ function icon(name: string): SVGSVGElement {
   return svg;
 }
 
-/** A list that scrolls in its own box fades at its foot while more is below (the speech models, the allowed folders). */
+/** A list that scrolls in its own box fades at its foot while more is below (the speech models). */
 function fadeWhenMore(list: HTMLElement): () => void {
   const update = () => {
     list.classList.toggle(
@@ -1523,7 +1523,7 @@ function recentItem(each: RecentDictation): HTMLElement {
   when.append(said, " · ", where);
   about.append(when);
 
-  // What went wrong, as a state pill like the authenticator's: dropped with Esc, or stopped by an error.
+  // What went wrong, as a state pill: dropped with Esc, or stopped by an error.
   if (each.error !== undefined || each.dropped === true) {
     const tag = document.createElement("span");
     const why = document.createElement("span");
@@ -1872,349 +1872,22 @@ function renderRunner(next: ConfigState): void {
     address.value = link?.server ?? runner.suggestedServer ?? "";
   }
   element("runner-enabled-row").classList.toggle("off", link === undefined);
-  element("runner-confirm-error").hidden = runner.confirmError === undefined;
-  element("runner-confirm-error").textContent = runner.confirmError ?? "";
-  renderAuthenticator(runner, linking);
 
   const restart = element<HTMLButtonElement>("runner-restart");
   const unlink = element<HTMLButtonElement>("runner-unlink");
 
+  // A link that ended needs a new code, not another try: the form under it is the way on.
   restart.hidden =
-    link === undefined || !runner.enabled || runner.status === "connected";
+    link === undefined ||
+    !runner.enabled ||
+    runner.status === "connected" ||
+    runner.status === "ended";
   restart.disabled = busy;
   unlink.hidden = link === undefined;
   unlink.disabled = busy;
 
-  element("runner-folders-error").hidden = runner.foldersError === undefined;
-  element("runner-folders-error").textContent = runner.foldersError ?? "";
-  renderFolders(runner.folders, runner.foldersError !== undefined, busy);
-
   element("runner-log-box").hidden = runner.log.length === 0;
   element("runner-log").textContent = runner.log.join("\n");
-}
-
-let authenticatorPanel: "starting" | "setup" | "off" | undefined;
-let authenticatorWorking = false;
-let authenticatorAttempt = 0;
-/** The exact key Copy copies; the page shows it in groups of 4 (spans, so a selection copies no spaces either). */
-let authenticatorSecret = "";
-/** Focus goes back to the row's button when a panel closes; a runner step can keep it disabled a moment longer. */
-let authenticatorFocusPending = false;
-
-/** "JBSWY3DPEHPK3PXP" → ["JBSW", "Y3DP", "EHPK", "3PXP"], for reading the key by eye. */
-function keyGroups(secret: string): string[] {
-  return secret.match(/.{1,4}/g) ?? [];
-}
-
-function showAuthenticatorKey(secret: string): void {
-  const code = element("runner-authenticator-secret");
-
-  authenticatorSecret = secret;
-  code.replaceChildren();
-  for (const group of keyGroups(secret)) {
-    const part = document.createElement("span");
-
-    part.textContent = group;
-    code.append(part);
-  }
-}
-
-function authenticatorError(id: string, failure?: unknown): void {
-  const note = element(id);
-
-  note.hidden = failure === undefined;
-  note.textContent = failure === undefined ? "" : (failure as Error).message.replace(
-    /^Error invoking remote method '[^']+': (Error: )?/, "",
-  );
-  if (id === "runner-authenticator-error") {
-    const code = element("runner-authenticator-code");
-
-    if (failure === undefined) code.removeAttribute("aria-invalid");
-    else code.setAttribute("aria-invalid", "true");
-  }
-}
-
-function renderAuthenticator(runner: RunnerState, linking: boolean): void {
-  element("runner-authenticator-row").hidden = linking;
-  if (linking) {
-    if (authenticatorPanel !== undefined) cancelAuthenticator(false);
-    element("runner-authenticator-start-error").hidden = true;
-  }
-  const status = runner.authenticator;
-  const action = element<HTMLButtonElement>("runner-authenticator-action");
-  const pill = element("runner-authenticator-state");
-  let detail: string;
-
-  if (status === undefined) {
-    detail = "Checking the authenticator…";
-  } else if ("unavailable" in status) {
-    detail = status.unavailable;
-  } else if (status.locked) {
-    const until = status.lockedUntil === undefined ? "the lockout ends" : new Date(status.lockedUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    detail = `Too many wrong codes. Codes are refused until ${until}.`;
-  } else {
-    detail = status.set
-      ? "Pi Pocket asks for a code from it to approve sessions and folders here, or to change runner settings."
-      : "Approve sessions and folders from Pi Pocket with a code, also when nobody is at this computer.";
-  }
-  element("runner-authenticator-detail").textContent = detail;
-  // At a glance: On, Off, or Locked, drawn as the app's other status pills.
-  pill.hidden = status === undefined || "unavailable" in status;
-  if (status !== undefined && !("unavailable" in status)) {
-    pill.textContent = status.locked ? "Locked" : status.set ? "On" : "Off";
-    pill.dataset.state = status.locked ? "other" : status.set ? "connected" : "off";
-  }
-  // While its panel is open, the panel has the only way forward (and Cancel): the row offers nothing to start again.
-  action.hidden = linking || status === undefined || "unavailable" in status || authenticatorPanel !== undefined;
-  action.textContent = status !== undefined && "set" in status && status.set ? "Turn off" : "Set up";
-  action.disabled = runner.busy !== undefined || authenticatorWorking;
-  action.setAttribute("aria-expanded", String(authenticatorPanel !== undefined));
-  if (authenticatorFocusPending && !action.hidden && !action.disabled) {
-    authenticatorFocusPending = false;
-    // Only if focus was lost with the panel (or is still in it, hidden), not if the person has moved on.
-    const active = document.activeElement;
-    const panel = element("runner-authenticator-panel");
-    if (active == null || active === document.body || active === action || panel.contains(active)) action.focus();
-  }
-}
-
-/** Clear the key and QR as soon as the panel closes, including after unlink or Escape. */
-function closeAuthenticatorPanel(focus = true): void {
-  authenticatorAttempt += 1;
-  authenticatorPanel = undefined;
-  authenticatorWorking = false;
-  element("runner-authenticator-panel").hidden = true;
-  authenticatorSecret = "";
-  element("runner-authenticator-secret").replaceChildren();
-  element("runner-authenticator-qr").removeAttribute("src");
-  element<HTMLInputElement>("runner-authenticator-code").value = "";
-  element("runner-authenticator-copy").textContent = "Copy";
-  element("runner-authenticator-copy").classList.toggle("done", false);
-  authenticatorError("runner-authenticator-error");
-  authenticatorFocusPending = focus;
-  if (state !== undefined) renderAuthenticator(state.runner, state.runner.link === undefined || state.runner.status === "ended");
-}
-
-function cancelAuthenticator(focus = true): void {
-  closeAuthenticatorPanel(focus);
-  void gui.cancelAuthenticatorSetup().catch(() => {});
-}
-
-function authenticatorControls(): void {
-  element<HTMLInputElement>("runner-authenticator-code").disabled = authenticatorWorking;
-  element<HTMLButtonElement>("runner-authenticator-confirm").disabled = authenticatorWorking;
-}
-
-async function openAuthenticator(): Promise<void> {
-  const status = state?.runner.authenticator;
-  if (status === undefined || "unavailable" in status || authenticatorPanel !== undefined) return;
-  const attempt = ++authenticatorAttempt;
-
-  authenticatorError("runner-authenticator-start-error");
-  authenticatorError("runner-authenticator-error");
-  const panel = element("runner-authenticator-panel");
-  const confirm = element("runner-authenticator-confirm");
-
-  panel.hidden = false;
-  panel.dataset.mode = status.set ? "off" : "setup";
-  element("runner-authenticator-title").textContent = status.set ? "Turn off the authenticator?" : "Set up an authenticator";
-  element("runner-authenticator-loading").hidden = status.set;
-  element("runner-authenticator-setup").hidden = true;
-  element("runner-authenticator-off").hidden = !status.set;
-  // Setup is two numbered steps; turning off is one plain confirmation.
-  element("runner-authenticator-enter").hidden = !status.set;
-  element("runner-authenticator-enter").classList.toggle("plain", status.set);
-  element("runner-authenticator-enter-number").hidden = status.set;
-  element("runner-authenticator-code-label").textContent = status.set ? "Code from your authenticator" : "Enter the 6-digit code it shows";
-  element<HTMLInputElement>("runner-authenticator-code").value = "";
-  confirm.textContent = status.set ? "Turn off" : "Confirm";
-  confirm.className = status.set ? "secondary danger small" : "primary small";
-  authenticatorPanel = status.set ? "off" : "starting";
-  authenticatorWorking = !status.set;
-  authenticatorControls();
-  renderAuthenticator(state!.runner, false);
-  // The row's button is gone while the panel is open: its Cancel holds focus until the code field can take it.
-  if (!status.set) element("runner-authenticator-stop").focus();
-
-  try {
-    if (!status.set) {
-      const setup = await gui.startAuthenticatorSetup();
-      if (attempt !== authenticatorAttempt) return;
-      showAuthenticatorKey(setup.secret);
-      element<HTMLImageElement>("runner-authenticator-qr").src = setup.dataUrl;
-      element("runner-authenticator-loading").hidden = true;
-      element("runner-authenticator-setup").hidden = false;
-      element("runner-authenticator-enter").hidden = false;
-      authenticatorPanel = "setup";
-      authenticatorWorking = false;
-      authenticatorControls();
-      renderAuthenticator(state!.runner, false);
-    }
-    element<HTMLInputElement>("runner-authenticator-code").focus();
-  } catch (failure) {
-    if (attempt !== authenticatorAttempt) return;
-    closeAuthenticatorPanel();
-    authenticatorError("runner-authenticator-start-error", failure);
-  }
-}
-
-async function confirmAuthenticator(): Promise<void> {
-  if (authenticatorWorking || authenticatorPanel === undefined || authenticatorPanel === "starting") return;
-  const code = element<HTMLInputElement>("runner-authenticator-code");
-  const attempt = authenticatorAttempt;
-
-  if (!/^\d{6}$/.test(code.value.trim())) {
-    authenticatorError("runner-authenticator-error", new Error("Enter a 6-digit code from your authenticator."));
-    code.focus();
-    return;
-  }
-  authenticatorWorking = true;
-  authenticatorControls();
-  authenticatorError("runner-authenticator-error");
-
-  try {
-    const result = authenticatorPanel === "setup"
-      ? await gui.confirmAuthenticatorCode(code.value.trim())
-      : await gui.turnOffAuthenticator(code.value.trim());
-    if (attempt !== authenticatorAttempt) return;
-    if (result.ok) {
-      closeAuthenticatorPanel();
-    } else {
-      authenticatorError("runner-authenticator-error", new Error(result.error));
-      code.value = "";
-    }
-  } catch (failure) {
-    if (attempt === authenticatorAttempt) authenticatorError("runner-authenticator-error", failure);
-  } finally {
-    if (attempt === authenticatorAttempt) {
-      authenticatorWorking = false;
-      authenticatorControls();
-      code.focus();
-    }
-  }
-}
-
-element("runner-authenticator-action").addEventListener("click", () => { void openAuthenticator(); });
-element("runner-authenticator-confirm").addEventListener("click", () => { void confirmAuthenticator(); });
-element("runner-authenticator-cancel").addEventListener("click", () => cancelAuthenticator());
-element("runner-authenticator-stop").addEventListener("click", () => cancelAuthenticator());
-element("runner-authenticator-panel").addEventListener("keydown", (event) => {
-  const key = (event as KeyboardEvent).key;
-  if (key === "Escape") {
-    event.preventDefault();
-    event.stopPropagation();
-    cancelAuthenticator();
-  } else if (key === "Enter" && event.target === element("runner-authenticator-code")) {
-    event.preventDefault();
-    void confirmAuthenticator();
-  }
-});
-element("runner-authenticator-copy").addEventListener("click", () => {
-  const attempt = authenticatorAttempt;
-
-  void navigator.clipboard.writeText(authenticatorSecret).then(() => {
-    if (attempt !== authenticatorAttempt) return;
-    element("runner-authenticator-copy").textContent = "Copied";
-    element("runner-authenticator-copy").classList.toggle("done", true);
-  }).catch(() => authenticatorError("runner-authenticator-error", new Error("Could not copy the key. Select it and copy it by hand.")));
-});
-window.addEventListener("pagehide", () => { void gui.cancelAuthenticatorSetup().catch(() => {}); });
-
-// ——— Allowed folders ———
-
-/** Up to this many, the list starts open; more start folded to the title and its count, until the person opens it. */
-const FOLDERS_OPEN_UP_TO = 5;
-const foldersSection = element<HTMLDetailsElement>("runner-folders-section");
-const foldersList = element("runner-folders");
-const updateFoldersFade = fadeWhenMore(foldersList);
-/** The person opened or closed the list: their choice holds from then on. */
-let foldersChosen = false;
-/** What the list shows now: drawn again only when it changes, so its scroll and focus hold through state pushes. */
-let foldersShown: string | undefined;
-/** After a Remove, focus goes to the folder now at its place (or the list's title when none is left). */
-let foldersFocusAt: number | undefined;
-
-element("runner-folders-toggle").addEventListener("click", () => {
-  foldersChosen = true;
-});
-foldersSection.addEventListener("toggle", () => {
-  if (foldersSection.open) updateFoldersFade();
-});
-
-/** A folder's own name (its last part), for a list that is read at a glance; its full path stays under it. */
-function folderName(folder: string): string {
-  return folder.split(/[\\/]+/).filter((part) => part !== "").at(-1) ?? folder;
-}
-
-function folderItem(folder: string, index: number, busy: boolean): HTMLElement {
-  const item = document.createElement("li");
-  const text = document.createElement("span");
-  const name = document.createElement("strong");
-  const path = document.createElement("code");
-  const remove = document.createElement("button");
-
-  item.className = "inset-item folder-item";
-  text.className = "folder-text";
-  name.textContent = folderName(folder);
-  // The full path, never cut: it may break after each / or \ (and anywhere in a part too long for a line).
-  for (const part of folder.split(/(?<=[\\/])/)) path.append(part, document.createElement("wbr"));
-  path.title = folder;
-  text.append(name, path);
-  remove.type = "button";
-  remove.className = "secondary small danger";
-  remove.textContent = "Remove";
-  remove.disabled = busy;
-  remove.setAttribute("aria-label", `Remove allowed folder ${folder}`);
-  remove.addEventListener("click", () => {
-    foldersFocusAt = index;
-    void gui.runnerFolders(folder).catch(() => {});
-  });
-  item.append(icon("folder"), text, remove);
-
-  return item;
-}
-
-function renderFolders(folders: string[] | undefined, failed: boolean, busy: boolean): void {
-  const count = element("runner-folders-count");
-  const empty = element("runner-folders-empty");
-  const shown = JSON.stringify([folders ?? null, failed]);
-
-  count.hidden = folders === undefined || folders.length === 0;
-  count.textContent = String(folders?.length ?? 0);
-  empty.hidden = folders !== undefined && folders.length > 0;
-  empty.textContent =
-    folders === undefined
-      ? failed
-        ? "Allowed folders are unavailable."
-        : "Loading allowed folders…"
-      : "No allowed folders yet. A folder is added when you allow a session in it.";
-  foldersList.hidden = !empty.hidden;
-  if (folders !== undefined && !foldersChosen) {
-    foldersSection.open = folders.length <= FOLDERS_OPEN_UP_TO;
-  }
-
-  if (shown === foldersShown) {
-    for (const button of foldersList.querySelectorAll<HTMLButtonElement>("button")) button.disabled = busy;
-    return;
-  }
-
-  // A Remove that worked takes its button away: focus goes on to the folder now at its place, not to the page.
-  const active = document.activeElement;
-  const focusLost = active === null || active === undefined || active === document.body || foldersList.contains(active);
-
-  foldersShown = shown;
-  foldersList.replaceChildren(
-    ...(folders ?? []).map((folder, index) => folderItem(folder, index, busy)),
-  );
-  updateFoldersFade();
-
-  if (foldersFocusAt !== undefined && folders !== undefined && focusLost) {
-    const buttons = foldersList.querySelectorAll<HTMLButtonElement>("button");
-    const next = buttons[Math.min(foldersFocusAt, buttons.length - 1)];
-
-    (next ?? element("runner-folders-toggle")).focus();
-  }
-  foldersFocusAt = undefined;
 }
 
 /** The Runner card's Link: `runner link <server> <code>`, as on any computer. (Inside the settings form: no form here.) */
@@ -2227,6 +1900,8 @@ function linkRunner(): void {
     .linkRunner({
       server: element<HTMLInputElement>("runner-server").value,
       code: code.value,
+      // The switch as it is now: its setting is saved a moment after a change, and the link keeps this choice.
+      allowHttp: element<HTMLInputElement>("runner-allow-http").checked,
     })
     .then(() => {
       code.value = "";
@@ -2242,8 +1917,6 @@ function linkRunner(): void {
 }
 
 element("runner-link").addEventListener("click", linkRunner);
-// The allowed folders, read when this screen loads; the app reads them again each time Settings opens.
-void gui.runnerFolders().catch(() => {});
 
 for (const id of ["runner-server", "runner-code"]) {
   element(id).addEventListener("keydown", (event) => {
@@ -2492,11 +2165,6 @@ if (typeof document.addEventListener === "function") {
 // Esc: back to Pi Pocket, as the sidebar's button.
 if (typeof document.addEventListener === "function") {
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !event.defaultPrevented && authenticatorPanel !== undefined) {
-      event.preventDefault();
-      cancelAuthenticator();
-      return;
-    }
     if (
       event.key === "Escape" &&
       !back.hidden &&
