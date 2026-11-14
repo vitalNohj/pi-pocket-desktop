@@ -18,10 +18,12 @@ const ANSWER_MS = 400;
 
 export function setUpPageMic(contents: () => WebContents | undefined) {
     let next = 0;
-    const waiting = new Map<number, (answer: PageMicAnswer) => void>();
+    const waiting = new Map<number, { page: WebContents; answer: (answer: PageMicAnswer) => void }>();
+    let listeningPage: WebContents | undefined;
 
     ipcMain.on("host:dictate-answer", (event, n: unknown, answer: unknown) => {
-        const page = contents();
+        const pending = typeof n === "number" ? waiting.get(n) : undefined;
+        const page = pending?.page;
 
         if (page === undefined || event.sender !== page || event.senderFrame !== page.mainFrame || typeof n !== "number") {
             return;
@@ -29,15 +31,16 @@ export function setUpPageMic(contents: () => WebContents | undefined) {
 
         const record = typeof answer === "object" && answer !== null ? (answer as Record<string, unknown>) : {};
 
-        waiting.get(n)?.({ found: record.found === true, listening: record.listening === true });
+        pending?.answer({ found: record.found === true, listening: record.listening === true });
         waiting.delete(n);
     });
 
     /** Presses the page's mic: `toggle` turns it on or off, `stop` turns it off if it listens. */
     return (action: PageMicAction): Promise<PageMicAnswer> => {
-        const page = contents();
+        const page = action === "stop" ? listeningPage ?? contents() : contents();
 
         if (page === undefined || page.isDestroyed()) {
+            if (page === listeningPage) listeningPage = undefined;
             return Promise.resolve({ found: false, listening: false });
         }
 
@@ -49,10 +52,12 @@ export function setUpPageMic(contents: () => WebContents | undefined) {
                 resolve({ found: false, listening: false });
             }, ANSWER_MS);
 
-            waiting.set(n, (answer) => {
+            waiting.set(n, { page, answer: (answer) => {
                 clearTimeout(timer);
+                if (answer.found && action === "toggle") listeningPage = answer.listening ? undefined : page;
+                else if (action === "stop" && listeningPage === page) listeningPage = undefined;
                 resolve(answer);
-            });
+            } });
             page.send("host:dictate", { n, action });
         });
     };

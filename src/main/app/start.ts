@@ -36,6 +36,10 @@ import { pushConfigState, lockConfigView, showConfig } from "../settings-screen/
 import { openSettings, openSettingsOn, quit, buildMenu, newSession } from "./menu";
 import { localReady, localDown } from "../local-server/use";
 import { show, showWindow, toggleWindow, layout } from "../window/views";
+import { serverPreferences } from "../window/server-preferences";
+import { lastUsedWindow, otherWindows, serverPages, isServerPage, windowFocused } from "../window/other-windows";
+import { newWindow } from "../window/new-window";
+import { mainCloseAction } from "../window/window-rules";
 import { setUpNavigation } from "../window/navigation";
 import { contextMenuEventAt, clipboardHasContent, openContextMenu } from "../window/page-menu";
 import { openServerWindow, watchServerView, connect } from "../connection/connect";
@@ -92,19 +96,7 @@ export async function start(): Promise<void> {
     });
 
     const server = new WebContentsView({
-        webPreferences: {
-            session: serverSession,
-            // window.pocketHost, the app bridge; the main process decides at its start whether the page gets it.
-            preload: preloadPath("server"),
-            additionalArguments: ["--pocket-gui-navigation"],
-            contextIsolation: true,
-            sandbox: true,
-            nodeIntegration: false,
-            webSecurity: true,
-            spellcheck: true,
-            // Notifications and the live connection keep working while the window is hidden in the tray.
-            backgroundThrottling: false,
-        },
+        webPreferences: serverPreferences(serverSession),
     });
     const config = new WebContentsView({
         webPreferences: {
@@ -236,11 +228,6 @@ export async function start(): Promise<void> {
         },
         fetch: (url) => net.fetch(url, { headers: { "user-agent": `pi-pocket-desktop/${app.getVersion()}` } }),
         fromServerPage: (event) => appState.gui?.desktop?.fromServerPage(event) === true,
-        toPage: (message) => {
-            if (!server.webContents.isDestroyed()) {
-                server.webContents.send("host:dictation", message);
-            }
-        },
         changed: () => {
             pushConfigState();
         },
@@ -337,6 +324,9 @@ export async function start(): Promise<void> {
         assets: ASSETS,
         window: () => window,
         contents: () => server.webContents,
+        pages: serverPages,
+        lastUsedWindow,
+        newWindow,
         origin: () => currentOrigin(),
         settings: () => appState.gui!.settings,
         showingServer: () => appState.gui?.showing === "server",
@@ -392,10 +382,11 @@ export async function start(): Promise<void> {
             state.theme = next;
             saveTheme(state.themePath, next);
             state.appearance?.themeChanged();
+            for (const other of otherWindows()) other.appearance.themeChanged();
             state.titleBar?.themeChanged(next);
             pushConfigState();
         },
-        pageRightClick: (input) => {
+        pageRightClick: (contents, input) => {
             const click = readPageClick(input);
             const at = Date.now();
 
@@ -406,22 +397,24 @@ export async function start(): Promise<void> {
             // Electron's event, where it fires, comes with the spelling: wait a moment for it, and open from the
             // page's report only when it did not come (macOS).
             setTimeout(() => {
-                const contents = appState.gui?.server.webContents;
-
-                if (contents === undefined || contents.isDestroyed() || eventCovered(contextMenuEventAt.get(contents.id), at)) {
+                if (contents.isDestroyed() || eventCovered(contextMenuEventAt.get(contents.id), at)) {
                     return;
                 }
 
                 void clipboardHasContent().then((pasteable) => {
-                    if (appState.gui !== undefined && !contents.isDestroyed()) {
-                        openContextMenu(appState.gui.window, contents, pageClickInfo(click, pasteable), click, { openSettings });
+                    const page = serverPages().find((page) => page.contents === contents);
+
+                    if (page !== undefined && !contents.isDestroyed()) {
+                        openContextMenu(page.window, contents, pageClickInfo(click, pasteable), click, { openSettings });
                     }
                 });
             }, PAGE_CLICK_WAIT_MS);
         },
     });
 
-    for (const change of ["show", "hide", "minimize", "restore", "focus"] as const) {
+    window.on("focus", () => windowFocused(window));
+
+    for (const change of ["show", "hide", "minimize", "restore", "focus", "blur"] as const) {
         window.on(change as "show", () => appState.gui?.desktop?.visibilityChanged());
     }
 
@@ -431,7 +424,7 @@ export async function start(): Promise<void> {
     };
 
     guardSession(serverSession, policy, {
-        contents: () => appState.gui!.server.webContents,
+        isServerPage,
         notify: (message) => appState.gui?.desktop?.notifyDownload(message),
     });
     guardContents(server.webContents, policy, openServerWindow);
@@ -460,14 +453,17 @@ export async function start(): Promise<void> {
             return;
         }
 
-        if (appState.gui.settings.window.closeToTray) {
-            event.preventDefault();
+        const action = mainCloseAction({
+            quitting: appState.gui.quitting,
+            closeToTray: appState.gui.settings.window.closeToTray,
+            otherWindows: otherWindows().length,
+            tray: appState.gui.tray !== undefined,
+        });
 
-            if (appState.gui.tray !== undefined) {
-                window.hide();
-            } else {
-                window.minimize();
-            }
+        if (action !== "close") {
+            event.preventDefault();
+            if (action === "hide") window.hide();
+            else window.minimize();
         }
     });
     window.on("closed", () => {
@@ -492,7 +488,7 @@ export async function start(): Promise<void> {
         }
     });
     app.on("activate", () => {
-        showWindow();
+        if (!BaseWindow.getAllWindows().some((window) => window.isVisible() && !window.isMinimized())) showWindow();
     });
 
     // Every page and helper process that goes away, for the diagnostics log (docs/settings.md, Diagnostics).
@@ -572,12 +568,14 @@ export async function start(): Promise<void> {
         }
     };
 
-    const pageMic = setUpPageMic(() => (server.webContents.isDestroyed() ? undefined : server.webContents));
+    const focusedPage = () => serverPages().find((page) => page.window.isFocused() &&
+        (page.window !== window || (appState.gui?.showing === "server" && appState.gui.loadedUrl !== undefined && !appState.gui.unverified)));
+    const pageMic = setUpPageMic(() => focusedPage()?.contents);
 
     appState.gui.dictationKey = setUpDictationKey({
         platform: process.platform,
         settings: () => appState.gui!.settings,
-        pageInFront: () => window.isFocused() && appState.gui?.showing === "server" && appState.gui.loadedUrl !== undefined && !appState.gui.unverified,
+        pageInFront: () => focusedPage() !== undefined,
         pageMic,
         anywhere: () => appState.gui?.anywhere,
         grab: grabDictationShortcut,
@@ -592,7 +590,7 @@ export async function start(): Promise<void> {
     registerIpc();
     applyDesktopSettings(undefined);
     buildMenu();
-    offerNewSession(newSession);
+    offerNewSession(newSession, newWindow);
     await config.webContents.loadURL(CONFIG_URL);
 
     if (placed.maximized) {

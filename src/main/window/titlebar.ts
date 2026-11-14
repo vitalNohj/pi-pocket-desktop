@@ -224,20 +224,21 @@ export class SchemeGuard {
 export function setUpTitleBar(host: TitleBarHost): {
     /** How far down the server's view starts: 0, unless its page could not be told of the band. */
     offset: () => number;
+    addWindow: (window: BaseWindow, page: WebContents) => () => number;
     themeChanged: (theme: ThemeColors) => void;
-    /** Another server page (a window it opened): give it the system's scheme before it loads. */
+    /** A pop-out: give its page the system's scheme before it loads. */
     followSystemScheme: (page: WebContents) => Promise<void>;
 } {
     if (host.style === "system") {
-        return { offset: () => 0, themeChanged: () => undefined, followSystemScheme: async () => undefined };
+        return { offset: () => 0, addWindow: () => () => 0, themeChanged: () => undefined, followSystemScheme: async () => undefined };
     }
 
-    const contents = host.server;
     const band = bandHeight(host.platform);
-    let failed = false;
     let theme = host.theme;
     const guard = new SchemeGuard(host.nativeTheme);
     const caption = () => captionScheme(host.platform, host.style, theme);
+    const pages = new Set<WebContents>();
+    const windows = new Set<BaseWindow>();
 
     /** Give a page the system's scheme over the debugger; until that succeeds, the guard keeps the override off. */
     const emulate = async (page: WebContents): Promise<void> => {
@@ -284,88 +285,6 @@ export function setUpTitleBar(host: TitleBarHost): {
             void emulate(page);
         });
     };
-    /** Whether the page now shown makes its own room. Kept across loads of the same origin: the next one likely does too. */
-    let ownRoom = false;
-    let origin = "";
-
-    // In full screen the controls hide (macOS) or there is nothing to keep clear of: the page takes the whole window.
-    const inset = () => (ownRoom || host.window.isFullScreen() ? 0 : band);
-
-    const tell = async (): Promise<void> => {
-        if (contents.isDestroyed()) {
-            return;
-        }
-
-        try {
-            if (!contents.debugger.isAttached()) {
-                contents.debugger.attach("1.3");
-            }
-
-            await contents.debugger.sendCommand("Emulation.setSafeAreaInsetsOverride", { insets: { top: inset() } });
-        } catch (error) {
-            if (!failed) {
-                failed = true;
-                console.error(`The page could not be told of the title bar (${(error as Error).message}); it starts below it.`);
-                host.window.emit("resize");
-            }
-        }
-    };
-
-    const check = async (): Promise<void> => {
-        let own = false;
-
-        try {
-            own = (await contents.executeJavaScript(OWN_ROOM, false)) === true;
-        } catch {
-            own = false;
-        }
-
-        if (own !== ownRoom) {
-            ownRoom = own;
-            void tell();
-            host.window.emit("resize");
-        }
-    };
-
-    contents.on("did-start-navigation", (details) => {
-        if (!details.isMainFrame || details.isSameDocument) {
-            return;
-        }
-
-        let next = "";
-
-        try {
-            next = new URL(details.url).origin;
-        } catch {
-            next = "";
-        }
-
-        // Another site (a sign-in page): told of the band until it shows that it makes its own room.
-        if (next !== origin) {
-            origin = next;
-            ownRoom = false;
-        }
-
-        void tell();
-    });
-
-    // A module script runs before DOMContentLoaded, so the mark is there by then; checked again once it all loads.
-    contents.on("dom-ready", () => {
-        void contents.insertCSS(DRAG_CSS).catch(() => undefined);
-        void contents.insertCSS(NOTCH_CSS).catch(() => undefined);
-        void contents.insertCSS(MENU_CSS).catch(() => undefined);
-        void contents.insertCSS(ROOM_CSS, { cssOrigin: ROOM_ORIGIN }).catch(() => undefined);
-        void check();
-    });
-    contents.on("did-finish-load", () => void check());
-    // A crashed page comes back without the override; DevTools opening can take the protocol over for a moment.
-    contents.on("render-process-gone", () => void tell());
-    contents.debugger.on("detach", () => {
-        setTimeout(() => void tell(), 500);
-    });
-
-    host.window.on("enter-full-screen", () => void tell());
-    host.window.on("leave-full-screen", () => void tell());
 
     // The system's setting can change while the app runs: read it again when the window comes back to the front.
     const readSystem = async () => {
@@ -385,40 +304,132 @@ export function setUpTitleBar(host: TitleBarHost): {
             await Promise.all([...pages].map(emulate));
         }
     };
-    const pages = new Set<WebContents>([contents]);
 
-    if (caption() !== undefined) {
-        follow(contents);
-        contents.once("destroyed", () => pages.delete(contents));
-    }
+    const followSystemScheme = async (page: WebContents): Promise<void> => {
+        if (caption() === undefined || pages.has(page)) return;
+        pages.add(page);
+        page.once("destroyed", () => pages.delete(page));
+        follow(page);
+        // Given again at the first navigation, in case the protocol needed a document first.
+        page.once("did-start-navigation", () => void emulate(page));
+        await emulate(page);
+    };
+
+    // The main window and every other full window use the same band behavior and process-wide scheme guard.
+    const addWindow = (window: BaseWindow, contents: WebContents): (() => number) => {
+        let failed = false;
+
+        windows.add(window);
+        window.once("closed", () => windows.delete(window));
+        /** Whether the page now shown makes its own room. Kept across loads of the same origin: the next one likely does too. */
+        let ownRoom = false;
+        let origin = "";
+
+        // In full screen the controls hide (macOS) or there is nothing to keep clear of: the page takes the whole window.
+        const inset = () => (ownRoom || window.isFullScreen() ? 0 : band);
+
+        const tell = async (): Promise<void> => {
+            if (contents.isDestroyed() || window.isDestroyed()) {
+                return;
+            }
+
+            try {
+                if (!contents.debugger.isAttached()) {
+                    contents.debugger.attach("1.3");
+                }
+
+                await contents.debugger.sendCommand("Emulation.setSafeAreaInsetsOverride", { insets: { top: inset() } });
+            } catch (error) {
+                if (!failed && !window.isDestroyed()) {
+                    failed = true;
+                    console.error(`The page could not be told of the title bar (${(error as Error).message}); it starts below it.`);
+                    window.emit("resize");
+                }
+            }
+        };
+
+        const check = async (): Promise<void> => {
+            let own = false;
+
+            try {
+                own = (await contents.executeJavaScript(OWN_ROOM, false)) === true;
+            } catch {
+                own = false;
+            }
+
+            if (!window.isDestroyed() && own !== ownRoom) {
+                ownRoom = own;
+                void tell();
+                window.emit("resize");
+            }
+        };
+
+        contents.on("did-start-navigation", (details) => {
+            if (!details.isMainFrame || details.isSameDocument) {
+                return;
+            }
+
+            let next = "";
+
+            try {
+                next = new URL(details.url).origin;
+            } catch {
+                next = "";
+            }
+
+            // Another site (a sign-in page): told of the band until it shows that it makes its own room.
+            if (next !== origin) {
+                origin = next;
+                ownRoom = false;
+            }
+
+            void tell();
+        });
+
+        // A module script runs before DOMContentLoaded, so the mark is there by then; checked again once it all loads.
+        contents.on("dom-ready", () => {
+            void contents.insertCSS(DRAG_CSS).catch(() => undefined);
+            void contents.insertCSS(NOTCH_CSS).catch(() => undefined);
+            void contents.insertCSS(MENU_CSS).catch(() => undefined);
+            void contents.insertCSS(ROOM_CSS, { cssOrigin: ROOM_ORIGIN }).catch(() => undefined);
+            void check();
+        });
+        contents.on("did-finish-load", () => void check());
+        // A crashed page comes back without the override; DevTools opening can take the protocol over for a moment.
+        contents.on("render-process-gone", () => void tell());
+        contents.debugger.on("detach", () => {
+            setTimeout(() => void tell(), 500);
+        });
+
+        window.on("enter-full-screen", () => void tell());
+        window.on("leave-full-screen", () => void tell());
+
+        void followSystemScheme(contents);
+        window.on("focus", () => void readSystem());
+        void tell();
+
+        return () => (failed && !ownRoom ? inset() : 0);
+    };
 
     guard.want(caption());
-    host.window.on("focus", () => void readSystem());
+    const offset = addWindow(host.window, host.server);
+
     void readSystem();
-    void tell();
 
     return {
-        offset: () => (failed && !ownRoom ? inset() : 0),
+        offset,
+        addWindow,
         themeChanged: (next) => {
             theme = next;
 
             if (host.platform !== "darwin") {
-                host.window.setTitleBarOverlay(overlayColors(next));
+                for (const window of windows) {
+                    if (!window.isDestroyed()) window.setTitleBarOverlay(overlayColors(next));
+                }
             }
 
             guard.want(caption());
         },
-        followSystemScheme: async (page) => {
-            if (caption() === undefined) {
-                return;
-            }
-
-            pages.add(page);
-            page.once("destroyed", () => pages.delete(page));
-            follow(page);
-            // Given again once its first document starts, in case the protocol did not answer before it had one.
-            page.once("did-start-navigation", () => void emulate(page));
-            await emulate(page);
-        },
+        followSystemScheme,
     };
 }

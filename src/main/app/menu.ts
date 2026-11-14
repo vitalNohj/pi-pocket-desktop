@@ -5,7 +5,10 @@ import type { Side } from "../../shared/types";
 import { newSessionMenuItem } from "../bridge/new-session";
 import { diagnosticsFile } from "../diagnostics/stall-watchdog";
 import { showWindow } from "../window/views";
-import { navigate } from "../window/navigation";
+import { navigate, navigateOtherWindow } from "../window/navigation";
+import { otherWindow } from "../window/other-windows";
+import { newWindow } from "../window/new-window";
+import { newWindowMenuItem } from "../window/window-rules";
 import { showConfig } from "../settings-screen/screen";
 import { reloadServer } from "../connection/health";
 import { LINKS } from "./links";
@@ -75,6 +78,7 @@ export function buildMenu(): void {
             label: "File",
             submenu: [
                 newSessionMenuItem(() => newSession()),
+                newWindowMenuItem(newWindow),
                 { type: "separator" },
                 { label: "Desktop Settings…", accelerator: "CommandOrControl+,", click: openSettings },
                 { type: "separator" },
@@ -87,16 +91,24 @@ export function buildMenu(): void {
             submenu: [
                 { label: "Back", accelerator: mac ? "Command+[" : "Alt+Left", registerAccelerator: false, click: (_item, window) => {
                     if (window === state.gui?.window) navigate("back");
+                    else if (window !== undefined) navigateOtherWindow("back", window);
                 } },
                 { label: "Forward", accelerator: mac ? "Command+]" : "Alt+Right", registerAccelerator: false, click: (_item, window) => {
                     if (window === state.gui?.window) navigate("forward");
+                    else if (window !== undefined) navigateOtherWindow("forward", window);
                 } },
                 { type: "separator" },
                 {
                     label: state.gui?.pageHang.hung === true ? "Reload (page not responding)" : "Reload",
                     accelerator: "CommandOrControl+R",
-                    click: () => {
-                        if (state.gui?.showing === "config") {
+                    click: (_item, window) => {
+                        const other = otherWindow(window);
+
+                        if (other !== undefined) {
+                            other.view.webContents.reload();
+                        } else if (window !== state.gui?.window) {
+                            return;
+                        } else if (state.gui?.showing === "config") {
                             state.gui.config.webContents.reload();
                         } else {
                             reloadServer();
@@ -106,8 +118,13 @@ export function buildMenu(): void {
                 {
                     label: "Developer tools",
                     accelerator: mac ? "Alt+Command+I" : "Control+Shift+I",
-                    click: () => {
-                        (state.gui?.showing === "config" ? state.gui.config : state.gui?.server)?.webContents.toggleDevTools();
+                    click: (_item, window) => {
+                        const other = otherWindow(window);
+
+                        if (other !== undefined) other.view.webContents.toggleDevTools();
+                        else if (window === state.gui?.window) {
+                            (state.gui?.showing === "config" ? state.gui.config : state.gui?.server)?.webContents.toggleDevTools();
+                        }
                     },
                 },
                 { type: "separator" },

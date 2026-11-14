@@ -16,6 +16,7 @@ import { startHealth } from "../connection/health";
 import { connect } from "../connection/connect";
 import { openSettings } from "../app/menu";
 import { show } from "../window/views";
+import { serverPages } from "../window/other-windows";
 import { navigate } from "../window/navigation";
 import { openLocal, localAction } from "../local-server/use";
 import { LINKS } from "../app/links";
@@ -94,8 +95,8 @@ export function registerIpc(): void {
         state.dictation?.settingsChanged();
         state.dictationKey?.settingsChanged();
 
-        if (!state.server.webContents.isDestroyed()) {
-            state.server.webContents.send("host:dictation-key", state.dictationKey?.pageKey() ?? null);
+        for (const page of serverPages()) {
+            page.contents.send("host:dictation-key", state.dictationKey?.pageKey() ?? null);
         }
 
         state.anywhere?.settingsChanged();

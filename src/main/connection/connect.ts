@@ -2,9 +2,12 @@
 // ——— Connecting ———
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { BrowserWindow, dialog, session, type ContextMenuParams } from "electron";
+import { BrowserWindow, dialog, session, type ContextMenuParams, type WebContents } from "electron";
 import { NavigationResponses } from "./connection";
 import { isNewSessionKey } from "../bridge/new-session";
+import { isNewWindowKey } from "../window/window-rules";
+import { newWindow } from "../window/new-window";
+import { closeOtherWindows, reloadFailedOtherWindows, serverPages } from "../window/other-windows";
 import { saveRequestEnded, saveRequestStarted, saveResponse } from "../bridge/save-file";
 import { networkMessage } from "./probe";
 import { guardContents, openOutside, type OriginPolicy } from "../core/security";
@@ -32,6 +35,8 @@ export function connect(url: string, unverified = false): void {
         return;
     }
 
+    closeOtherWindows(normalized.origin);
+
     if (normalized.url !== state.settings.server.url) {
         state.settings = { ...state.settings, server: { ...state.settings.server, url: normalized.url } };
         saveSettings(state.configPath, state.settings);
@@ -52,6 +57,8 @@ export function connect(url: string, unverified = false): void {
         useServer("remote");
         state.loadedUrl = undefined;
     }
+
+    reloadFailedOtherWindows();
 
     if (state.loadedUrl !== undefined && sameAddress(state.loadedUrl, normalized.url)) {
         show("server");
@@ -91,7 +98,8 @@ export function watchServerView(): void {
 
     contents.session.webRequest.onBeforeRequest((details, callback) => {
         const origin = currentOrigin();
-        const fromServer = details.webContentsId === contentsId && details.frame === contents.mainFrame && details.initiatorOrigin === origin;
+        const page = serverPages().find((page) => page.contents.id === details.webContentsId && page.origin === origin);
+        const fromServer = page !== undefined && details.frame === page.contents.mainFrame && details.initiatorOrigin === origin;
 
         saveRequestStarted(details.id, details.url, details.webContentsId, origin, fromServer);
         callback({});
@@ -120,16 +128,7 @@ export function watchServerView(): void {
         callback({});
     });
 
-    // These belong to the app, not to the server's HTML, CSS, or keyboard handlers.
-    contents.on("before-input-event", (event, input) => {
-        if (input.type === "keyDown" && input.key === "," && (process.platform === "darwin" ? input.meta : input.control) && !input.alt) {
-            event.preventDefault();
-            openSettings();
-        } else if (isNewSessionKey(input, process.platform)) {
-            event.preventDefault();
-            newSession();
-        }
-    });
+    wireServerKeys(contents);
     contents.on("context-menu", (_event, params) => {
         contextMenuEventAt.set(contents.id, Date.now());
         openContextMenu(appState.gui!.window, contents, params, params, { openSettings });
@@ -229,6 +228,22 @@ export function watchServerView(): void {
     // Each document starts without the see-through CSS: give it again as soon as there is a page to give it to.
     contents.on("dom-ready", () => {
         appState.gui?.appearance?.pageLoaded();
+    });
+}
+
+/** The app owns these keys in every server page, before the page's own handlers. */
+export function wireServerKeys(contents: WebContents): void {
+    contents.on("before-input-event", (event, input) => {
+        if (input.type === "keyDown" && input.key === "," && (process.platform === "darwin" ? input.meta : input.control) && !input.alt) {
+            event.preventDefault();
+            openSettings();
+        } else if (isNewWindowKey(input, process.platform)) {
+            event.preventDefault();
+            newWindow();
+        } else if (isNewSessionKey(input, process.platform)) {
+            event.preventDefault();
+            newSession();
+        }
     });
 }
 
