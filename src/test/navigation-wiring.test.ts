@@ -223,6 +223,63 @@ test("the View menu shows the platform keys, and its actions never move the prim
     }
 });
 
+test("Reload and Developer tools act on the window in front: an other window's page, a pop-out's own, else the main window", () => {
+    const calls: string[] = [];
+    const page = (name: string) => ({ isDestroyed: () => false, reload: () => calls.push(`${name}-reload`), toggleDevTools: () => calls.push(`${name}-tools`) });
+    const gui = { window: {}, pageHang: { hung: false }, showing: "server", server: { webContents: page("server") }, config: { webContents: page("config") } };
+    const other = { view: { webContents: page("other") } };
+    const otherFront = {};
+    const popOut = { webContents: page("pop-out") };
+    // The tray's menu or the dictation pill: a window of the app that is neither.
+    const small = { webContents: page("small") };
+    const exports = {} as typeof AppMenu;
+    let menu: MenuItemConstructorOptions[] = [];
+
+    runInNewContext(readFileSync(join(__dirname, "..", "main", "app", "menu.js"), "utf8"), {
+        exports, process: { platform: "linux" },
+        require: (name: string) => {
+            switch (name) {
+                case "electron": return { Menu: { buildFromTemplate: (items: MenuItemConstructorOptions[]) => items, setApplicationMenu: (items: MenuItemConstructorOptions[]) => { menu = items; } } };
+                case "./state": return { state: { gui } };
+                case "../window/navigation": return { navigate() {}, navigateOtherWindow() {} };
+                case "../window/other-windows": return {
+                    otherWindow: (window: unknown) => (window === otherFront ? other : undefined),
+                    isPopOut: (window: unknown) => window === popOut,
+                };
+                case "../window/window-rules": return windowRules;
+                case "../bridge/new-session": return { newSessionMenuItem: () => ({ label: "New Session" }) };
+                case "../connection/health": return { reloadServer: () => calls.push("server-reload") };
+                case "./links": return { LINKS: {} };
+                default: return {};
+            }
+        },
+    });
+    exports.buildMenu();
+    const items = menu.find((item) => item.label === "View")!.submenu as MenuItemConstructorOptions[];
+    const reload = items.find((item) => item.label === "Reload")!;
+    const tools = items.find((item) => item.label === "Developer tools")!;
+    const click = (item: MenuItemConstructorOptions, window: object | undefined) => (item.click as (item: object, window: object | undefined) => void)(item, window);
+
+    for (const front of [otherFront, popOut, gui.window, small, undefined]) {
+        click(reload, front);
+        click(tools, front);
+    }
+
+    assert.deepEqual(calls, [
+        "other-reload", "other-tools",
+        "pop-out-reload", "pop-out-tools",
+        "server-reload", "server-tools",
+        "server-reload", "server-tools",
+        "server-reload", "server-tools",
+    ]);
+
+    calls.length = 0;
+    gui.showing = "config";
+    click(reload, gui.window);
+    click(tools, gui.window);
+    assert.deepEqual(calls, ["config-reload", "config-tools"]);
+});
+
 test("an other window navigates its own safe history, with top-frame and origin checks", () => {
     const state = app();
     const sender = state.other.view.webContents;

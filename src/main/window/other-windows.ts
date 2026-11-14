@@ -1,4 +1,4 @@
-// Registered full server windows. Pop-outs never enter this registry.
+// Registered full server windows. Pop-outs never enter this registry: they are only marked, for the View menu.
 import type { BaseWindow, WebContents, WebContentsView } from "electron";
 import { state, type Gui } from "../app/state";
 import { currentOrigin } from "../connection/address";
@@ -23,6 +23,16 @@ export interface ServerPage {
 const others = new Map<BaseWindow, OtherWindow>();
 let lastFocused: BaseWindow | undefined;
 let mainCloseHeld = false;
+const popOuts = new WeakSet<BaseWindow>();
+
+/** A plain window opened for a link (connection/connect.ts). It is no server page: it gets no bridge. */
+export function notePopOut(window: BaseWindow): void {
+    popOuts.add(window);
+}
+
+export function isPopOut(window: BaseWindow | undefined): boolean {
+    return window !== undefined && popOuts.has(window);
+}
 
 /**
  * The person closed the main window while it could not close (another window was open, or close to tray): it was kept,

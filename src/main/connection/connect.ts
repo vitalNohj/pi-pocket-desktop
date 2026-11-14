@@ -7,7 +7,7 @@ import { NavigationResponses } from "./connection";
 import { isNewSessionKey } from "../bridge/new-session";
 import { isNewWindowKey } from "../window/window-rules";
 import { newWindow } from "../window/new-window";
-import { closeOtherWindows, reloadFailedOtherWindows, serverPages } from "../window/other-windows";
+import { closeOtherWindows, notePopOut, reloadFailedOtherWindows, serverPages } from "../window/other-windows";
 import { saveRequestEnded, saveRequestStarted, saveResponse } from "../bridge/save-file";
 import { networkMessage } from "./probe";
 import { guardContents, openOutside, type OriginPolicy } from "../core/security";
@@ -304,6 +304,7 @@ export function openServerWindow(url: string): void {
         allowed: () => new Set([currentOrigin(), ...(appState.gui?.settings.server.extraOrigins ?? [])]),
     };
 
+    notePopOut(child);
     guardContents(child.webContents, policy, openServerWindow);
     child.webContents.on("context-menu", (_event, params: ContextMenuParams) => {
         openContextMenu(child, child.webContents, params, params, {});

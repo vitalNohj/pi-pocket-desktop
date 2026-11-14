@@ -1,18 +1,30 @@
 // Application menu actions and the menu.
 import { appendFile } from "node:fs/promises";
-import { app, Menu, shell, type MenuItemConstructorOptions } from "electron";
+import { app, Menu, shell, type BaseWindow, type BrowserWindow, type MenuItemConstructorOptions, type WebContents } from "electron";
 import type { Side } from "../../shared/types";
 import { newSessionMenuItem } from "../bridge/new-session";
 import { diagnosticsFile } from "../diagnostics/stall-watchdog";
 import { showWindow } from "../window/views";
 import { navigate, navigateOtherWindow } from "../window/navigation";
-import { otherWindow } from "../window/other-windows";
+import { isPopOut, otherWindow } from "../window/other-windows";
 import { newWindow } from "../window/new-window";
 import { newWindowMenuItem } from "../window/window-rules";
 import { showConfig } from "../settings-screen/screen";
 import { reloadServer } from "../connection/health";
 import { LINKS } from "./links";
 import { state } from "./state";
+
+/**
+ * The page that Reload and Developer tools act on when the window in front is not the main one: an other window's
+ * page, or a pop-out's own. Undefined for the main window, and for anything else in front (the tray's menu, nothing).
+ */
+function ownPage(window: BaseWindow | undefined): WebContents | undefined {
+    const other = otherWindow(window);
+
+    if (other !== undefined) return other.view.webContents;
+
+    return isPopOut(window) ? (window as BrowserWindow).webContents : undefined;
+}
 
 /** New session (src/main/bridge/new-session.ts): the window shows, and the page opens its New session sheet when it can. */
 export function newSession(starting = false): void {
@@ -103,10 +115,10 @@ export function buildMenu(): void {
                     label: state.gui?.pageHang.hung === true ? "Reload (page not responding)" : "Reload",
                     accelerator: "CommandOrControl+R",
                     click: (_item, window) => {
-                        const other = otherWindow(window);
+                        const page = ownPage(window);
 
-                        if (other !== undefined) {
-                            other.view.webContents.reload();
+                        if (page !== undefined) {
+                            if (!page.isDestroyed()) page.reload();
                         } else if (state.gui?.showing === "config") {
                             state.gui.config.webContents.reload();
                         } else {
@@ -118,10 +130,13 @@ export function buildMenu(): void {
                     label: "Developer tools",
                     accelerator: mac ? "Alt+Command+I" : "Control+Shift+I",
                     click: (_item, window) => {
-                        const other = otherWindow(window);
+                        const page = ownPage(window);
 
-                        if (other !== undefined) other.view.webContents.toggleDevTools();
-                        else (state.gui?.showing === "config" ? state.gui.config : state.gui?.server)?.webContents.toggleDevTools();
+                        if (page !== undefined) {
+                            if (!page.isDestroyed()) page.toggleDevTools();
+                        } else {
+                            (state.gui?.showing === "config" ? state.gui.config : state.gui?.server)?.webContents.toggleDevTools();
+                        }
                     },
                 },
                 { type: "separator" },

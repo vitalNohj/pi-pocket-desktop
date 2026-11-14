@@ -62,7 +62,7 @@ Open **New Window** from the File menu, the tray, the macOS Dock menu, or with *
 It opens the session list on the same server, with the same sign-in. Open a session in each window to keep them side
 by side. **Ctrl+N** (**⌘N**) starts a session in the window you used last.
 
-Desktop Settings always opens in the main window. The global shortcut and **Open Pi Pocket** in the tray still show
+In the View menu, **Reload** and **Developer tools** act on the window in front. Desktop Settings always opens in the main window. The global shortcut and **Open Pi Pocket** in the tray still show
 or hide that window. Connection checks and recovery notices stay there too. Other windows have the same title bar,
 background, theme, downloads, and dictation.
 
