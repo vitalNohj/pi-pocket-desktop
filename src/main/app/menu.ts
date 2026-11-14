@@ -89,6 +89,7 @@ export function buildMenu(): void {
         {
             label: "View",
             submenu: [
+                // The main window and an other window each step through their own page. A pop-out in front moves neither.
                 { label: "Back", accelerator: mac ? "Command+[" : "Alt+Left", registerAccelerator: false, click: (_item, window) => {
                     if (window === state.gui?.window) navigate("back");
                     else if (window !== undefined) navigateOtherWindow("back", window);
@@ -106,8 +107,6 @@ export function buildMenu(): void {
 
                         if (other !== undefined) {
                             other.view.webContents.reload();
-                        } else if (window !== state.gui?.window) {
-                            return;
                         } else if (state.gui?.showing === "config") {
                             state.gui.config.webContents.reload();
                         } else {
@@ -122,9 +121,7 @@ export function buildMenu(): void {
                         const other = otherWindow(window);
 
                         if (other !== undefined) other.view.webContents.toggleDevTools();
-                        else if (window === state.gui?.window) {
-                            (state.gui?.showing === "config" ? state.gui.config : state.gui?.server)?.webContents.toggleDevTools();
-                        }
+                        else (state.gui?.showing === "config" ? state.gui.config : state.gui?.server)?.webContents.toggleDevTools();
                     },
                 },
                 { type: "separator" },

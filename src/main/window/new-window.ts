@@ -8,7 +8,7 @@ import { openServerWindow, wireServerKeys } from "../connection/connect";
 import { guardContents, type OriginPolicy } from "../core/security";
 import { ASSETS } from "../core/paths";
 import { setUpAppearance, windowOptions } from "./appearance";
-import { addOtherWindow, lastUsedWindow, otherWindows, removeOtherWindow, windowFocused, type OtherWindow } from "./other-windows";
+import { addOtherWindow, lastUsedWindow, mainCloseIsHeld, otherWindows, removeOtherWindow, windowFocused, type OtherWindow } from "./other-windows";
 import { contextMenuEventAt, openContextMenu } from "./page-menu";
 import { serverPreferences } from "./server-preferences";
 import { keepSystemMenuOffRightClicks } from "./system-menu";
@@ -135,7 +135,7 @@ export function newWindow(): void {
             quitting: gui.quitting,
             closeToTray: gui.settings.window.closeToTray,
             otherWindows: otherWindows().length,
-            mainVisible: !gui.window.isDestroyed() && gui.window.isVisible() && !gui.window.isMinimized(),
+            mainClosed: mainCloseIsHeld(),
         })) quit();
     });
 

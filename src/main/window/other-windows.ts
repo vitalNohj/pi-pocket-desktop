@@ -22,6 +22,20 @@ export interface ServerPage {
 
 const others = new Map<BaseWindow, OtherWindow>();
 let lastFocused: BaseWindow | undefined;
+let mainCloseHeld = false;
+
+/**
+ * The person closed the main window while it could not close (another window was open, or close to tray): it was kept,
+ * hidden or minimized. False again once it shows. A main window that was only minimized, or hidden by the hotkey, was
+ * not closed.
+ */
+export function holdMainClose(held: boolean): void {
+    mainCloseHeld = held;
+}
+
+export function mainCloseIsHeld(): boolean {
+    return mainCloseHeld;
+}
 
 export function otherWindows(): readonly OtherWindow[] {
     return [...others.values()];

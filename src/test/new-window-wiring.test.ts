@@ -63,6 +63,8 @@ function app() {
         desktop: { reset: () => calls.push("reset"), windowsChanged: () => calls.push("badge"), visibilityChanged() {} },
     };
     const others: { window: Window; view: View; failed: boolean; automaticClose?: boolean }[] = [];
+    /** The person closed the main window, and it was kept hidden (other-windows.ts). */
+    const held = { mainClose: false };
     const exports = {} as typeof NewWindow;
 
     runInNewContext(readFileSync(join(__dirname, "..", "main", "window", "new-window.js"), "utf8"), {
@@ -85,6 +87,7 @@ function app() {
                     removeOtherWindow: (window: Window) => others.splice(others.findIndex((other) => other.window === window), 1),
                     lastUsedWindow: () => main,
                     windowFocused() {},
+                    mainCloseIsHeld: () => held.mainClose,
                 };
                 case "./page-menu": return { contextMenuEventAt: new Map(), openContextMenu() {} };
                 case "./server-preferences": return { serverPreferences: () => ({}) };
@@ -98,7 +101,7 @@ function app() {
         },
     });
 
-    return { gui, calls, others, newWindow: exports.newWindow };
+    return { gui, calls, others, held, newWindow: exports.newWindow };
 }
 
 test("New Window only shows the main window without a loaded, verified server", () => {
@@ -161,16 +164,29 @@ test("a finished network-error document does not clear failure; a successful new
     assert.equal(other.failed, false);
 });
 
-test("only a user close can quit after the hidden main window; server cleanup never does", () => {
+test("only a user close can quit after the main window was closed; server cleanup never does", () => {
     for (const automatic of [false, true]) {
         const h = app();
 
         h.gui.settings.window.closeToTray = false;
         h.newWindow();
         h.gui.window.visible = false;
+        h.held.mainClose = true;
         h.others[0]!.automaticClose = automatic;
         h.others[0]!.window.close();
         assert.equal(h.others.length, 0);
         assert.equal(h.calls.includes("quit"), !automatic);
     }
+});
+
+test("a main window that is only hidden or minimized, not closed, keeps the app running", () => {
+    const h = app();
+
+    h.gui.settings.window.closeToTray = false;
+    h.newWindow();
+    // Hidden by the hotkey or the tray, or minimized: the person did not close it.
+    h.gui.window.visible = false;
+    h.others[0]!.window.close();
+    assert.equal(h.others.length, 0);
+    assert.equal(h.calls.includes("quit"), false);
 });

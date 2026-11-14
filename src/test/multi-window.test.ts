@@ -60,11 +60,12 @@ test("main close preserves other windows, hides with a tray, minimizes without o
     }
 });
 
-test("only closing the last other window with a hidden main window and close-to-tray off quits", () => {
-    const input = { quitting: false, closeToTray: false, otherWindows: 0, mainVisible: false };
+test("closing the last other window quits only after the person closed the main window, with close-to-tray off", () => {
+    const input = { quitting: false, closeToTray: false, otherWindows: 0, mainClosed: true };
 
     assert.equal(quitAfterOtherClosed(input), true);
-    assert.equal(quitAfterOtherClosed({ ...input, mainVisible: true }), false);
+    // The main window is open, minimized, or hidden by the hotkey: the person did not close it.
+    assert.equal(quitAfterOtherClosed({ ...input, mainClosed: false }), false);
     assert.equal(quitAfterOtherClosed({ ...input, closeToTray: true }), false);
     assert.equal(quitAfterOtherClosed({ ...input, otherWindows: 1 }), false);
     assert.equal(quitAfterOtherClosed({ ...input, quitting: true }), false);

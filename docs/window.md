@@ -67,8 +67,9 @@ or hide that window. Connection checks and recovery notices stay there too. Othe
 background, theme, downloads, and dictation.
 
 An extra window closes when you close it. Closing the main window hides it while another window is open, or minimizes
-it if there is no tray. With **Close to tray** off, closing the last extra window then quits the app. With that setting
-on, the app stays in the tray. **Quit** closes every window. Extra windows do not save their size or place.
+it if there is no tray. With **Close to tray** off, the app quits once you have closed every window: the main window,
+then the last extra one. A main window that you only minimized, or hid with the shortcut, keeps the app running. With
+**Close to tray** on, the app stays in the tray. **Quit** closes every window. Extra windows do not save their size or place.
 
 A network drop leaves extra windows open. Their pages reconnect when the server returns. A page that failed to load
 reloads when the main window finds the server again. Switching to another server, or between **This computer** and

@@ -27,6 +27,10 @@ export function mainCloseAction(input: { quitting: boolean; closeToTray: boolean
     return !input.quitting && (input.closeToTray || input.otherWindows > 0) ? (input.tray ? "hide" : "minimize") : "close";
 }
 
-export function quitAfterOtherClosed(input: { quitting: boolean; closeToTray: boolean; otherWindows: number; mainVisible: boolean }): boolean {
-    return !input.quitting && input.otherWindows === 0 && !input.mainVisible && !input.closeToTray;
+/**
+ * The last other window closed. The app quits only when the person closed the main window before it (mainClosed): they
+ * closed every window. A main window that is minimized or hidden for another reason keeps the app running.
+ */
+export function quitAfterOtherClosed(input: { quitting: boolean; closeToTray: boolean; otherWindows: number; mainClosed: boolean }): boolean {
+    return !input.quitting && input.otherWindows === 0 && input.mainClosed && !input.closeToTray;
 }

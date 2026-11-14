@@ -37,7 +37,7 @@ import { openSettings, openSettingsOn, quit, buildMenu, newSession } from "./men
 import { localReady, localDown } from "../local-server/use";
 import { show, showWindow, toggleWindow, layout } from "../window/views";
 import { serverPreferences } from "../window/server-preferences";
-import { lastUsedWindow, otherWindows, serverPages, isServerPage, windowFocused } from "../window/other-windows";
+import { holdMainClose, lastUsedWindow, otherWindows, serverPages, isServerPage, windowFocused } from "../window/other-windows";
 import { newWindow } from "../window/new-window";
 import { mainCloseAction } from "../window/window-rules";
 import { setUpNavigation } from "../window/navigation";
@@ -462,10 +462,14 @@ export async function start(): Promise<void> {
 
         if (action !== "close") {
             event.preventDefault();
+            // The person closed it: once they also close the last other window, the app quits (window-rules.ts).
+            holdMainClose(true);
             if (action === "hide") window.hide();
             else window.minimize();
         }
     });
+    window.on("show", () => holdMainClose(false));
+    window.on("restore", () => holdMainClose(false));
     window.on("closed", () => {
         app.quit();
     });
@@ -488,7 +492,9 @@ export async function start(): Promise<void> {
         }
     });
     app.on("activate", () => {
-        if (!BaseWindow.getAllWindows().some((window) => window.isVisible() && !window.isMinimized())) showWindow();
+        // Not while another full window shows: macOS brings that one forward itself. The app's small windows (the tray's
+        // menu, the dictation pill) do not count.
+        if (!otherWindows().some((other) => other.window.isVisible() && !other.window.isMinimized())) showWindow();
     });
 
     // Every page and helper process that goes away, for the diagnostics log (docs/settings.md, Diagnostics).
