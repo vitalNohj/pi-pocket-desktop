@@ -22,7 +22,6 @@ import { openLocal, localAction } from "../local-server/use";
 import { LINKS } from "../app/links";
 import { billionContextAction } from "../billion-context/action";
 import { state as appState } from "../app/state";
-import { authenticatorCode } from "../runner/authenticator";
 
 export function fromConfigPage(event: IpcMainInvokeEvent): boolean {
     const frame = event.senderFrame;
@@ -100,13 +99,6 @@ export function registerIpc(): void {
         }
 
         state.anywhere?.settingsChanged();
-
-        if (
-            before.runner.confirmSessions !== state.settings.runner.confirmSessions ||
-            before.runner.allowHttp !== state.settings.runner.allowHttp
-        ) {
-            void state.runner?.confirmChanged();
-        }
 
         if (before.runner.enabled !== state.settings.runner.enabled) {
             state.runner?.enabledChanged();
@@ -243,38 +235,6 @@ export function registerIpc(): void {
         const checked = checkCombo(keys);
 
         return checked.ok ? { ok: true, key: checked.key, label: comboLabel(checked.combo, process.platform) } : checked;
-    });
-
-    handle("config:runner-folders", (_event, remove: unknown) => {
-        const runner = appState.gui!.runner!;
-
-        if (remove === undefined) {
-            return runner.refreshFolders();
-        }
-
-        if (typeof remove !== "string" || remove.length === 0) {
-            throw new Error("Not a folder");
-        }
-
-        return runner.removeFolder(remove);
-    });
-
-    handle("config:authenticator-status", () => appState.gui!.runner!.authenticatorStatus());
-    handle("config:authenticator-setup", () => appState.gui!.runner!.startAuthenticatorSetup());
-    handle("config:authenticator-cancel", () => appState.gui!.runner!.cancelAuthenticatorSetup());
-    handle("config:authenticator-confirm", (_event, code: unknown) => {
-        if (!authenticatorCode(code)) {
-            return { ok: false, error: "Enter a 6-digit code from your authenticator." };
-        }
-
-        return appState.gui!.runner!.confirmAuthenticatorCode(code);
-    });
-    handle("config:authenticator-off", (_event, code: unknown) => {
-        if (!authenticatorCode(code)) {
-            return { ok: false, error: "Enter a 6-digit code from your authenticator." };
-        }
-
-        return appState.gui!.runner!.turnOffAuthenticator(code);
     });
 
     handle("config:runner", async (_event, action) => {

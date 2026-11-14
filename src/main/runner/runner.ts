@@ -5,6 +5,9 @@
  * the Runner card with the server's address and a one-time code from its Menu → Runners (`runner link`), the link
  * stays in the app's own folder, and the app starts the runner again when it stops, unless the server ended the link.
  *
+ * The app only links, runs, and unlinks it. Who may use this computer, in which folders, and who approves a new one
+ * are set on the server (its Menu → Runners): after the link, the runner trusts its server.
+ *
  * The runner comes from the Pi Pocket runtime the app installs (src/main/local-server/local-server.ts): one is installed for it
  * when there is none yet, also when the app connects to another server.
  */
@@ -13,9 +16,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { AuthenticatorResult, AuthenticatorSetup, RunnerState } from "../../shared/types";
-import { toDataURL } from "qrcode";
-import { AUTHENTICATOR_UNAVAILABLE, authenticatorCode, authenticatorCommand, parseAuthenticatorResult, parseAuthenticatorStatus, setUpAuthenticatorSetup } from "./authenticator";
+import type { RunnerState } from "../../shared/types";
 import { withPath } from "../core/env-path";
 import { cleanLine } from "../local-server/local-versions";
 
@@ -23,21 +24,10 @@ import { cleanLine } from "../local-server/local-versions";
 export const STOPPED_BY_SERVER = 3;
 const LOG_LINES = 200;
 const STOP_LIMIT_MS = 5000;
-const LEGACY_EXIT_MS = 5000;
-const LEGACY_WARNING = "This runner does not support session confirmation. Update Pi Pocket to ask before new sessions.";
-
-/** One request from the runner's stdout; ids belong to that runner process only. */
-export interface RunnerConfirmation {
-    id: number;
-    server: string;
-    computer: string;
-    person: string;
-    folder: string;
-    kind: "new" | "fork" | "move" | "pi-preview";
-    title?: string;
-    /** Older runners omit this: use the session-only warning rather than promise a saved folder. */
-    broad?: boolean;
-}
+/** The most of a command's output the app keeps. */
+const OUTPUT_LIMIT = 16000;
+/** The most of a failed command's message the card shows. */
+const ERROR_LIMIT = 600;
 
 export interface RunnerHost {
     /** Where the link and its log go. */
@@ -46,11 +36,8 @@ export interface RunnerHost {
     /** Whether the person wants it running (the settings' runner.enabled). */
     enabled: () => boolean;
     setEnabled: (enabled: boolean) => Promise<void>;
-    confirmSessions: () => boolean;
-    /** Whether the person allows plain HTTP to a server that is not this computer or on their tailnet. */
+    /** Whether the next link may use plain HTTP to a server that is not this computer or on their tailnet. */
     allowHttp: () => boolean;
-    /** Show one question. Aborting the signal must close it. Errors deny the request. */
-    ask: (request: RunnerConfirmation, signal: AbortSignal) => Promise<boolean>;
     /** The installed runtime to run it from; undefined when there is none with the runner. */
     runtime: () => { node: string; launcher: string; bin: string } | undefined;
     /** Install Pi Pocket on this computer, or update it, so a runtime has the runner. */
@@ -59,16 +46,53 @@ export interface RunnerHost {
     changed: () => void;
 }
 
-/** What `runner.json` holds; the key stays in the file. */
+/** What the app reads from `runner.json`; both keys stay in the file. */
 interface Link {
     server: string;
     id: string;
     name: string;
+    /** Made before the runner kept its server's key: that runner refuses it, so this computer must link again. */
+    outdated: boolean;
 }
 
 /** A line the runner printed, without its time stamp's brackets doubled and without colors. */
 function plain(line: string): string {
     return cleanLine(line).trimEnd();
+}
+
+/**
+ * What a failed runner command said, for the card: the runner's own error, to the end of its paragraph. The launcher
+ * may print a warning before it (an old Node.js), and the runner prints its whole help after some errors (an unknown
+ * command): neither is a message for a person. Output without the runner's mark gives its first paragraph.
+ */
+export function runnerError(output: string, code: number | null): string {
+    const MARK = "pi-pocket runner: ";
+    const all = output.replace(/\r/g, "").split("\n").map(plain);
+    const from = all.findIndex((line) => line.startsWith(MARK));
+    const kept: string[] = [];
+
+    for (const line of from < 0 ? all : all.slice(from)) {
+        if (line.trim() === "") {
+            if (kept.length > 0) {
+                break;
+            }
+        } else {
+            kept.push(line.startsWith(MARK) ? line.slice(MARK.length) : line);
+        }
+    }
+
+    const text = kept.join("\n");
+
+    if (text === "") {
+        return `The runner stopped with code ${String(code)}.`;
+    }
+
+    return text.length > ERROR_LIMIT ? `${text.slice(0, ERROR_LIMIT).trimEnd()}…` : text;
+}
+
+/** What the card says for a link that the runner no longer accepts. */
+export function outdatedLink(name: string): string {
+    return `This link was made by an older Pi Pocket and no longer works. In Pi Pocket, open Menu → Runners, choose Link again on “${name}”, and enter the new code here.`;
 }
 
 export function setUpRunner(host: RunnerHost) {
@@ -86,24 +110,13 @@ export function setUpRunner(host: RunnerHost) {
     let holding = false;
     let starting: Promise<void> | undefined;
     let generation = 0;
-    let cancelQuestions: (() => void) | undefined;
-    let legacyLauncher: string | undefined;
-    let confirmError: string | undefined;
-    let confirmationSync = Promise.resolve();
-    let folders: string[] | undefined;
-    let foldersError: string | undefined;
-    let foldersSync = Promise.resolve();
-    let authenticator: RunnerState["authenticator"];
-    let authenticatorRead = false;
-    let authenticatorSync = Promise.resolve();
-    let authenticatorRuntime = host.runtime()?.launcher;
 
     const readLink = (): Link | undefined => {
         try {
-            const value = JSON.parse(readFileSync(linkFile, "utf8")) as Partial<Link>;
+            const value = JSON.parse(readFileSync(linkFile, "utf8")) as Partial<Link> & { serverKey?: unknown };
 
             return typeof value.server === "string" && typeof value.id === "string" && typeof value.name === "string"
-                ? { server: value.server, id: value.id, name: value.name }
+                ? { server: value.server, id: value.id, name: value.name, outdated: typeof value.serverKey !== "string" }
                 : undefined;
         } catch {
             return undefined;
@@ -124,8 +137,8 @@ export function setUpRunner(host: RunnerHost) {
         }
     };
 
-    /** All runner commands use the same runtime, link file, working folder, and environment. */
-    const spawnCommand = async (args: string[]) => {
+    /** Runs the launcher with these runner arguments to its end: what it printed, or what it said went wrong. */
+    const runOnce = async (args: string[]): Promise<string> => {
         const runtime = host.runtime();
 
         if (runtime === undefined) {
@@ -133,119 +146,35 @@ export function setUpRunner(host: RunnerHost) {
         }
 
         const env = await host.environment();
-
-        return spawn(runtime.node, [runtime.launcher, "runner", ...args, "--config", linkFile], {
+        const proc = spawn(runtime.node, [runtime.launcher, "runner", ...args, "--config", linkFile], {
             cwd: homedir(),
             env: { ...env, NO_COLOR: "1" },
-            stdio: ["pipe", "pipe", "pipe"],
+            stdio: ["ignore", "pipe", "pipe"],
             windowsHide: true,
         });
-    };
 
-    /** Runs the launcher with these runner arguments to its end: its output, or its last lines as the error. */
-    const runOnce = async (args: string[]): Promise<string> => {
-        const proc = await spawnCommand(args);
-
-        proc.stdin.on("error", () => {});
-        proc.stdin.end();
         return new Promise((done, fail) => {
-            const folderJson = args[0] === "folders" && args[1] === "--json";
-            let stdout = "";
-            let output = "";
-            const keep = (chunk: string) => {
-                output = `${output}${chunk}`.slice(-8000);
-            };
+            let printed = "";
+            let problem = "";
 
             proc.stdout.setEncoding("utf8");
             proc.stderr.setEncoding("utf8");
             proc.stdout.on("data", (chunk: string) => {
-                // Machine-readable folder paths must not be truncated, redacted, or mixed with stderr.
-                if (folderJson) {
-                    stdout += chunk;
-                }
-
-                keep(chunk);
+                printed = `${printed}${chunk}`.slice(0, OUTPUT_LIMIT);
             });
-            proc.stderr.on("data", keep);
+            // Its error comes first on stderr; anything after it (the help) may be cut.
+            proc.stderr.on("data", (chunk: string) => {
+                problem = `${problem}${chunk}`.slice(0, OUTPUT_LIMIT);
+            });
             proc.on("error", fail);
             proc.on("close", (code) => {
-                const text = output.split("\n").map(plain).filter(Boolean).join("\n");
-
                 if (code === 0) {
-                    done(folderJson ? stdout : text);
+                    done(printed.split("\n").map(plain).filter(Boolean).join("\n"));
                 } else {
-                    fail(new Error(text.replace(/^pi-pocket runner: /gm, "") || `The runner stopped with code ${String(code)}.`));
+                    fail(new Error(runnerError(problem.trim() === "" ? printed : problem, code)));
                 }
             });
         });
-    };
-
-    /** Read through the runner CLI, never expose its link key to the settings page. */
-    const refreshFolders = (): Promise<void> => {
-        foldersSync = foldersSync.then(async () => {
-            try {
-                folders = readLink() === undefined ? [] : parseRunnerFolders(await runOnce(["folders", "--json"]));
-                foldersError = undefined;
-            } catch (error) {
-                foldersError = `Could not read allowed folders: ${(error as Error).message}`;
-            }
-
-            host.changed();
-        });
-
-        return foldersSync;
-    };
-
-    /** Cache only the status, never the setup key, link, QR image, or a code. */
-    const authenticatorStatus = (): Promise<void> => {
-        authenticatorRead = true;
-        authenticatorSync = authenticatorSync.then(async () => {
-            const link = readLink();
-            let next: RunnerState["authenticator"];
-
-            if (link !== undefined) {
-                try {
-                    next = parseAuthenticatorStatus(await authenticatorCommand(() => spawnCommand(["totp", "status", "--json"])));
-                } catch {
-                    next = { unavailable: AUTHENTICATOR_UNAVAILABLE };
-                }
-            }
-
-            const now = readLink();
-
-            if (now?.id === link?.id && now?.server === link?.server) {
-                authenticator = next;
-                host.changed();
-            }
-        });
-
-        return authenticatorSync;
-    };
-
-    const setup = setUpAuthenticatorSetup(() => spawnCommand(["totp", "setup", "--json"]), {
-        onEnd: () => { void authenticatorStatus(); },
-    });
-
-    /** Serialize writes so a quick second setting change is always applied last. No link yet is not an error. */
-    const syncConfirmation = (): Promise<void> => {
-        confirmationSync = confirmationSync.then(async () => {
-            if (readLink() === undefined) {
-                return;
-            }
-
-            try {
-                await runOnce(["settings", "confirm", host.confirmSessions() ? "on" : "off"]);
-                await runOnce(["settings", "http", host.allowHttp() ? "allow" : "refuse"]);
-                confirmError = undefined;
-            } catch (error) {
-                confirmError = `Could not save the runner's settings: ${(error as Error).message}`;
-                log(confirmError);
-            }
-
-            host.changed();
-        });
-
-        return confirmationSync;
     };
 
     const startRunner = async (): Promise<void> => {
@@ -263,6 +192,13 @@ export function setUpRunner(host: RunnerHost) {
             return;
         }
 
+        // The runner would stop at once, again and again: say what to do instead.
+        if (link.outdated) {
+            set("ended", outdatedLink(link.name));
+
+            return;
+        }
+
         const runtime = host.runtime();
 
         if (runtime === undefined) {
@@ -271,8 +207,8 @@ export function setUpRunner(host: RunnerHost) {
             return;
         }
 
-        await syncConfirmation();
         const env = await host.environment();
+
         if (attempt !== generation || child !== undefined || quitting || holding || !host.enabled()) {
             return;
         }
@@ -280,150 +216,53 @@ export function setUpRunner(host: RunnerHost) {
         log(`— ${new Date().toISOString()} runner for ${link.server}, as "${link.name}"`);
         set("connecting", `Connecting to ${link.server}…`);
 
-        const usesConfirmation = legacyLauncher !== runtime.launcher;
-        const began = Date.now();
-        let unknownOption = false;
-        const proc = spawn(runtime.node, [runtime.launcher, "runner", ...(usesConfirmation ? ["--confirm-via", "stdio"] : []), "--config", linkFile], {
+        const proc = spawn(runtime.node, [runtime.launcher, "runner", "start", "--config", linkFile], {
             cwd: homedir(),
             // The person's tools first, as in their terminal; the runtime's Node and npm after.
             env: { ...withPath(env, runtime.bin, "last", host.platform), NO_COLOR: "1", PI_POCKET_DESKTOP_APP: "1" },
-            stdio: ["pipe", "pipe", "pipe"],
+            stdio: ["ignore", "pipe", "pipe"],
             windowsHide: true,
         });
 
         child = proc;
         runningFrom = runtime.launcher;
 
-        const questions = new Map<number, { request: RunnerConfirmation; controller: AbortController }>();
-        const queue: number[] = [];
-        let asking = false;
-        const cancelPending = () => {
-            for (const question of questions.values()) {
-                question.controller.abort();
-            }
-
-            questions.clear();
-            queue.length = 0;
-        };
-
-        cancelQuestions = cancelPending;
-
-        const askNext = async (): Promise<void> => {
-            if (asking) {
+        const onLine = (line: string) => {
+            // Lines for a program (`PI-POCKET-ACTIVITY {…}`), not for a person: the app does not use them.
+            if (line.startsWith("PI-POCKET-")) {
                 return;
             }
 
-            asking = true;
-
-            try {
-                while (queue.length > 0) {
-                    const id = queue.shift()!;
-                    const question = questions.get(id);
-
-                    if (question === undefined) {
-                        continue;
-                    }
-
-                    let allow = false;
-
-                    try {
-                        allow = await host.ask(question.request, question.controller.signal) === true;
-                    } catch (error) {
-                        log(`Could not ask about the session: ${(error as Error).message}`);
-                    }
-
-                    // END, stop, or a new process makes even a late Allow have no effect.
-                    if (questions.get(id) === question && !question.controller.signal.aborted && child === proc && proc.stdin.writable) {
-                        proc.stdin.write(`${JSON.stringify({ id, allow })}\n`);
-                    }
-
-                    if (questions.get(id) === question) {
-                        questions.delete(id);
-                    }
-                }
-            } finally {
-                asking = false;
-            }
-        };
-
-        const confirmationLine = (line: string): boolean => {
-            const end = line.startsWith("PI-POCKET-CONFIRM-END ");
-            const prefix = end ? "PI-POCKET-CONFIRM-END " : "PI-POCKET-CONFIRM ";
-
-            if (!line.startsWith(prefix)) {
-                return false;
-            }
-
-            if (child !== proc || quitting || status === "stopping") {
-                return true;
-            }
-
-            try {
-                const value: unknown = JSON.parse(line.slice(prefix.length));
-
-                if (!isConfirmationId(value)) {
-                    throw new Error("invalid id");
-                }
-
-                if (end) {
-                    const question = questions.get(value.id);
-
-                    questions.delete(value.id);
-                    question?.controller.abort();
-                    // New runners end the question after saving an Allow answer.
-                    void refreshFolders();
-                } else if (isConfirmation(value)) {
-                    if (!questions.has(value.id)) {
-                        questions.set(value.id, { request: value, controller: new AbortController() });
-                        queue.push(value.id);
-                        void askNext();
-                    }
-                } else {
-                    throw new Error("invalid request");
-                }
-            } catch {
-                log("Ignored an invalid session confirmation line.");
-            }
-
-            return true;
-        };
-
-        const onLine = (line: string) => {
             log(line);
-            unknownOption ||= /unknown (?:option|command)\b/i.test(plain(line));
 
             if (child !== proc) {
                 return;
             }
 
-            if (/\] (Connected to|Back with) /.test(line)) {
+            // The runner's own words (Pi Pocket's src/runner/runner.ts): connected, back after a drop, dropped, and
+            // why it cannot connect yet.
+            if (/\] (Connected|Reconnected) to /.test(line)) {
                 failures = 0;
                 set("connected");
             } else if (/\] Disconnected/.test(line)) {
-                cancelPending();
                 set("connecting", "Reconnecting. Sessions must wait for the server.");
-            } else if (/\] Connection: /.test(line) && status !== "connected") {
-                set("connecting", plain(line).replace(/^\[[^\]]*\] Connection: /, "Cannot reach the server: "));
+            } else if (/\] Connection error \(/.test(line) && status !== "connected") {
+                set("connecting", `Cannot reach the server: ${/\] Connection error \((.*)\)\. /.exec(plain(line))?.[1] ?? "no connection"}.`);
+            } else if (/ returned HTTP \d+\. /.test(line) && status !== "connected") {
+                set("connecting", plain(line).replace(/^\[[^\]]*\] /, ""));
             }
         };
 
-        readLines(proc.stdout, (line) => {
-            if (!confirmationLine(line)) {
-                onLine(line);
-            }
-        });
+        readLines(proc.stdout, onLine);
         readLines(proc.stderr, onLine);
-        proc.stdin.on("error", (error) => log(`Could not answer the session question: ${error.message}`));
         proc.on("error", (error) => log(`Could not start: ${error.message}`));
         proc.on("close", (code, signal) => {
-            cancelPending();
             if (child !== proc) {
                 return;
             }
 
             child = undefined;
             runningFrom = undefined;
-            cancelQuestions = undefined;
 
             if (quitting || status === "stopping" || !host.enabled()) {
                 set(readLink() === undefined ? "unlinked" : "off");
@@ -432,14 +271,6 @@ export function setUpRunner(host: RunnerHost) {
                 if (!quitting && !holding && host.enabled()) {
                     void start();
                 }
-
-                return;
-            }
-
-            if (code !== STOPPED_BY_SERVER && usesConfirmation && unknownOption && Date.now() - began <= LEGACY_EXIT_MS) {
-                legacyLauncher = runtime.launcher;
-                log("This runner does not support --confirm-via; retrying without the flag.");
-                void start();
 
                 return;
             }
@@ -460,7 +291,7 @@ export function setUpRunner(host: RunnerHost) {
         });
     };
 
-    /** Coalesce starts while the link setting and environment are being read. */
+    /** Coalesce starts while the link and environment are being read. */
     const start = (): Promise<void> => {
         clearTimeout(restartTimer);
         starting ??= startRunner().finally(() => {
@@ -473,7 +304,6 @@ export function setUpRunner(host: RunnerHost) {
     const stop = async (): Promise<void> => {
         clearTimeout(restartTimer);
         generation += 1;
-        cancelQuestions?.();
         await starting;
         const proc = child;
 
@@ -514,15 +344,16 @@ export function setUpRunner(host: RunnerHost) {
         }
     };
 
+    /** The link for the card: where and as what, never a key. */
+    const shownLink = (): RunnerState["link"] => {
+        const link = readLink();
+
+        return link === undefined ? undefined : { server: link.server, id: link.id, name: link.name };
+    };
+
     return {
         state(): RunnerState {
-            const link = readLink();
-
-            if (link !== undefined && !authenticatorRead) {
-                void authenticatorStatus();
-            }
-
-            const confirmationProblem = confirmError ?? (legacyLauncher !== undefined && legacyLauncher === host.runtime()?.launcher ? LEGACY_WARNING : undefined);
+            const link = shownLink();
 
             return {
                 status,
@@ -530,20 +361,20 @@ export function setUpRunner(host: RunnerHost) {
                 ...(link === undefined ? {} : { link }),
                 ...(busy === undefined ? {} : { busy }),
                 enabled: host.enabled(),
-                ...(confirmationProblem === undefined ? {} : { confirmError: confirmationProblem }),
                 available: host.runtime() !== undefined,
-                ...(folders === undefined ? {} : { folders: [...folders] }),
-                ...(foldersError === undefined ? {} : { foldersError }),
-                ...(link === undefined || authenticator === undefined ? {} : { authenticator: { ...authenticator } }),
                 log: lines.slice(-40),
             };
         },
         /** The saved link: which server, and as which computer. */
-        link: readLink,
+        link: shownLink,
         /** At the app's start: run it when it is on and linked. */
         boot: (): void => {
-            if (readLink() === undefined) {
+            const link = readLink();
+
+            if (link === undefined) {
                 set("unlinked");
+            } else if (link.outdated) {
+                set("ended", outdatedLink(link.name));
             } else if (host.enabled()) {
                 void start();
             } else {
@@ -569,17 +400,14 @@ export function setUpRunner(host: RunnerHost) {
                 holding = true;
 
                 try {
-                    await setup.cancel();
                     await stop();
                     await mkdir(host.home, { recursive: true });
                     busy = "Linking this computer…";
                     host.changed();
+                    // Plain HTTP is a choice made with the link: the runner keeps it in the link file.
                     log(await runOnce(["link", server, code, ...(host.allowHttp() ? ["--allow-http"] : [])]));
-                    await syncConfirmation();
                     failures = 0;
                     await host.setEnabled(true);
-                    await refreshFolders();
-                    await authenticatorStatus();
                 } finally {
                     // Linked, or not: the link there is now (the new one, or the one before) runs again.
                     holding = false;
@@ -592,14 +420,8 @@ export function setUpRunner(host: RunnerHost) {
                 holding = true;
 
                 try {
-                    await setup.cancel();
                     await stop();
-                    await confirmationSync;
                     await rm(linkFile, { force: true });
-                    await authenticatorStatus();
-                    confirmError = undefined;
-                    folders = [];
-                    foldersError = undefined;
                     set("unlinked");
                 } finally {
                     holding = false;
@@ -616,76 +438,19 @@ export function setUpRunner(host: RunnerHost) {
             } else {
                 void stop().then(() => {
                     if (!host.enabled()) {
-                        set(readLink() === undefined ? "unlinked" : "off");
+                        const link = readLink();
+
+                        if (link === undefined) {
+                            set("unlinked");
+                        } else if (!link.outdated) {
+                            set("off");
+                        }
                     } else if (!quitting && !holding) {
                         void start();
                     }
                 });
             }
         },
-        authenticatorStatus,
-        startAuthenticatorSetup: async (): Promise<AuthenticatorSetup> => {
-            if (busy !== undefined || quitting || readLink() === undefined) {
-                throw new Error("Link this computer first, and wait for the current step to end.");
-            }
-
-            const first = await setup.start();
-
-            try {
-                const dataUrl = await toDataURL(first.link, { margin: 1, width: 220 });
-
-                return { ...first, dataUrl };
-            } catch {
-                await setup.cancel();
-                throw new Error("Could not draw the authenticator QR code. Try setup again.");
-            }
-        },
-        confirmAuthenticatorCode: async (code: string): Promise<AuthenticatorResult> => {
-            const result = await setup.confirm(code);
-
-            await authenticatorStatus();
-            return result;
-        },
-        cancelAuthenticatorSetup: (): Promise<void> => setup.cancel(),
-        turnOffAuthenticator: async (code: string): Promise<AuthenticatorResult> => {
-            if (!authenticatorCode(code)) {
-                return { ok: false, error: "Enter a 6-digit code from your authenticator." };
-            }
-
-            if (busy !== undefined || quitting || readLink() === undefined) {
-                return { ok: false, error: "Link this computer first, and wait for the current step to end." };
-            }
-
-            return step("Turning off the authenticator…", async () => {
-                let result: AuthenticatorResult;
-
-                try {
-                    result = parseAuthenticatorResult(await authenticatorCommand(() => spawnCommand(["totp", "off", code, "--json"])), false);
-                } catch (error) {
-                    result = { ok: false, error: (error as Error).message };
-                }
-
-                await authenticatorStatus();
-                return result;
-            });
-        },
-        refreshFolders,
-        removeFolder: (folder: string): Promise<void> =>
-            step("Removing allowed folder…", async () => {
-                try {
-                    await runOnce(["folders", "remove", folder]);
-                    foldersError = undefined;
-                } catch (error) {
-                    foldersError = `Could not remove allowed folder: ${(error as Error).message}`;
-                    host.changed();
-
-                    throw error;
-                }
-
-                await refreshFolders();
-            }),
-        /** The setting already changed. The runner reads the saved choice for each request; keep it running. */
-        confirmChanged: syncConfirmation,
         restart: async (): Promise<void> => {
             await stop();
             failures = 0;
@@ -694,13 +459,6 @@ export function setUpRunner(host: RunnerHost) {
         /** The runtimes changed (an update): run from the new one, since the old one goes away. */
         runtimeChanged: (): void => {
             const now = host.runtime()?.launcher;
-
-            // Local server state/log changes call this too; only a different runtime ends an open setup.
-            if (now !== authenticatorRuntime) {
-                authenticatorRuntime = now;
-                void setup.cancel();
-                void authenticatorStatus();
-            }
 
             if (child !== undefined && now !== undefined && now !== runningFrom) {
                 void stop().then(start);
@@ -711,37 +469,9 @@ export function setUpRunner(host: RunnerHost) {
         linked: (): boolean => existsSync(linkFile),
         quit: async (): Promise<void> => {
             quitting = true;
-            await setup.cancel();
             await stop();
-            await foldersSync;
-            await authenticatorSync;
         },
     };
-}
-
-function isConfirmationId(value: unknown): value is { id: number } {
-    return typeof value === "object" && value !== null && "id" in value && Number.isSafeInteger(value.id) && (value.id as number) >= 0;
-}
-
-function isConfirmation(value: { id: number }): value is RunnerConfirmation {
-    const request = value as Partial<RunnerConfirmation>;
-
-    return typeof request.server === "string" && typeof request.computer === "string" && typeof request.person === "string"
-        && typeof request.folder === "string" && (request.kind === "new" || request.kind === "fork" || request.kind === "move" || request.kind === "pi-preview")
-        && (request.kind !== "pi-preview" || typeof request.title === "string")
-        && (request.title === undefined || typeof request.title === "string")
-        && (request.broad === undefined || typeof request.broad === "boolean");
-}
-
-/** `runner folders --json` must return only folder strings. Fail visibly for unsupported or broken runners. */
-export function parseRunnerFolders(text: string): string[] {
-    const value: unknown = JSON.parse(text);
-
-    if (!Array.isArray(value) || !value.every((folder: unknown) => typeof folder === "string")) {
-        throw new Error("The runner did not return a folder list. Update Pi Pocket on this computer.");
-    }
-
-    return value as string[];
 }
 
 function readLines(stream: NodeJS.ReadableStream, listener: (line: string) => void): void {

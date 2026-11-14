@@ -220,17 +220,18 @@ const runners = app.runners === undefined ? [] : await demoRunners();
 const runnerCode = app.runners?.makeCode("Workstation", owner.id).code;
 
 /**
- * Two made-up computers: "Studio", online, with saved folders, two approved sessions, Sam allowed, and an
- * authenticator set up; "Build box", linked but not connected. Each runner is this checkout's own `pi-pocket runner`, in-process, with its settings in
- * memory and its folders under $HOME.
+ * Two made-up computers: "Studio", online, with Sam chosen for it, two folders given to Sam, and two sessions; "Build
+ * box", linked but not connected. Each links as a runner does (its own key, the server's proof checked), and "Studio"
+ * runs this checkout's own `pi-pocket runner`, in-process, with its folders under $HOME. People, folders, and approvals
+ * are the server's: the runner keeps only its link.
  */
 async function demoRunners(): Promise<{ stop(): Promise<void> }[]> {
     const { Runner } = await load("src/runner/runner.ts");
-    const { newSecret } = await load("src/runner/totp.ts");
-    const studio = app.runners.redeem(app.runners.makeCode("Studio", owner.id).code);
+    const { linkInProcess } = await load("src/runner/secure-link.ts");
+    const link = (name: string) => linkInProcess((request: unknown) => app.runners.redeem(request), app.runners.makeCode(name, owner.id).code);
+    const studio = link("Studio");
 
-    app.runners.redeem(app.runners.makeCode("Build box", owner.id).code);
-    app.config.setRunnerUsers(studio.id, [sam.id]);
+    link("Build box");
 
     const work = join(home, "work");
     const folders = [join(work, "aurora-ios"), join(work, "design-system")];
@@ -239,15 +240,14 @@ async function demoRunners(): Promise<{ stop(): Promise<void> }[]> {
         mkdirSync(folder, { recursive: true });
     }
 
-    const settings: Record<string, unknown> = { confirm: false, folders, network: true, totpDays: 7, totp: { secret: newSecret() } };
+    app.config.setRunnerUsers(studio.id, [sam.id]);
+    app.config.setGivenFolders(studio.id, sam.id, folders);
+
     const runner = new Runner({
         link: { server: `http://${host}:${port}`, ...studio },
         version: "0.28.0",
         cwd: home,
         log: () => {},
-        settings: () => settings,
-        saveSettings: (change: Record<string, unknown>) => void Object.assign(settings, change),
-        ask: () => Promise.resolve({ allow: true }),
     });
 
     runner.start();
@@ -256,6 +256,7 @@ async function demoRunners(): Promise<{ stop(): Promise<void> }[]> {
         await new Promise((done) => setTimeout(done, 50));
     }
 
+    // The owner linked it, so is in charge of it: their sessions there need no approval.
     for (const [folder, title] of [
         [folders[0], "Offline sync for the iOS app"],
         [folders[1], "Button tokens in dark mode"],

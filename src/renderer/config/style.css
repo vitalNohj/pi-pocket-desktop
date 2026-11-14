@@ -1438,7 +1438,7 @@ button.icon-button.done {
     overflow-wrap: anywhere;
 }
 
-/* A panel set in from its card: the authenticator's setup, Recent dictations, Allowed folders. A title (with a count or
+/* A panel set in from its card: Recent dictations. A title (with a count or
  * state pill beside it), a short muted text, and its items as small cards. Controls are the card's own small size
  * (36 px), as the rows' buttons. */
 .inset-panel {
@@ -1450,10 +1450,6 @@ button.icon-button.done {
     border-radius: var(--radius-xl);
     background: color-mix(in srgb, var(--body) 3%, transparent);
     animation: enter 300ms var(--ease);
-}
-
-.authenticator-panel[data-mode="off"] {
-    border-color: color-mix(in srgb, var(--err) 35%, transparent);
 }
 
 .inset-title {
@@ -1528,135 +1524,8 @@ button.icon-button.done {
     background: color-mix(in srgb, var(--body) 4%, transparent);
 }
 
-.authenticator-loading {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 16px;
-}
-
 .inset-panel > .inset-text {
     margin-top: -8px;
-}
-
-.authenticator-step {
-    display: grid;
-    grid-template-columns: 24px minmax(0, 1fr);
-    gap: 12px;
-}
-
-.authenticator-step.plain {
-    grid-template-columns: minmax(0, 1fr);
-}
-
-.authenticator-number {
-    display: grid;
-    place-items: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent) 16%, transparent);
-    color: var(--accent);
-    font-size: 12px;
-    line-height: 16px;
-    font-weight: 600;
-}
-
-.authenticator-step-body {
-    display: grid;
-    gap: 12px;
-    min-width: 0;
-}
-
-.authenticator-step-title {
-    padding-top: 2px;
-    color: var(--text);
-    font-size: 14px;
-    line-height: 20px;
-    font-weight: 500;
-}
-
-.authenticator-scan {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 16px 24px;
-}
-
-/* The QR stays dark on light in every theme: its own white, widened into a quiet zone around it. */
-.authenticator-qr {
-    flex: none;
-    display: block;
-    padding: 8px;
-    border-radius: var(--radius-lg);
-    background: #fff;
-    line-height: 0;
-}
-
-#runner-authenticator-qr {
-    display: block;
-    width: 176px;
-    height: 176px;
-    max-width: 100%;
-}
-
-.authenticator-key {
-    display: grid;
-    flex: 1 1 240px;
-    gap: 8px;
-    min-width: 0;
-}
-
-.authenticator-key-line {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-}
-
-/* The key in groups of 4, apart by spacing only, so a selection copies it without spaces, as Copy does. */
-#runner-authenticator-secret {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 4px 10px;
-    min-width: 0;
-    padding: 6px 12px;
-    border: 1px solid var(--hair);
-    border-radius: var(--radius-lg);
-    background: var(--code-bg);
-    color: var(--text);
-    font: 500 15px/24px var(--mono);
-    letter-spacing: 0.04em;
-    user-select: all;
-}
-
-#runner-authenticator-copy.done {
-    color: var(--ok);
-}
-
-.authenticator-entry {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-}
-
-input#runner-authenticator-code {
-    width: 132px;
-    min-height: 36px;
-    padding: 4px 12px;
-    font: 500 18px/26px var(--mono);
-    letter-spacing: 0.3em;
-    text-align: center;
-}
-
-input#runner-authenticator-code::placeholder {
-    color: var(--muted);
-    opacity: 0.5;
-}
-
-input#runner-authenticator-code[aria-invalid="true"] {
-    border-color: var(--err);
 }
 
 .inset-error {
@@ -1791,98 +1660,10 @@ button.recent-more:hover {
     overflow-wrap: anywhere;
 }
 
-/* Allowed folders: a panel that folds to its title and count, as the list can grow long. Each folder is a small card with
- * its own name over its full path (wrapped, never cut), and Remove. A long list scrolls in the panel. */
-details.folders-panel {
-    display: block;
-}
-
-.folders-panel > summary {
-    min-height: 0;
-    padding: 0;
-    border-radius: var(--radius-lg);
-}
-
-.folders-panel:not([open]) {
-    padding-bottom: 16px;
-}
-
-.folders-panel > .inset-body {
-    display: grid;
-    gap: 12px;
-    margin-top: 8px;
-}
-
-#runner-folders {
-    max-height: 392px;
-    padding-right: 10px;
-}
-
-.folder-item {
-    display: grid;
-    grid-template-columns: 16px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 12px;
-}
-
-.folder-item > svg {
-    color: var(--muted);
-}
-
-.folder-text {
-    display: grid;
-    gap: 2px;
-    min-width: 0;
-}
-
-.folder-text strong {
-    color: var(--text);
-    font-size: 14px;
-    line-height: 20px;
-    font-weight: 500;
-    overflow-wrap: anywhere;
-}
-
-.folder-text code {
-    color: var(--muted);
-    font: 12px/16px var(--mono);
-    overflow-wrap: anywhere;
-}
-
-.folder-text strong {
-    align-self: center;
-}
-
-/* Narrow: no icon; the name with Remove beside it, and the path under both, on the card's whole width. */
 @container (max-width: 520px) {
-    .folder-item {
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 4px 12px;
-    }
-
-    .folder-item > svg {
-        display: none;
-    }
-
-    .folder-text {
-        display: contents;
-    }
-
-    .folder-text code {
-        grid-column: 1 / -1;
-        grid-row: 2;
-    }
-
     .inset-item {
         padding: 12px;
     }
-}
-
-/* Keep a runner command error readable in a narrow card. */
-#runner-confirm-error,
-#runner-authenticator-start-error {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
 }
 
 .security-note {

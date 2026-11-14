@@ -136,19 +136,20 @@ export interface Settings {
     runner: {
         /** Run `pi-pocket runner` while the app runs, once this computer is linked. */
         enabled: boolean;
-        /** Ask on this computer before the server starts a new session or a fork. */
-        confirmSessions: boolean;
-        /** Allow plain HTTP to a server that is not this computer or a device on the person's tailnet. */
+        /** For the next link: allow plain HTTP to a server that is not this computer or a device on the person's tailnet. */
         allowHttp: boolean;
     };
 }
 
-/** This computer as a runner (src/main/runner/runner.ts). */
+/**
+ * This computer as a runner (src/main/runner/runner.ts). Who may use it, its folders, and its approvals are the server's
+ * (its Menu → Runners): the app shows none of them.
+ */
 export interface RunnerState {
     /**
      * unlinked: no link yet. off: linked, turned off. connecting: started, not connected yet (or reconnecting).
-     * connected: the server can run sessions' tools here. failed: it stopped and starts again. ended: the server ended
-     * the link (the computer was removed): link again. stopping: on its way off.
+     * connected: the server can run sessions' tools here. failed: it stopped and starts again. ended: the link no
+     * longer works (the server ended it, or an older Pi Pocket made it): link again. stopping: on its way off.
      */
     status: "unlinked" | "off" | "connecting" | "connected" | "failed" | "ended" | "stopping";
     message?: string;
@@ -157,13 +158,6 @@ export interface RunnerState {
     /** A step under way (installing Pi Pocket for it, linking). */
     busy?: string;
     enabled: boolean;
-    /** The confirmation setting could not be applied, or this runner does not support it. */
-    confirmError?: string;
-    /** Allowed folders on this computer, read by the runner CLI. Undefined until first read. */
-    folders?: string[];
-    foldersError?: string;
-    /** Read through the runner CLI; undefined when not linked or not known yet. Never includes the secret. */
-    authenticator?: { set: boolean; locked: boolean; lockedUntil?: number } | { unavailable: string };
     /** An installed Pi Pocket on this computer has the runner. */
     available: boolean;
     /** The server the app uses now, to fill in the link form's address. */
@@ -172,15 +166,6 @@ export interface RunnerState {
 }
 
 export type RunnerAction = "unlink" | "restart";
-
-/** The settings page alone receives the setup key and its locally rendered QR image. */
-export interface AuthenticatorSetup {
-    secret: string;
-    link: string;
-    dataUrl: string;
-}
-
-export type AuthenticatorResult = { ok: true } | { ok: false; error: string };
 
 /** The Runner card's link form: the server's address and the one-time code from its Menu → Runners. */
 export interface RunnerLinkRequest {
@@ -592,15 +577,8 @@ export interface GuiConfigApi {
     checkKey(keys: string): Promise<{ ok: true; key: string; label: string } | { ok: false; problem: string }>;
     billionContext(action: BillionContextAction): Promise<void>;
     runner(action: RunnerAction): Promise<void>;
-    /** Read the allowed folders, or remove one. */
-    runnerFolders(remove?: string): Promise<void>;
     /** Link this computer with a code from the server's Menu → Runners; rejects with the runner's message. */
     linkRunner(request: RunnerLinkRequest): Promise<void>;
-    authenticatorStatus(): Promise<void>;
-    startAuthenticatorSetup(): Promise<AuthenticatorSetup>;
-    confirmAuthenticatorCode(code: string): Promise<AuthenticatorResult>;
-    cancelAuthenticatorSetup(): Promise<void>;
-    turnOffAuthenticator(code: string): Promise<AuthenticatorResult>;
     /** The main process asks to show a section of the settings, such as "dictation". */
     onFocus(listener: (section: string) => void): () => void;
     onState(listener: (state: ConfigState) => void): () => void;

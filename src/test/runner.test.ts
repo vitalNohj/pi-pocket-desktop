@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { parseRunnerFolders, setUpRunner, type RunnerConfirmation, type RunnerHost } from "../main/runner/runner";
+import { outdatedLink, runnerError, setUpRunner, type RunnerHost } from "../main/runner/runner";
 import { validateSettings } from "../main/core/settings";
 
 function host(home: string, overrides: Partial<RunnerHost> = {}): RunnerHost {
@@ -16,9 +16,7 @@ function host(home: string, overrides: Partial<RunnerHost> = {}): RunnerHost {
         setEnabled: async (next) => {
             enabled = next;
         },
-        confirmSessions: () => true,
         allowHttp: () => false,
-        ask: async () => false,
         runtime: () => undefined,
         prepare: async () => {},
         environment: async () => ({ ...process.env }),
@@ -26,6 +24,13 @@ function host(home: string, overrides: Partial<RunnerHost> = {}): RunnerHost {
         ...overrides,
     };
 }
+
+/** A link file as the runner writes it now: with its server's key. */
+const link = (extra: Record<string, unknown> = {}) =>
+    JSON.stringify({ server: "https://pocket.example", id: "a", name: "Mac", key: "secret", serverKey: "server-secret", ...extra });
+
+/** The runner's help, as it prints it after an unknown command. */
+const HELP = "pi-pocket runner: run session tools on this computer.\n\n  pi-pocket runner start\n    Run with the saved link.";
 
 test("without a link it is unlinked, and with one but no runtime it says what to do", () => {
     const home = mkdtempSync(join(tmpdir(), "runner-"));
@@ -37,7 +42,7 @@ test("without a link it is unlinked, and with one but no runtime it says what to
         assert.equal(runner.state().status, "unlinked");
         assert.equal(runner.state().link, undefined);
 
-        writeFileSync(join(home, "runner.json"), JSON.stringify({ server: "https://pocket.example", id: "a", name: "Mac", key: "secret" }));
+        writeFileSync(join(home, "runner.json"), link());
         runner.boot();
 
         const state = runner.state();
@@ -45,86 +50,41 @@ test("without a link it is unlinked, and with one but no runtime it says what to
         assert.equal(state.status, "failed");
         assert.match(state.message ?? "", /Install or update Pi Pocket under This computer on Home/);
         assert.deepEqual(state.link, { server: "https://pocket.example", id: "a", name: "Mac" });
-        assert.equal(JSON.stringify(state).includes("secret"), false, "the key never leaves the file");
+        assert.equal(JSON.stringify(state).includes("secret"), false, "no key leaves the file");
     } finally {
         rmSync(home, { recursive: true, force: true });
     }
 });
 
-/** A stand-in launcher: links, saves confirmation choices, and records its arguments and stdin. */
+/** A stand-in launcher: links, runs, and records its arguments. */
 function fakeRuntime(
     home: string,
-    options: { script?: string; confirmError?: string; legacyError?: string; foldersWarning?: string; totpError?: string } = {},
+    options: { script?: string; linkError?: string; exit?: number } = {},
 ): { node: string; launcher: string; bin: string } {
     const launcher = join(home, "fake-launcher.mjs");
 
     writeFileSync(
         launcher,
-        `import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
-import { createInterface } from "node:readline";
+        `import { appendFileSync, writeFileSync } from "node:fs";
 const args = process.argv.slice(2);
 const file = args[args.indexOf("--config") + 1];
-const record = (name, line) => appendFileSync(${JSON.stringify(home)} + "/" + name, line + "\\n");
-record("calls.jsonl", JSON.stringify(args));
+appendFileSync(${JSON.stringify(home)} + "/calls.jsonl", JSON.stringify(args) + "\\n");
 if (args[1] === "link") {
+    const error = ${JSON.stringify(options.linkError ?? "")};
+    if (error) { console.error(error); process.exit(1); }
     if (args[3] === "BAD-CODE") { console.error("pi-pocket runner: refused the code"); process.exit(1); }
-    writeFileSync(file, JSON.stringify({ server: args[2], id: "id", name: "Mac", key: "k" }));
+    writeFileSync(file, JSON.stringify({ server: args[2], id: "id", name: "Mac", key: "k", serverKey: "s", ...(args.includes("--allow-http") ? { allowHttp: true } : {}) }));
     console.log("Linked.");
-} else if (args[1] === "totp") {
-    const error = ${JSON.stringify(options.totpError ?? "")};
-    if (error) { console.error(error); process.exit(1); }
-    const saved = () => JSON.parse(readFileSync(file, "utf8"));
-    const save = (totp) => { const link = saved(); link.settings = { ...link.settings, totp }; writeFileSync(file, JSON.stringify(link)); };
-    const totp = saved().settings?.totp;
-    if (args[2] === "status") {
-        console.log(JSON.stringify({ totp: !!totp, locked: !!totp?.lockedUntil, ...(totp?.lockedUntil ? { lockedUntil: totp.lockedUntil } : {}) }));
-    } else if (args[2] === "setup") {
-        const secret = "JBSWY3DPEHPK3PXP";
-        console.log(JSON.stringify({ secret, link: "otpauth://totp/test?secret=" + secret }));
-        const input = createInterface({ input: process.stdin });
-        input.on("line", code => {
-            if (code !== "123456") { console.log(JSON.stringify({ ok: false, error: "Wrong code." })); return; }
-            save({ secret }); console.log(JSON.stringify({ ok: true, totp: true })); process.exit(0);
-        });
-        input.on("close", () => { console.log(JSON.stringify({ ok: false, error: "Cancelled." })); process.exit(1); });
-    } else if (args[2] === "off") {
-        if (args[3] !== "123456") {
-            save({ ...totp, lockedUntil: 1800000000000 });
-            console.log(JSON.stringify({ ok: false, error: "Wrong code." })); process.exit(1);
-        }
-        save(undefined); console.log(JSON.stringify({ ok: true, totp: false }));
-    }
-} else if (args[1] === "folders") {
-    const link = JSON.parse(readFileSync(file, "utf8"));
-    if (args[2] === "remove") {
-        const folders = link.settings?.folders ?? [];
-        if (!folders.includes(args[3])) { console.error("No allowed folder matches"); process.exit(1); }
-        link.settings = { ...link.settings, folders: folders.filter(folder => folder !== args[3]) };
-        writeFileSync(file, JSON.stringify(link));
-    } else {
-        const warning = ${JSON.stringify(options.foldersWarning ?? "")};
-        if (warning) { console.error(warning); }
-        console.log(JSON.stringify(link.settings?.folders ?? []));
-    }
-} else if (args[1] === "settings" && args[2] === "confirm") {
-    const error = ${JSON.stringify(options.confirmError ?? "")};
-    if (error) { console.error(error); process.exit(1); }
-    const link = JSON.parse(readFileSync(file, "utf8"));
-    link.confirmSessions = args[3] === "on";
-    writeFileSync(file, JSON.stringify(link));
-    console.log("confirm " + args[3]);
-} else if (args[1] === "settings" && args[2] === "http") {
-    const link = JSON.parse(readFileSync(file, "utf8"));
-    link.allowHttp = args[3] === "allow";
-    writeFileSync(file, JSON.stringify(link));
-    console.log("http " + args[3]);
-} else {
-    const error = ${JSON.stringify(options.legacyError ?? "")};
-    if (error && args.includes("--confirm-via")) { console.error(error); process.exit(1); }
+} else if (args[1] === "start") {
+    const exit = ${JSON.stringify(options.exit ?? null)};
+    if (exit !== null) { console.error("pi-pocket runner: The server ended this link."); process.exit(exit); }
     console.log("[00:00:00] Connected to server as Mac.");
-    createInterface({ input: process.stdin }).on("line", line => record("answers.jsonl", line));
     process.on("SIGTERM", () => process.exit(0));
+    setInterval(() => {}, 1000);
     ${options.script ?? ""}
+} else {
+    console.error("pi-pocket runner: Unknown command \\"" + args[1] + "\\".\\n\\n" + ${JSON.stringify(HELP)});
+    process.exit(1);
 }
 `,
     );
@@ -132,28 +92,11 @@ if (args[1] === "link") {
     return { node: process.execPath, launcher, bin: home };
 }
 
-function recorded(home: string, file: string): string[] {
-    const path = join(home, file);
-
-    return existsSync(path) ? readFileSync(path, "utf8").trimEnd().split("\n") : [];
-}
-
 function calls(home: string): string[][] {
-    return recorded(home, "calls.jsonl").map((line) => JSON.parse(line) as string[]);
+    const path = join(home, "calls.jsonl");
+
+    return existsSync(path) ? readFileSync(path, "utf8").trimEnd().split("\n").map((line) => JSON.parse(line) as string[]) : [];
 }
-
-const request: RunnerConfirmation = {
-    id: 7,
-    server: "http://100.1.2.3:8787",
-    computer: "MacBook",
-    person: "Owner",
-    folder: "/Users/me/project",
-    kind: "new",
-    broad: false,
-};
-
-const confirmLine = (value: RunnerConfirmation) => `console.log(${JSON.stringify(`PI-POCKET-CONFIRM ${JSON.stringify(value)}`)});`;
-const endLine = (id: number) => `console.log(${JSON.stringify(`PI-POCKET-CONFIRM-END ${JSON.stringify({ id })}`)});`;
 
 async function until(check: () => boolean, what: string): Promise<void> {
     for (let i = 0; i < 100; i++) {
@@ -197,7 +140,7 @@ test("a failed link keeps the link before running", async () => {
     try {
         await runner.linkTo("https://pocket.example", "GOOD-CODE");
         await until(() => runner.state().status === "connected", "connected");
-        await assert.rejects(runner.linkTo("https://other.example", "BAD-CODE"), /refused the code/);
+        await assert.rejects(runner.linkTo("https://other.example", "BAD-CODE"), /^Error: refused the code$/);
         await until(() => runner.state().status === "connected", "connected again");
         assert.equal(runner.state().link?.server, "https://pocket.example");
     } finally {
@@ -206,361 +149,217 @@ test("a failed link keeps the link before running", async () => {
     }
 });
 
-test("confirmation is on by default, including old config files, and checks boolean values", () => {
-    for (const input of [undefined, { runner: { enabled: false } }]) {
+test("an older file's runner.confirmSessions is dropped quietly, and Allow plain HTTP is off unless true", () => {
+    for (const input of [undefined, { runner: { enabled: false } }, { runner: { confirmSessions: false } }, { runner: { confirmSessions: "off" } }]) {
         const result = validateSettings(input);
 
-        assert.equal(result.settings.runner.confirmSessions, true);
+        assert.equal("confirmSessions" in result.settings.runner, false);
+        assert.equal(result.settings.runner.allowHttp, false);
         assert.deepEqual(result.problems, []);
     }
 
-    assert.equal(validateSettings({ runner: { confirmSessions: false } }).settings.runner.confirmSessions, false);
-    const invalid = validateSettings({ runner: { confirmSessions: "off" } });
-
-    assert.equal(invalid.settings.runner.confirmSessions, true);
-    assert.deepEqual(invalid.problems, [{ path: "runner.confirmSessions", message: "must be true or false" }]);
+    assert.equal(validateSettings({ runner: { allowHttp: true } }).settings.runner.allowHttp, true);
+    assert.deepEqual(validateSettings({ runner: { allowHttp: "yes" } }).problems, [{ path: "runner.allowHttp", message: "must be true or false" }]);
+    assert.deepEqual(validateSettings({ runner: { other: true } }).problems, [{ path: "runner.other", message: "is not a setting" }]);
 });
 
-test("the runner always gets --confirm-via stdio and replies with one JSON line on stdin", async () => {
+test("the app only links and starts the runner: no settings, folders, or authenticator commands", async () => {
     const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const runtime = fakeRuntime(home, { script: confirmLine(request) });
-    const asked: RunnerConfirmation[] = [];
-    const runner = setUpRunner(host(home, {
-        runtime: () => runtime,
-        ask: async (value, signal) => {
-            assert.equal(signal.aborted, false);
-            asked.push(value);
-
-            return true;
-        },
-    }));
-
-    try {
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
-        await until(() => recorded(home, "answers.jsonl").length === 1, "answer on stdin");
-        assert.deepEqual(asked, [request]);
-        assert.deepEqual(calls(home).find((args) => args[1] === "--confirm-via"), [
-            "runner", "--confirm-via", "stdio", "--config", join(home, "runner.json"),
-        ]);
-        assert.equal(readFileSync(join(home, "answers.jsonl"), "utf8"), '{"id":7,"allow":true}\n');
-    } finally {
-        await runner.quit();
-        rmSync(home, { recursive: true, force: true });
-    }
-});
-
-test("Pi preview confirmation lines preserve their kind and title", async () => {
-    const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const preview: RunnerConfirmation = { ...request, kind: "pi-preview", title: "Fix the cart" };
-    const runtime = fakeRuntime(home, { script: confirmLine(preview) });
-    const asked: RunnerConfirmation[] = [];
-    const runner = setUpRunner(host(home, {
-        runtime: () => runtime,
-        ask: async (value) => { asked.push(value); return false; },
-    }));
-
-    try {
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
-        await until(() => recorded(home, "answers.jsonl").length === 1, "preview answer");
-        assert.deepEqual(asked, [preview]);
-        assert.deepEqual(recorded(home, "answers.jsonl"), ['{"id":7,"allow":false}']);
-    } finally {
-        await runner.quit();
-        rmSync(home, { recursive: true, force: true });
-    }
-});
-
-test("questions wait for the previous answer, including forks and denials", async () => {
-    const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const fork = { ...request, id: 8, kind: "fork" as const };
-    const runtime = fakeRuntime(home, { script: `${confirmLine(request)}\n${confirmLine(fork)}` });
-    const asked: RunnerConfirmation[] = [];
-    let answer: ((allow: boolean) => void) | undefined;
-    const runner = setUpRunner(host(home, {
-        runtime: () => runtime,
-        ask: (value) => {
-            asked.push(value);
-
-            return new Promise((resolve) => { answer = resolve; });
-        },
-    }));
-
-    try {
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
-        await until(() => asked.length === 1, "first question");
-        assert.deepEqual(asked, [request]);
-        answer!(false);
-        await until(() => asked.length === 2, "second question");
-        assert.deepEqual(asked, [request, fork]);
-        answer!(true);
-        await until(() => recorded(home, "answers.jsonl").length === 2, "both answers");
-        assert.deepEqual(recorded(home, "answers.jsonl"), ['{"id":7,"allow":false}', '{"id":8,"allow":true}']);
-    } finally {
-        answer?.(false);
-        await runner.quit();
-        rmSync(home, { recursive: true, force: true });
-    }
-});
-
-test("CONFIRM-END cancels an open question, skips ended queued questions, and ignores late Allow", async () => {
-    const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const runtime = fakeRuntime(home, { script: [
-        confirmLine(request),
-        confirmLine({ ...request, id: 8 }),
-        confirmLine({ ...request, id: 9 }),
-        endLine(8),
-        endLine(7),
-    ].join("\n") });
-    const asked: number[] = [];
-    let canceled = false;
-    const runner = setUpRunner(host(home, {
-        runtime: () => runtime,
-        ask: async (value, signal) => {
-            asked.push(value.id);
-
-            if (value.id === 7) {
-                await new Promise<void>((resolve) => signal.addEventListener("abort", () => {
-                    canceled = true;
-                    resolve();
-                }, { once: true }));
-            }
-
-            return true;
-        },
-    }));
-
-    try {
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
-        await until(() => recorded(home, "answers.jsonl").length === 1, "only the live request answered");
-        assert.equal(canceled, true);
-        assert.deepEqual(asked, [7, 9]);
-        assert.deepEqual(recorded(home, "answers.jsonl"), ['{"id":9,"allow":true}']);
-    } finally {
-        await runner.quit();
-        rmSync(home, { recursive: true, force: true });
-    }
-});
-
-test("stopping the runner closes its question and drops a late answer", async () => {
-    const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const runtime = fakeRuntime(home, { script: confirmLine(request) });
-    let signal: AbortSignal | undefined;
-    let answer: ((allow: boolean) => void) | undefined;
-    const runner = setUpRunner(host(home, {
-        runtime: () => runtime,
-        ask: (_value, nextSignal) => {
-            signal = nextSignal;
-
-            return new Promise((resolve) => { answer = resolve; });
-        },
-    }));
-
-    try {
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
-        await until(() => signal !== undefined, "question");
-        await runner.quit();
-        assert.equal(signal!.aborted, true);
-        answer!(true);
-        await new Promise((resolve) => setImmediate(resolve));
-        assert.deepEqual(recorded(home, "answers.jsonl"), []);
-    } finally {
-        answer?.(false);
-        await runner.quit();
-        rmSync(home, { recursive: true, force: true });
-    }
-});
-
-test("a failed question denies rather than allowing or crashing", async () => {
-    const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const runtime = fakeRuntime(home, { script: confirmLine(request) });
-    const runner = setUpRunner(host(home, {
-        runtime: () => runtime,
-        ask: async () => { throw new Error("dialog unavailable"); },
-    }));
-
-    try {
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
-        await until(() => recorded(home, "answers.jsonl").length === 1, "denial");
-        assert.deepEqual(recorded(home, "answers.jsonl"), ['{"id":7,"allow":false}']);
-        assert.ok(runner.state().log.some((line) => line.includes("dialog unavailable")));
-    } finally {
-        await runner.quit();
-        rmSync(home, { recursive: true, force: true });
-    }
-});
-
-test("settings confirm on|off runs after linking, on setting changes, and before starts without a live restart", async () => {
-    const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const runtime = fakeRuntime(home);
-    let confirm = true;
-    const runner = setUpRunner(host(home, { runtime: () => runtime, confirmSessions: () => confirm }));
-    const choices = () => calls(home).filter((args) => args[1] === "settings" && args[2] === "confirm");
-    const starts = () => calls(home).filter((args) => args[1] === "--confirm-via");
-
-    try {
-        confirm = false;
-        await runner.confirmChanged();
-        assert.deepEqual(calls(home), [], "a preference can be set before linking, without an error");
-        assert.equal(runner.state().confirmError, undefined);
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
-        await until(() => runner.state().status === "connected", "connected");
-        assert.ok(choices().length > 0);
-        assert.ok(choices().every((args) => args[3] === "off"));
-        assert.ok(choices().every((args) => args.slice(4).join(" ") === `--config ${join(home, "runner.json")}`));
-        assert.ok(calls(home).findIndex((args) => args[1] === "settings") < calls(home).findIndex((args) => args[1] === "--confirm-via"));
-
-        confirm = true;
-        await runner.confirmChanged();
-        assert.equal(choices().at(-1)?.[3], "on");
-        confirm = false;
-        await runner.confirmChanged();
-        assert.equal(choices().at(-1)?.[3], "off");
-        assert.equal(starts().length, 1, "the running runner did not restart for a setting change");
-        assert.equal(runner.state().status, "connected");
-        assert.equal((JSON.parse(readFileSync(join(home, "runner.json"), "utf8")) as { confirmSessions: boolean }).confirmSessions, false);
-
-        const before = choices().length;
-
-        await runner.restart();
-        await until(() => runner.state().status === "connected", "connected again");
-        assert.equal(starts().length, 2);
-        assert.equal(choices().length, before + 1);
-        assert.equal(choices().at(-1)?.[3], "off");
-    } finally {
-        await runner.quit();
-        rmSync(home, { recursive: true, force: true });
-    }
-});
-
-test("Allow plain HTTP goes with the link and is saved on every change, without a restart", async () => {
-    const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const runtime = fakeRuntime(home);
-    let allow = true;
-    const runner = setUpRunner(host(home, { runtime: () => runtime, allowHttp: () => allow }));
-    const http = () => calls(home).filter((args) => args[1] === "settings" && args[2] === "http");
-    const saved = () => (JSON.parse(readFileSync(join(home, "runner.json"), "utf8")) as { allowHttp?: boolean }).allowHttp;
-
-    try {
-        await runner.linkTo("http://pocket.lan:8787", "GOOD-CODE");
-        await until(() => runner.state().status === "connected", "connected");
-        assert.deepEqual(
-            calls(home).find((args) => args[1] === "link")?.slice(1, 5),
-            ["link", "http://pocket.lan:8787", "GOOD-CODE", "--allow-http"],
-        );
-        assert.equal(http().at(-1)?.[3], "allow");
-        assert.equal(saved(), true);
-
-        allow = false;
-        await runner.confirmChanged();
-        assert.equal(http().at(-1)?.[3], "refuse");
-        assert.equal(saved(), false);
-        assert.equal(calls(home).filter((args) => args[1] === "--confirm-via").length, 1, "no restart");
-    } finally {
-        await runner.quit();
-        rmSync(home, { recursive: true, force: true });
-    }
-});
-
-test("a failed settings confirm command is in the runner log and card even when connected", async () => {
-    const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const runtime = fakeRuntime(home, { confirmError: "pi-pocket runner: link is read-only" });
+    const runtime = fakeRuntime(home, { script: `console.log('PI-POCKET-ACTIVITY {"working":true,"folders":["/secret/project"]}');` });
     const runner = setUpRunner(host(home, { runtime: () => runtime }));
-
-    try {
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
-        await until(() => runner.state().status === "connected", "connected");
-        assert.match(runner.state().confirmError ?? "", /Could not save the runner's settings: link is read-only/);
-        assert.ok(runner.state().log.some((line) => line.includes("link is read-only")));
-    } finally {
-        await runner.quit();
-        rmSync(home, { recursive: true, force: true });
-    }
-});
-
-for (const legacyError of ['Unknown option "--confirm-via"', "unknown command: confirm-via"]) {
-    test(`an old runner retries without the flag after ${legacyError}`, async () => {
-        const home = mkdtempSync(join(tmpdir(), "runner-"));
-        const runtime = fakeRuntime(home, { legacyError, confirmError: "unknown command: settings" });
-        const runner = setUpRunner(host(home, { runtime: () => runtime }));
-
-        try {
-            await runner.linkTo("https://pocket.example", "GOOD-CODE");
-            await until(() => runner.state().status === "connected", "legacy connection");
-            const starts = calls(home).filter((args) => args[1] === "--confirm-via" || args[1] === "--config");
-
-            assert.equal(starts.length, 2);
-            assert.ok(starts[0]?.includes("--confirm-via"));
-            assert.deepEqual(starts[1], ["runner", "--config", join(home, "runner.json")]);
-            assert.equal(runner.state().log.filter((line) => line.includes("retrying without the flag")).length, 1);
-            assert.match(runner.state().confirmError ?? "", /unknown command: settings/);
-        } finally {
-            await runner.quit();
-            rmSync(home, { recursive: true, force: true });
-        }
-    });
-}
-
-test("folder lists contain only strings, including long lists, and invalid output fails visibly", () => {
-    const folders = Array.from({ length: 400 }, (_, i) => `/Users/me/projects/folder-${String(i)}`);
-
-    assert.deepEqual(parseRunnerFolders(JSON.stringify(folders)), folders);
-    assert.deepEqual(parseRunnerFolders("[]"), []);
-    for (const invalid of ["{}", '["/work", false]', '"/work"', "unknown command"]) {
-        assert.throws(() => parseRunnerFolders(invalid));
-    }
-});
-
-test("the card preserves folder JSON, reads and removes with the same runtime, and does not restart", async () => {
-    const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const runtime = fakeRuntime(home, { foldersWarning: "A warning on stderr is not part of the folder JSON." });
-    const runner = setUpRunner(host(home, { runtime: () => runtime }));
-    const folders = [
-        "/work/project?token=abc cache", "/work/project?token=abc", "/work/project&token=abc", "/work/雪😀", "/work/ends with a space ",
-        ...Array.from({ length: 400 }, (_, i) => `/Users/me/projects/folder-${String(i)}`),
-    ];
     const file = join(home, "runner.json");
 
     try {
         await runner.linkTo("https://pocket.example", "GOOD-CODE");
         await until(() => runner.state().status === "connected", "connected");
-        const link = JSON.parse(readFileSync(file, "utf8"));
+        runner.state();
+        await new Promise((resolve) => setTimeout(resolve, 200));
 
-        link.settings = { folders };
-        writeFileSync(file, JSON.stringify(link));
-        await runner.refreshFolders();
-        assert.deepEqual(runner.state().folders, folders);
-        assert.deepEqual(calls(home).filter((args) => args[1] === "folders").at(-1), ["runner", "folders", "--json", "--config", file]);
-        await runner.removeFolder(folders[0]!);
-        assert.deepEqual(runner.state().folders, folders.slice(1));
-        assert.deepEqual(calls(home).find((args) => args[2] === "remove"), ["runner", "folders", "remove", folders[0], "--config", file]);
-        assert.equal(calls(home).filter((args) => args[1] === "--confirm-via").length, 1);
-        await assert.rejects(runner.removeFolder("/unknown"), /No allowed folder matches/);
-        assert.match(runner.state().foldersError ?? "", /Could not remove allowed folder/);
+        assert.deepEqual(calls(home), [
+            ["runner", "link", "https://pocket.example", "GOOD-CODE", "--config", file],
+            ["runner", "start", "--config", file],
+        ]);
+        assert.ok(runner.state().log.some((line) => line.includes("Connected to server")));
+        assert.equal(runner.state().log.some((line) => line.includes("PI-POCKET-")), false, "lines for a program stay out of the log");
+        assert.deepEqual(Object.keys(runner.state()).sort(), ["available", "enabled", "link", "log", "status"]);
     } finally {
         await runner.quit();
         rmSync(home, { recursive: true, force: true });
     }
 });
 
-test("a completed Allow refreshes folders only after the runner saves, including move and broad questions", async () => {
+test("the card follows the runner's own lines: dropped, back, and why it cannot connect", async () => {
     const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const move = { ...request, kind: "move" as const };
-    const runtime = fakeRuntime(home, { script: `${confirmLine(move)}
-        process.stdin.on("data", () => {
-            const link = JSON.parse(readFileSync(file, "utf8"));
-            link.settings = { folders: [${JSON.stringify(request.folder)}] };
-            writeFileSync(file, JSON.stringify(link));
-            ${endLine(request.id)}
-        });` });
-    const asked: RunnerConfirmation[] = [];
-    const runner = setUpRunner(host(home, { runtime: () => runtime, ask: async (value) => { asked.push(value); return true; } }));
+    const say = (line: string, ms: number) => `setTimeout(() => console.log(${JSON.stringify(`[00:00:01] ${line}`)}), ${String(ms)});`;
+    const runtime = fakeRuntime(home, {
+        script: say("Disconnected (server restart). Reconnecting automatically. Commands keep running; their sessions continue when the link is back.", 300)
+            + say("Connection error (connect ECONNREFUSED 127.0.0.1:8787). If the runner does not connect, check the address and network.", 600)
+            + say("https://pocket.example returned HTTP 502. Retrying automatically. If this continues, check that Pi Pocket is running at this address.", 900)
+            + say("Reconnected to https://pocket.example. Running commands continue.", 1200),
+    });
+    const runner = setUpRunner(host(home, { runtime: () => runtime }));
+    const seen: string[] = [];
+    const note = () => {
+        const state = runner.state();
+        const now = `${state.status}: ${state.message ?? ""}`;
+
+        if (seen.at(-1) !== now) {
+            seen.push(now);
+        }
+
+        return state.status;
+    };
 
     try {
         await runner.linkTo("https://pocket.example", "GOOD-CODE");
-        await until(() => runner.state().folders?.length === 1, "the saved folder after Allow");
-        assert.deepEqual(asked, [move]);
-        assert.deepEqual(runner.state().folders, [request.folder]);
-        assert.equal(runner.state().foldersError, undefined);
+        await until(() => note() === "connected", "connected");
+        await until(() => note() === "connecting", "dropped");
+        await until(() => note() === "connected", "back");
+        assert.deepEqual(seen.slice(-5), [
+            "connected: ",
+            "connecting: Reconnecting. Sessions must wait for the server.",
+            "connecting: Cannot reach the server: connect ECONNREFUSED 127.0.0.1:8787.",
+            "connecting: https://pocket.example returned HTTP 502. Retrying automatically. If this continues, check that Pi Pocket is running at this address.",
+            "connected: ",
+        ]);
+    } finally {
+        await runner.quit();
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test("Allow plain HTTP goes with the link, and only with it", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const runtime = fakeRuntime(home);
+    let allow = true;
+    const runner = setUpRunner(host(home, { runtime: () => runtime, allowHttp: () => allow }));
+    const saved = () => (JSON.parse(readFileSync(join(home, "runner.json"), "utf8")) as { allowHttp?: boolean }).allowHttp;
+
+    try {
+        await runner.linkTo("http://pocket.lan:8787", "GOOD-CODE");
+        await until(() => runner.state().status === "connected", "connected");
+        assert.deepEqual(calls(home)[0]?.slice(1, 5), ["link", "http://pocket.lan:8787", "GOOD-CODE", "--allow-http"]);
+        assert.equal(saved(), true);
+
+        // The switch is for the next link: turning it off changes nothing for this one, and runs no command.
+        allow = false;
+        await runner.restart();
+        await until(() => runner.state().status === "connected", "connected again");
+        assert.equal(saved(), true);
+        assert.equal(calls(home).filter((args) => args[1] !== "link" && args[1] !== "start").length, 0);
+
+        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        assert.equal(saved(), undefined);
+        assert.equal(calls(home).filter((args) => args[1] === "link").at(-1)?.includes("--allow-http"), false);
+    } finally {
+        await runner.quit();
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test("a failed command's message is its first paragraph: never the runner's help", () => {
+    assert.equal(runnerError(`pi-pocket runner: Unknown command "settings".\n\n${HELP}`, 1), 'Unknown command "settings".');
+    assert.equal(runnerError("pi-pocket runner: line one\nline two\r\n\r\nmore", 1), "line one\nline two");
+    // The launcher's warning comes before the runner's error: the message starts at the error.
+    assert.equal(
+        runnerError(`Node.js 24.21.0 lacks security fixes: update to 24.22.1 or newer.\npi-pocket runner: Unknown command "folders".\n\n${HELP}`, 1),
+        'Unknown command "folders".',
+    );
+    assert.equal(runnerError("\n\nno mark here\nsecond line\n\nlater", 1), "no mark here\nsecond line");
+    assert.equal(runnerError("\n\n  \n", 2), "The runner stopped with code 2.");
+    assert.equal(runnerError("", null), "The runner stopped with code null.");
+
+    const long = runnerError("x".repeat(5000), 1);
+
+    assert.equal(long.length, 601);
+    assert.ok(long.endsWith("…"));
+});
+
+test("a link the runner refuses with its help shows one short message in the form and the log", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const runtime = fakeRuntime(home, { linkError: `pi-pocket runner: Update Pi Pocket's runner on this computer.\n\n${HELP}` });
+    const runner = setUpRunner(host(home, { runtime: () => runtime }));
+
+    try {
+        await assert.rejects(runner.linkTo("https://pocket.example", "GOOD-CODE"), (error: Error) => {
+            assert.equal(error.message, "Update Pi Pocket's runner on this computer.");
+
+            return true;
+        });
+        assert.equal(runner.state().status, "unlinked");
+        assert.equal(JSON.stringify(runner.state()).includes("pi-pocket runner start"), false, "no help text anywhere in the card");
+    } finally {
+        await runner.quit();
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test("a link from an older Pi Pocket says Link again, is never started, and a new link runs", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const runtime = fakeRuntime(home);
+    let enabled = true;
+    const runner = setUpRunner(host(home, { enabled: () => enabled, setEnabled: async (next) => { enabled = next; }, runtime: () => runtime }));
+
+    try {
+        // Before the runner kept its server's key: no `serverKey`.
+        writeFileSync(join(home, "runner.json"), JSON.stringify({ server: "https://pocket.example", id: "a", name: "Mac", key: "secret" }));
+        runner.boot();
+
+        assert.equal(runner.state().status, "ended");
+        assert.equal(runner.state().message, outdatedLink("Mac"));
+        assert.match(runner.state().message ?? "", /Menu → Runners, choose Link again on “Mac”/);
+        assert.deepEqual(runner.state().link, { server: "https://pocket.example", id: "a", name: "Mac" });
+
+        await runner.restart();
+        enabled = false;
+        runner.enabledChanged();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        enabled = true;
+        runner.enabledChanged();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        assert.equal(runner.state().status, "ended", "it stays so through Reconnect and the switch");
+        assert.deepEqual(calls(home), [], "the runner would only stop at once: it is not started");
+
+        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        await until(() => runner.state().status === "connected", "connected");
+        assert.equal(runner.state().message, undefined);
+    } finally {
+        await runner.quit();
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test("a link the server ended stops for good; Unlink forgets it", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const runtime = fakeRuntime(home, { exit: 3 });
+    const runner = setUpRunner(host(home, { runtime: () => runtime }));
+
+    try {
+        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        await until(() => runner.state().status === "ended", "ended");
+        assert.equal(runner.state().message, "The server ended this link.");
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        assert.equal(calls(home).filter((args) => args[1] === "start").length, 1, "no restart");
+
+        await runner.unlink();
+        assert.equal(runner.state().status, "unlinked");
+        assert.equal(runner.state().link, undefined);
+        assert.equal(runner.linked(), false);
+    } finally {
+        await runner.quit();
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test("a runner that stops by itself starts again, and the card says when", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const runtime = fakeRuntime(home, { exit: 1 });
+    const runner = setUpRunner(host(home, { runtime: () => runtime }));
+
+    try {
+        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        await until(() => runner.state().status === "failed", "failed");
+        assert.match(runner.state().message ?? "", /^The runner stopped \(code 1\)\. Restarting in 2 s\. The server ended this link\.$/);
     } finally {
         await runner.quit();
         rmSync(home, { recursive: true, force: true });
@@ -578,61 +377,6 @@ test("linking installs Pi Pocket first when no runtime has the runner, and says 
         assert.equal(prepared, 1);
         assert.equal(runner.state().busy, undefined);
     } finally {
-        rmSync(home, { recursive: true, force: true });
-    }
-});
-
-test("authenticator status is cached, setup renders a QR privately, and off/unlink refresh the card", async () => {
-    const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const runtime = fakeRuntime(home);
-    const runner = setUpRunner(host(home, { runtime: () => runtime }));
-    const secret = "JBSWY3DPEHPK3PXP";
-
-    try {
-        assert.equal(runner.state().authenticator, undefined);
-        assert.equal(calls(home).length, 0, "not linked: do not ask the CLI");
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
-        assert.deepEqual(runner.state().authenticator, { set: false, locked: false });
-        const before = calls(home).filter((args) => args[1] === "totp").length;
-        runner.state(); runner.state();
-        assert.equal(calls(home).filter((args) => args[1] === "totp").length, before, "reads reuse the cached status");
-        const setup = await runner.startAuthenticatorSetup();
-        assert.equal(setup.secret, secret);
-        assert.match(setup.dataUrl, /^data:image\/png;base64,/);
-        assert.equal(Buffer.from(setup.dataUrl.split(",")[1]!, "base64").readUInt32BE(16), 220);
-        runner.runtimeChanged(); // An unrelated local-server state/log change must not cancel setup.
-        assert.deepEqual(await runner.confirmAuthenticatorCode("123456"), { ok: true });
-        assert.deepEqual(runner.state().authenticator, { set: true, locked: false });
-        assert.deepEqual(await runner.turnOffAuthenticator("000000"), { ok: false, error: "Wrong code." });
-        assert.deepEqual(runner.state().authenticator, { set: true, locked: true, lockedUntil: 1800000000000 });
-        assert.deepEqual(await runner.turnOffAuthenticator("123456"), { ok: true });
-        assert.deepEqual(runner.state().authenticator, { set: false, locked: false });
-        const snapshot = JSON.stringify(runner.state());
-        assert.equal(snapshot.includes(secret), false);
-        assert.equal(snapshot.includes("otpauth:"), false);
-        assert.equal(snapshot.includes("data:image"), false);
-        await runner.unlink();
-        assert.equal(runner.state().authenticator, undefined);
-        assert.ok(calls(home).filter((args) => args[1] === "totp").every((args) => args.at(-2) === "--config" && args.at(-1) === join(home, "runner.json")));
-    } finally {
-        await runner.quit();
-        rmSync(home, { recursive: true, force: true });
-    }
-});
-
-test("the first linked state reads authenticator status, and an older runner shows an unavailable row", async () => {
-    const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const runtime = fakeRuntime(home, { totpError: "Unknown command: totp. Use: pi-pocket runner" });
-    const runner = setUpRunner(host(home, { runtime: () => runtime, enabled: () => false }));
-
-    try {
-        writeFileSync(join(home, "runner.json"), JSON.stringify({ server: "https://pocket.example", id: "id", name: "Mac", key: "k" }));
-        assert.equal(runner.state().authenticator, undefined);
-        await until(() => runner.state().authenticator !== undefined, "the authenticator's first read");
-        assert.deepEqual(runner.state().authenticator, { unavailable: "Update Pi Pocket to set up an authenticator here" });
-        assert.equal(runner.state().log.some((line) => line.includes("Unknown command")), false);
-    } finally {
-        await runner.quit();
         rmSync(home, { recursive: true, force: true });
     }
 });

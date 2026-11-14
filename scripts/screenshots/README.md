@@ -10,8 +10,8 @@ Everything in them is made up: the people, folders, sessions, and the model's an
    ```
 
    Its first line is JSON with the owner's sign-in link, and, on a Pi Pocket with runners, `runnerCode`: a link code for
-   the app's own runner ("Workstation"). The demo also links two made-up computers: "Studio" (online, with saved folders,
-   approved sessions, and an authenticator) and "Build box" (not connected).
+   the app's own runner ("Workstation"). The demo also links two made-up computers: "Studio" (online, with Sam chosen
+   for it, two folders given to Sam, and two sessions) and "Build box" (not connected).
 
 2. Run the built app at 2× against it (`http://127.0.0.3:8898`), with DevTools on, and sign in with that link:
 
@@ -41,10 +41,9 @@ Everything in them is made up: the people, folders, sessions, and the model's an
    `linux-people.png`, `linux-files.png`, and `linux-settings.png` (the Linux overlay's buttons are 113 px wide, which
    `frame.mjs` passes as `controls`).
 
-   For the runner: in Desktop Settings, link with `gui.linkRunner({ server, code: runnerCode })`, then set up the
-   authenticator from the Runner card (compute its code from the secret it shows with Pi Pocket's
-   `src/runner/totp.ts`). Take `runner-card.png` with the Runner card in view; hide the Allowed folders part and the
-   runner log for the shot. Take `mac-runners.png` with the macOS layout and Pi Pocket's Runners sheet open
+   For the runner: in Desktop Settings, link with `gui.linkRunner({ server, code: runnerCode })`. Take
+   `runner-card.png` with the Runner card in view; hide the runner log for the shot. Take `mac-runners.png` with the
+   macOS layout and Pi Pocket's Runners sheet open
    (`import('/store.js').then((m) => m.openSheet({ type: "computers" }))`).
 
 4. Frame them (`frame.html`: a window with traffic lights or Windows' buttons, a shadow, and a background):

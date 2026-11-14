@@ -24,53 +24,37 @@ for the server side and for computers without this app, is
 
 The runner works while the app is open, including in the tray. The card shows the connection state. **Enable runner**
 turns it off and on (off, the server shows this computer as offline), **Reconnect** starts it again, and **Unlink**
-removes the link with all its settings. The **Runner log** is at the bottom of the card.
+removes the link. The **Runner log** is at the bottom of the card.
+
+**Link again.** A link made by an older Pi Pocket no longer works: the card says **Link ended** and shows the link form.
+In Pi Pocket, open **Menu → Runners**, choose **Link again** on this computer, and enter the new code. The computer
+keeps its name and its sessions.
 
 **Link another computer:** the same code from **Menu → Runners → Link a computer**. Pi Pocket shows the commands for a
 computer without this app.
 
-## Approvals
+## People, folders, and approvals
 
-By default the app asks before the server starts a new session, a copy of a session, or a move, in a folder that is not
-yet allowed on this computer. The question shows the server, person, and folder; **Deny** is the default. A session can
-read and change files and run commands as you, also outside that folder. If nobody answers within 2 minutes (5 minutes
-with an authenticator), the session does not start.
+These are set on the server, not in the app. After the link, the runner trusts its server, and the app asks nothing on
+this computer. In Pi Pocket, open **Menu → Runners** and find this computer's card:
 
-Turn off **Ask before new sessions** in the card to start sessions without asking. The app saves the choice with
-`runner settings confirm on|off --config FILE`; no runner restart is needed.
+- **People.** Whoever linked the computer is in charge of it, and chooses the people who may use it with **Choose
+  people**. Nobody else sees its sessions, browses it, or starts anything on it.
+- **Folders.** Whoever is in charge gives each chosen person their folders, under **Folders** on the card. A given
+  folder covers the folders inside it. Any other folder is refused.
+- **Approvals.** A person who is not in charge approves a new session with a code from their own authenticator, which
+  they link to their account in Pi Pocket (**Menu → their name**), or waits for **Allow** from whoever is in charge.
+  Whoever is in charge is never asked on their own computer.
 
-**Continue a Pi session:** the server can list the titles and folders of Pi's own sessions on this computer. Seeing a
-session's last messages and model asks **Allow seeing a Pi session?**, with **Deny** as the default. Continuing it asks
-the normal new-session question.
-
-## Allowed folders
-
-**Allow** saves the folder on this computer, so later sessions in it or its subfolders start without asking. A root,
-your home folder, or an ancestor of your home offers **Allow this session only** and saves nothing. The card lists the
-folders and lets you **Remove** one; existing sessions keep running. Moving a session to another folder follows the
-same check. The list never goes to the server.
-
-## Authenticator
-
-With an authenticator app (Google Authenticator, 1Password, Authy, and others), you can approve sessions and folders,
-and change the runner's settings, from Pi Pocket with a 6-digit code, without going to this computer. It is off by
-default, and each computer has its own.
-
-Set it up in **Desktop Settings → Runner → Authenticator → Set up**: scan the QR code (or type the key) in your
-authenticator app, then enter the code it shows and choose **Confirm**. The runner saves the key only when that code is
-right. **Turn off** needs a code too. In a terminal, `pi-pocket runner totp setup` does the same.
-
-Without an authenticator, Pi Pocket cannot approve sessions and folders here with a code, and runner settings change
-only on this computer.
-
-Lost your authenticator? **Unlink** (it needs no code, because it only removes access), then link again with a new
-code. Unlinking deletes the authenticator's key, the allowed folders, and the approved sessions with it.
+The app has no authenticator of its own, no list of allowed folders, and no question before a session starts. Pi
+Pocket's guide has every rule: [Who may use a computer](https://github.com/vitalNohj/pi-pocket/blob/live-0.28/docs/runners.md#who-may-use-a-computer).
 
 ## Plain HTTP
 
-The runner sends this computer's key and every command to the server, so it uses HTTPS. It uses plain HTTP only to this
-computer or to a device on your tailnet, which it checks with Tailscale itself. To link a server on another plain HTTP
-address, turn on **Allow plain HTTP** in the card first, and only on a network you trust.
+The link encrypts every command, and the runner still uses HTTPS. It uses plain HTTP only to this computer or to a
+device on your tailnet, which it checks with Tailscale itself. To link a server on another plain HTTP address, turn on
+**Allow plain HTTP** in the link form before you choose **Link**, and only on a network you trust. The choice is saved
+with the link: to change it, link again.
 
 ## When this computer is offline
 
@@ -84,17 +68,13 @@ not a failure:
 - **Background tasks belong to the runner.** A network drop or a server restart does not stop them. They stop only when
   the runner process ends: you quit the app, turn off **Enable runner**, unlink, or the computer restarts. Their logs
   and exit codes stay.
-- **Questions stay open.** A drop does not approve or deny a question. It stays open here with its time limit, and an
-  answer given while offline is sent after reconnecting.
-
-A new session, a fork, or a move to another folder on an offline computer cannot start: the computer must answer
-whether it allows the folder.
+A new session, a fork, or a move to another folder on an offline computer cannot start.
 
 ## Who can use it
 
-Only you can start sessions on a computer you linked. These sessions are private by default. The server owner can turn
-on **Share sessions on linked computers** under **Menu → Runners**. Anyone who can prompt a shared session can run
-commands on this computer.
+Only the people chosen for this computer in **Menu → Runners**, each in the folders given to them. A session here is
+private to the person who started it. That person, or whoever is in charge of the computer, shares it with one person
+at a time. Anyone who can prompt a shared session can run commands on this computer.
 
 ## Start at sign-in
 
