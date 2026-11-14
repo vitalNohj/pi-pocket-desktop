@@ -8,6 +8,8 @@ export interface OtherWindow {
     view: WebContentsView;
     origin: string;
     failed: boolean;
+    /** Server cleanup is not the person closing their last window. */
+    automaticClose?: boolean;
     offset: () => number;
     appearance: NonNullable<Gui["appearance"]>;
 }
@@ -77,7 +79,10 @@ export function lastUsedWindow(): BaseWindow | undefined {
 /** A different origin (or side) is in use. No argument closes every other window. */
 export function closeOtherWindows(keepOrigin?: string): void {
     for (const other of otherWindows()) {
-        if (other.origin !== keepOrigin) other.window.close();
+        if (other.origin !== keepOrigin) {
+            other.automaticClose = true;
+            other.window.close();
+        }
     }
 }
 

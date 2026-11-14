@@ -8,7 +8,7 @@ import { openServerWindow, wireServerKeys } from "../connection/connect";
 import { guardContents, type OriginPolicy } from "../core/security";
 import { ASSETS } from "../core/paths";
 import { setUpAppearance, windowOptions } from "./appearance";
-import { addOtherWindow, lastUsedWindow, otherWindows, removeOtherWindow, windowFocused } from "./other-windows";
+import { addOtherWindow, lastUsedWindow, otherWindows, removeOtherWindow, windowFocused, type OtherWindow } from "./other-windows";
 import { contextMenuEventAt, openContextMenu } from "./page-menu";
 import { serverPreferences } from "./server-preferences";
 import { keepSystemMenuOffRightClicks } from "./system-menu";
@@ -61,7 +61,7 @@ export function newWindow(): void {
         translucentAtStart: gui.translucentAtStart,
         solid: () => gui.theme.colors.bg,
     });
-    const other = { window, view, origin, failed: false, offset, appearance };
+    const other: OtherWindow = { window, view, origin, failed: false, offset, appearance };
 
     // The preload asks host:hello synchronously, so registration must precede the load.
     addOtherWindow(other);
@@ -131,7 +131,7 @@ export function newWindow(): void {
         // BaseWindow does not own a WebContentsView's lifetime.
         if (!contents.isDestroyed()) contents.close();
 
-        if (quitAfterOtherClosed({
+        if (!other.automaticClose && quitAfterOtherClosed({
             quitting: gui.quitting,
             closeToTray: gui.settings.window.closeToTray,
             otherWindows: otherWindows().length,

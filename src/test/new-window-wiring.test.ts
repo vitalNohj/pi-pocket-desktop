@@ -62,7 +62,7 @@ function app() {
         titleBar: { addWindow: () => () => 32 },
         desktop: { reset: () => calls.push("reset"), windowsChanged: () => calls.push("badge"), visibilityChanged() {} },
     };
-    const others: { window: Window; view: View; failed: boolean }[] = [];
+    const others: { window: Window; view: View; failed: boolean; automaticClose?: boolean }[] = [];
     const exports = {} as typeof NewWindow;
 
     runInNewContext(readFileSync(join(__dirname, "..", "main", "window", "new-window.js"), "utf8"), {
@@ -159,4 +159,18 @@ test("a finished network-error document does not clear failure; a successful new
     start();
     contents.emit("did-finish-load");
     assert.equal(other.failed, false);
+});
+
+test("only a user close can quit after the hidden main window; server cleanup never does", () => {
+    for (const automatic of [false, true]) {
+        const h = app();
+
+        h.gui.settings.window.closeToTray = false;
+        h.newWindow();
+        h.gui.window.visible = false;
+        h.others[0]!.automaticClose = automatic;
+        h.others[0]!.window.close();
+        assert.equal(h.others.length, 0);
+        assert.equal(h.calls.includes("quit"), !automatic);
+    }
 });
