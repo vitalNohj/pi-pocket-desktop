@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import * as rules from "../main/window/navigation-state";
+import * as windowRules from "../main/window/window-rules";
 import type { ConfigReason } from "../shared/types";
 import type * as Navigation from "../main/window/navigation";
 import type { MenuItemConstructorOptions } from "electron";
@@ -37,6 +38,17 @@ function app(platform = "linux") {
         loadedUrl: "https://pocket.example/" as string | undefined,
         connectionAttempt: 0,
     };
+    let otherIndex = 2;
+    const otherCalls: string[] = [];
+    const other = { window: new EventEmitter(), origin: "https://pocket.example", view: { webContents: contents() } };
+    other.view.webContents.navigationHistory = {
+        ...history,
+        getActiveIndex: () => otherIndex,
+        canGoBack: () => otherIndex > 0,
+        canGoForward: () => otherIndex < entries.length - 1,
+        goBack: () => { otherCalls.push("back"); otherIndex--; },
+        goForward: () => { otherCalls.push("forward"); otherIndex++; },
+    };
     const ipcMain = new EventEmitter();
     const electronApp = new EventEmitter();
     const exports = {} as typeof Navigation;
@@ -50,6 +62,10 @@ function app(platform = "linux") {
                 case "electron": return { app: electronApp, ipcMain };
                 case "../app/state": return { state: { gui } };
                 case "./navigation-state": return rules;
+                case "./other-windows": return {
+                    otherWindow: (window: unknown) => window === other.window ? other : undefined,
+                    serverPage: (contents: unknown) => contents === other.view.webContents ? { window: other.window, contents, origin: other.origin } : undefined,
+                };
                 case "../connection/address": return { currentOrigin: () => "https://pocket.example", originOf: (url: string) => new URL(url).origin };
                 case "../connection/server-choice": return { canReturn: (input: { loaded: boolean; inUse: string; viewing: string }) => input.loaded && input.inUse === input.viewing };
                 case "../settings-screen/config-protocol": return { isAppPage: (url: string) => url === "pocket-gui://app/" };
@@ -60,8 +76,9 @@ function app(platform = "linux") {
         },
     });
     exports.setUpNavigation();
+    exports.setUpOtherNavigation(other.window as unknown as import("electron").BaseWindow);
 
-    return { gui, ipcMain, electronApp, historyCalls, shortcuts, openSettings, navigate: exports.navigate, commit: () => gui.server.webContents.emit("did-navigate-in-page", {}, entries[index], true) };
+    return { gui, other, otherCalls, ipcMain, electronApp, historyCalls, shortcuts, openSettings, navigate: exports.navigate, commit: () => gui.server.webContents.emit("did-navigate-in-page", {}, entries[index], true) };
 }
 
 test("BaseWindow app-command handles both views on Windows and Linux, without a second mouse path", () => {
@@ -162,6 +179,7 @@ test("main-frame navigation clears Forward to settings, but subframes and our ow
 test("the View menu shows the platform keys, and its actions never move the primary view from a pop-out", () => {
     for (const platform of ["linux", "win32", "darwin"]) {
         const gui = { window: {}, pageHang: { hung: false } };
+        const other = {};
         const calls: string[] = [];
         const exports = {} as typeof AppMenu;
         let menu: MenuItemConstructorOptions[] = [];
@@ -172,7 +190,11 @@ test("the View menu shows the platform keys, and its actions never move the prim
                 switch (name) {
                     case "electron": return { Menu: { buildFromTemplate: (items: MenuItemConstructorOptions[]) => items, setApplicationMenu: (items: MenuItemConstructorOptions[]) => { menu = items; } } };
                     case "./state": return { state: { gui } };
-                    case "../window/navigation": return { navigate: (direction: string) => calls.push(direction) };
+                    case "../window/navigation": return {
+                        navigate: (direction: string) => calls.push(direction),
+                        navigateOtherWindow: (direction: string, window: unknown) => { if (window === other) calls.push(`other-${direction}`); },
+                    };
+                    case "../window/window-rules": return windowRules;
                     case "../bridge/new-session": return { newSessionMenuItem: () => ({ label: "New Session" }) };
                     case "./links": return { LINKS: {} };
                     default: return {};
@@ -195,7 +217,95 @@ test("the View menu shows the platform keys, and its actions never move the prim
         click(back, gui.window);
         click(forward, gui.window);
         assert.deepEqual(calls, ["back", "forward"]);
+        click(back, other);
+        click(forward, other);
+        assert.deepEqual(calls, ["back", "forward", "other-back", "other-forward"]);
     }
+});
+
+test("Reload and Developer tools act on the window in front: an other window's page, a pop-out's own, else the main window", () => {
+    const calls: string[] = [];
+    const page = (name: string) => ({ isDestroyed: () => false, reload: () => calls.push(`${name}-reload`), toggleDevTools: () => calls.push(`${name}-tools`) });
+    const gui = { window: {}, pageHang: { hung: false }, showing: "server", server: { webContents: page("server") }, config: { webContents: page("config") } };
+    const other = { view: { webContents: page("other") } };
+    const otherFront = {};
+    const popOut = { webContents: page("pop-out") };
+    // The tray's menu or the dictation pill: a window of the app that is neither.
+    const small = { webContents: page("small") };
+    const exports = {} as typeof AppMenu;
+    let menu: MenuItemConstructorOptions[] = [];
+
+    runInNewContext(readFileSync(join(__dirname, "..", "main", "app", "menu.js"), "utf8"), {
+        exports, process: { platform: "linux" },
+        require: (name: string) => {
+            switch (name) {
+                case "electron": return { Menu: { buildFromTemplate: (items: MenuItemConstructorOptions[]) => items, setApplicationMenu: (items: MenuItemConstructorOptions[]) => { menu = items; } } };
+                case "./state": return { state: { gui } };
+                case "../window/navigation": return { navigate() {}, navigateOtherWindow() {} };
+                case "../window/other-windows": return {
+                    otherWindow: (window: unknown) => (window === otherFront ? other : undefined),
+                    isPopOut: (window: unknown) => window === popOut,
+                };
+                case "../window/window-rules": return windowRules;
+                case "../bridge/new-session": return { newSessionMenuItem: () => ({ label: "New Session" }) };
+                case "../connection/health": return { reloadServer: () => calls.push("server-reload") };
+                case "./links": return { LINKS: {} };
+                default: return {};
+            }
+        },
+    });
+    exports.buildMenu();
+    const items = menu.find((item) => item.label === "View")!.submenu as MenuItemConstructorOptions[];
+    const reload = items.find((item) => item.label === "Reload")!;
+    const tools = items.find((item) => item.label === "Developer tools")!;
+    const click = (item: MenuItemConstructorOptions, window: object | undefined) => (item.click as (item: object, window: object | undefined) => void)(item, window);
+
+    for (const front of [otherFront, popOut, gui.window, small, undefined]) {
+        click(reload, front);
+        click(tools, front);
+    }
+
+    assert.deepEqual(calls, [
+        "other-reload", "other-tools",
+        "pop-out-reload", "pop-out-tools",
+        "server-reload", "server-tools",
+        "server-reload", "server-tools",
+        "server-reload", "server-tools",
+    ]);
+
+    calls.length = 0;
+    gui.showing = "config";
+    click(reload, gui.window);
+    click(tools, gui.window);
+    assert.deepEqual(calls, ["config-reload", "config-tools"]);
+});
+
+test("an other window navigates its own safe history, with top-frame and origin checks", () => {
+    const state = app();
+    const sender = state.other.view.webContents;
+    const frame = { parent: null, url: "https://pocket.example/" };
+    const send = (senderFrame: unknown = frame, direction = "back") => state.ipcMain.emit("window:navigate", { sender, senderFrame }, direction);
+
+    send(null);
+    send({ ...frame, parent: {} });
+    send({ ...frame, url: "https://other.example/" });
+    send(frame, "other");
+    assert.deepEqual(state.otherCalls, []);
+    state.gui.showing = "config";
+    send();
+    send(); // about:blank is never safe.
+    assert.deepEqual(state.otherCalls, ["back"]);
+    state.other.window.emit("app-command", {}, "browser-forward");
+    assert.deepEqual(state.otherCalls, ["back", "forward"]);
+    assert.deepEqual(state.historyCalls, []);
+    assert.equal(state.gui.showing, "config");
+
+    const mac = app("darwin");
+
+    mac.other.window.emit("swipe", {}, "left");
+    mac.other.window.emit("swipe", {}, "right");
+    assert.deepEqual(mac.otherCalls, ["back", "forward"]);
+    assert.deepEqual(mac.historyCalls, []);
 });
 
 test("same canReturn condition as the button: no return from first run or another server's side", () => {

@@ -1,12 +1,13 @@
 // Every Back/Forward input goes here: the server's history, and one return step to Desktop Settings.
-import { app, ipcMain, type WebContents } from "electron";
+import { app, ipcMain, type BaseWindow, type WebContents } from "electron";
 import { state } from "../app/state";
 import { currentOrigin, originOf } from "../connection/address";
 import { canReturn } from "../connection/server-choice";
 import { isAppPage } from "../settings-screen/config-protocol";
 import { showConfig } from "../settings-screen/screen";
 import { show } from "./views";
-import { navigationKey, navigationStep, serverNavigated, type Direction, type HistoryStep } from "./navigation-state";
+import { navigationKey, navigationStep, safeHistoryEntry, serverNavigated, type Direction, type HistoryStep } from "./navigation-state";
+import { otherWindow, serverPage } from "./other-windows";
 
 export function navigate(direction: Direction): void {
     const gui = state.gui;
@@ -54,10 +55,22 @@ export function navigate(direction: Direction): void {
     }
 }
 
-export function setUpNavigation(): void {
-    const gui = state.gui!;
-    const { window, server, config } = gui;
+/** Other windows have only safe, same-origin page history, never the settings return step. */
+export function navigateOtherWindow(direction: Direction, window: BaseWindow): void {
+    const other = otherWindow(window);
 
+    if (other === undefined || other.view.webContents.isDestroyed()) return;
+    const history = other.view.webContents.navigationHistory;
+    const canGo = direction === "back" ? history.canGoBack() : history.canGoForward();
+    const index = history.getActiveIndex() + (direction === "back" ? -1 : 1);
+
+    if (canGo && safeHistoryEntry(history.getEntryAtIndex(index).url, other.origin)) {
+        if (direction === "back") history.goBack();
+        else history.goForward();
+    }
+}
+
+function setUpWindowNavigation(window: BaseWindow, navigate: (direction: Direction) => void): void {
     // BaseWindow emits app-command on Windows and Linux, including while either WebContentsView has focus.
     // macOS has no app-command. Its mouse fallback is in the shared navigation preload, never enabled here too.
     if (process.platform !== "darwin") {
@@ -73,6 +86,18 @@ export function setUpNavigation(): void {
             }
         });
     }
+
+}
+
+export function setUpOtherNavigation(window: BaseWindow): void {
+    setUpWindowNavigation(window, (direction) => navigateOtherWindow(direction, window));
+}
+
+export function setUpNavigation(): void {
+    const gui = state.gui!;
+    const { window, server, config } = gui;
+
+    setUpWindowNavigation(window, navigate);
 
     const passNavigationKey = (contents: WebContents): void => {
         // registerAccelerator:false is Windows/Linux only. Let this key reach the primary views' preload for its
@@ -91,6 +116,16 @@ export function setUpNavigation(): void {
         }
 
         const frame = event.senderFrame;
+        const page = serverPage(event.sender);
+
+        if (page !== undefined && page.window !== gui.window) {
+            if (frame !== null && frame.parent === null && originOf(frame.url) === page.origin && page.origin === currentOrigin()) {
+                navigateOtherWindow(direction, page.window);
+            }
+
+            return;
+        }
+
         const fromShownView = gui.showing === "config"
             ? event.sender === config.webContents && frame !== null && isAppPage(frame.url)
             : event.sender === server.webContents && frame !== null && originOf(frame.url) === currentOrigin();

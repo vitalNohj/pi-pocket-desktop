@@ -226,7 +226,11 @@ export function listenForNewSessionLinks(): void {
 }
 
 /** The app is ready: the dock's menu, the link's registration, and a New session asked for before now. */
-export function offerNewSession(newSession: (starting?: boolean) => void): void {
+export function dockMenuItems(newSession: () => void, newWindow: () => void): MenuItemConstructorOptions[] {
+    return [{ label: "New Session", click: newSession }, { label: "New Window", click: newWindow }];
+}
+
+export function offerNewSession(newSession: (starting?: boolean) => void, newWindow: () => void): void {
     handler = () => newSession();
 
     // Only an installed app: a development build would make itself every link's handler on the developer's computer.
@@ -235,7 +239,7 @@ export function offerNewSession(newSession: (starting?: boolean) => void): void 
         app.setAsDefaultProtocolClient(PROTOCOL);
     }
 
-    app.dock?.setMenu(Menu.buildFromTemplate([{ label: "New Session", click: () => newSession() }]));
+    app.dock?.setMenu(Menu.buildFromTemplate(dockMenuItems(() => newSession(), newWindow)));
 
     // Asked for as the app started: it connects next, so the request waits for the page.
     if (requested) {

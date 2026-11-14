@@ -35,7 +35,7 @@ Everything Pi Pocket does in a browser works the same here. The app adds what a 
 - **Tray** with your pinned sessions and their state, one click away.
 - **Badge** on the dock or taskbar: how many sessions need you.
 - **Notifications**, also with the window hidden. Approve or deny a request from the notification.
-- **New session from anywhere:** ⌘N / Ctrl+N, the tray or dock menu, or a `pi-pocket://new` link.
+- **New session from anywhere:** ⌘N / Ctrl+N, the tray or dock menu, or a `pi-pocket://new` link. **New window:** ⌘⇧N / Ctrl+Shift+N.
 - **Download to this computer:** a session's files go straight to your Downloads folder.
 
 **The runner**
@@ -153,6 +153,8 @@ for **This computer**. Everything about the runner: [docs/runner.md](docs/runner
   they wait and show once when you are back.
 
 ## A window that feels native
+
+Open **New Window** with **⌘⇧N / Ctrl+Shift+N** to use the same server and sign-in in another full window.
 
 No title bar: Pi Pocket runs to the top edge, and only what sits under the window's buttons makes room for them. On
 Windows and Linux the panel under the buttons is notched around them.

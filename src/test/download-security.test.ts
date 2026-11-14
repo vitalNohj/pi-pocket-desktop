@@ -20,6 +20,7 @@ function guard() {
         setPermissionRequestHandler() {}, setPermissionCheckHandler() {}, setDevicePermissionHandler() {},
     });
     const contents = { mainFrame: {} } as WebContents;
+    const other = { mainFrame: {} } as WebContents;
     let serverOrigin = origin;
 
     runInNewContext(readFileSync(join(__dirname, "..", "main", "core", "security.js"), "utf8"), {
@@ -31,10 +32,10 @@ function guard() {
             return { saveDownload: (_event: Event, _item: DownloadItem, _contents: WebContents, origin: string, trusted: boolean) => calls.push({ origin, trusted }) };
         },
     });
-    exports.guardSession(session as unknown as Session, { server: () => serverOrigin, allowed: () => new Set([serverOrigin]) }, { contents: () => contents, notify() {} });
+    exports.guardSession(session as unknown as Session, { server: () => serverOrigin, allowed: () => new Set([serverOrigin]) }, { isServerPage: (page) => page === contents || page === other, notify() {} });
 
     return {
-        calls, contents,
+        calls, contents, other,
         changeOrigin: (next: string) => { serverOrigin = next; },
         download: (initiator = origin, sender = contents, frame: WebFrameMain | null = contents.mainFrame) => session.emit("will-download", {}, { getInitiatorOrigin: () => initiator }, sender, frame),
     };
@@ -82,6 +83,7 @@ function network() {
         id: 7, mainFrame: {},
         session: { webRequest: Object.fromEntries(["onBeforeRequest", "onHeadersReceived", "onCompleted", "onErrorOccurred"].map((event) => [event, (hook: Hook) => hooks.set(event, hook)])) },
     });
+    const other = { id: 9, mainFrame: {} };
     let blocked = false;
 
     runInNewContext(readFileSync(join(__dirname, "..", "main", "connection", "connect.js"), "utf8"), {
@@ -89,6 +91,7 @@ function network() {
         require: (name: string) => {
             switch (name) {
                 case "./connection": return { NavigationResponses };
+                case "../window/other-windows": return { serverPages: () => [{ contents, origin }, { contents: other, origin }] };
                 case "./address": return { currentOrigin: () => origin };
                 case "../app/state": return { state: { gui: { server: { webContents: contents } } } };
                 case "../bridge/save-file": return {
@@ -104,7 +107,7 @@ function network() {
     const details: Details = { id: 1, url, webContentsId: contents.id, frame: contents.mainFrame, initiatorOrigin: origin };
 
     return {
-        starts, responses, ended, details,
+        starts, responses, ended, details, other,
         block: () => { blocked = true; },
         emit: (event: string, patch: Partial<Details> = {}) => {
             let answer: { cancel?: boolean } | undefined;
@@ -130,6 +133,26 @@ test("the shared network hook tracks the request URL and contents only for the t
     h.emit("onCompleted");
     h.emit("onErrorOccurred", { id: 2 });
     assert.deepEqual(h.ended, [1, 2]);
+});
+
+test("a second full server page can download; a pop-out, child frame, or other initiator cannot", () => {
+    const h = guard();
+
+    h.download(origin, h.other, h.other.mainFrame);
+    h.download(origin, h.other, {} as WebFrameMain);
+    h.download("https://elsewhere.test", h.other, h.other.mainFrame);
+    const popout = { mainFrame: {} } as WebContents;
+
+    h.download(origin, popout, popout.mainFrame);
+    assert.deepEqual(h.calls.map((call) => call.trusted), [true, false, false, false]);
+
+    const n = network();
+
+    n.emit("onBeforeRequest", { webContentsId: n.other.id, frame: n.other.mainFrame });
+    n.emit("onBeforeRequest", { webContentsId: n.other.id, frame: {} });
+    n.emit("onBeforeRequest", { webContentsId: n.other.id, frame: n.other.mainFrame, initiatorOrigin: "https://elsewhere.test" });
+    n.emit("onBeforeRequest", { webContentsId: 42, frame: n.other.mainFrame });
+    assert.deepEqual(n.starts.map((args) => args[4]), [true, false, false, false]);
 });
 
 test("the shared headers hook cancels failed downloads and allows only actual intermediate redirects", () => {

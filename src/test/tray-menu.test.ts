@@ -45,6 +45,7 @@ test("the menu keeps every item, in the order the native menu uses", () => {
         pins: [pin(1, "First draft"), pin(2, "A  double  gap")],
         showWindow: () => (opened = "window"),
         newSession: () => (opened = "new"),
+        newWindow: () => (opened = "new-window"),
         openSettings: () => (opened = "settings"),
         quit: () => (opened = "quit"),
         openPin: (url) => (opened = url),
@@ -52,28 +53,31 @@ test("the menu keeps every item, in the order the native menu uses", () => {
 
     assert.deepEqual(
         menu.rows.map((row) => (row.kind === "separator" ? "—" : row.kind === "header" ? row.label : row.label)),
-        ["Open Pi Pocket  (3 need you)", "New session", "Update ready to install", "—", "Pinned", "First draft", "A double gap", "—", "Desktop Settings…", "—", "Quit"],
+        ["Open Pi Pocket  (3 need you)", "New session", "New window", "Update ready to install", "—", "Pinned", "First draft", "A double gap", "—", "Desktop Settings…", "—", "Quit"],
     );
     assert.deepEqual(
         menu.rows.filter((row) => row.kind === "action").map((row) => row.mark),
-        [undefined, undefined, undefined, "◆", "◆", undefined, undefined],
+        [undefined, undefined, undefined, undefined, "◆", "◆", undefined, undefined],
     );
 
     menu.actions.find((action) => action.id === "open")?.run();
     assert.equal(opened, "window");
     menu.actions.find((action) => action.id === "new-session")?.run();
     assert.equal(opened, "new");
+    menu.actions.find((action) => action.id === "new-window")?.run();
+    assert.equal(opened, "new-window");
     menu.actions.find((action) => action.id === "pin-2")?.run();
     assert.equal(opened, "/s/2");
 });
 
-test("without a badge, an update, or pins, the menu is Open, New session, Desktop Settings, Quit", () => {
+test("without a badge, an update, or pins, the menu is Open, New session, New window, Desktop Settings, Quit", () => {
     const menu = buildTrayMenu({
         badge: 0,
         update: undefined,
         pins: [],
         showWindow: () => undefined,
         newSession: () => undefined,
+        newWindow: () => undefined,
         openSettings: () => undefined,
         quit: () => undefined,
         openPin: () => undefined,
@@ -81,11 +85,11 @@ test("without a badge, an update, or pins, the menu is Open, New session, Deskto
 
     assert.deepEqual(
         menu.rows.map((row) => (row.kind === "action" ? row.label : row.kind)),
-        ["Open Pi Pocket", "New session", "separator", "Desktop Settings…", "separator", "Quit"],
+        ["Open Pi Pocket", "New session", "New window", "separator", "Desktop Settings…", "separator", "Quit"],
     );
 });
 
-test("while the window is up, Reload comes after New session, and says when the page does not answer", () => {
+test("while the window is up, Reload comes after New window, and says when the page does not answer", () => {
     let reloaded = 0;
     const menu = buildTrayMenu({
         badge: 0,
@@ -94,6 +98,7 @@ test("while the window is up, Reload comes after New session, and says when the 
         pins: [],
         showWindow: () => undefined,
         newSession: () => undefined,
+        newWindow: () => undefined,
         openSettings: () => undefined,
         quit: () => undefined,
         openPin: () => undefined,
@@ -101,7 +106,7 @@ test("while the window is up, Reload comes after New session, and says when the 
 
     assert.deepEqual(
         menu.rows.map((row) => (row.kind === "action" ? row.label : row.kind)),
-        ["Open Pi Pocket", "New session", "Reload (page not responding)", "Update ready to install", "separator", "Desktop Settings…", "separator", "Quit"],
+        ["Open Pi Pocket", "New session", "New window", "Reload (page not responding)", "Update ready to install", "separator", "Desktop Settings…", "separator", "Quit"],
     );
     menu.actions.find((action) => action.id === "reload")?.run();
     assert.equal(reloaded, 1);
@@ -116,6 +121,7 @@ test("Copy last dictation comes after Dictate, and only while a dictation is kep
         pins: [],
         showWindow: () => undefined,
         newSession: () => undefined,
+        newWindow: () => undefined,
         openSettings: () => undefined,
         quit: () => undefined,
         openPin: () => undefined,
@@ -128,7 +134,7 @@ test("Copy last dictation comes after Dictate, and only while a dictation is kep
 
     assert.deepEqual(
         menu.rows.map((row) => (row.kind === "action" ? row.label : row.kind)),
-        ["Open Pi Pocket", "New session", "Dictate", "Copy last dictation", "Reload", "separator", "Desktop Settings…", "separator", "Quit"],
+        ["Open Pi Pocket", "New session", "New window", "Dictate", "Copy last dictation", "Reload", "separator", "Desktop Settings…", "separator", "Quit"],
     );
     menu.actions.find((action) => action.id === "copy-dictation")?.run();
     assert.equal(copied, 1);
@@ -138,7 +144,7 @@ test("Copy last dictation comes after Dictate, and only while a dictation is kep
         buildTrayMenu({ ...base, copyDictation: { label: "Copy last dictation", click: () => undefined } }).rows.map((row) =>
             row.kind === "action" ? row.label : row.kind,
         ),
-        ["Open Pi Pocket", "New session", "Copy last dictation", "Reload", "separator", "Desktop Settings…", "separator", "Quit"],
+        ["Open Pi Pocket", "New session", "New window", "Copy last dictation", "Reload", "separator", "Desktop Settings…", "separator", "Quit"],
     );
     assert.equal(
         buildTrayMenu({ ...base, copyDictation: undefined }).actions.some((action) => action.id === "copy-dictation"),
@@ -153,13 +159,14 @@ test("a popup that cannot be measured gets the height its rows draw", () => {
         pins: [pin(1, "First draft")],
         showWindow: () => undefined,
         newSession: () => undefined,
+        newWindow: () => undefined,
         openSettings: () => undefined,
         quit: () => undefined,
         openPin: () => undefined,
     });
 
-    // 5 items of 32, the Pinned header of 28, 3 separators of 9, and the menu's padding and border.
-    assert.equal(estimateHeight(menu.rows), 5 * 32 + 28 + 3 * 9 + 10);
+    // 6 items of 32, the Pinned header of 28, 3 separators of 9, and the menu's padding and border.
+    assert.equal(estimateHeight(menu.rows), 6 * 32 + 28 + 3 * 9 + 10);
 });
 
 test("the menu opens away from the taskbar and stays on its screen", () => {
@@ -257,6 +264,7 @@ test("a pin title's doubled ampersand is undone, so the popup shows one", () => 
         pins: [pin(1, "Fix A & B")],
         showWindow: () => undefined,
         newSession: () => undefined,
+        newWindow: () => undefined,
         openSettings: () => undefined,
         quit: () => undefined,
         openPin: () => undefined,
@@ -278,6 +286,7 @@ test("the page draws the items and escapes a label", () => {
         pins: [pin(1, `<script>alert("x")</script>`)],
         showWindow: () => undefined,
         newSession: () => undefined,
+        newWindow: () => undefined,
         openSettings: () => undefined,
         quit: () => undefined,
         openPin: () => undefined,

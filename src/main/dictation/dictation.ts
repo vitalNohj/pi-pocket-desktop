@@ -15,7 +15,7 @@ import { mkdir, readdir, rename, rm } from "node:fs/promises";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
-import { ipcMain, utilityProcess, type IpcMainEvent, type IpcMainInvokeEvent, type UtilityProcess } from "electron";
+import { ipcMain, utilityProcess, type IpcMainEvent, type IpcMainInvokeEvent, type UtilityProcess, type WebContents } from "electron";
 import type { DictationAction, DictationState, Settings } from "../../shared/types";
 import {
     bpeVocab,
@@ -35,6 +35,7 @@ import {
 import { downloadChecked } from "../core/download";
 import type { WorkerIn, WorkerOut } from "./dictation-worker";
 import { createRecent } from "./dictation-recent";
+import { PageDictations } from "./page-dictations";
 
 export interface DictationHost {
     home: string;
@@ -46,8 +47,6 @@ export interface DictationHost {
     fetch: (url: string) => Promise<Response>;
     /** The call came from the server's page (its top frame, on the server's origin). */
     fromServerPage: (event: IpcMainEvent | IpcMainInvokeEvent) => boolean;
-    /** Sends a message to the server's page. */
-    toPage: (message: PageMessage) => void;
     /** The state changed: show it on the config screen. */
     changed: () => void;
     /** The recent dictations changed: the tray's Copy last dictation comes or goes. */
@@ -99,6 +98,8 @@ export function setUpDictation(host: DictationHost) {
     /** Dictations of the app's own (negative ids, so they never meet the page's), and who hears each. */
     const owners = new Map<number, (message: PageMessage) => void>();
     let nextOwn = 0;
+    const pageDictations = new PageDictations<WebContents>();
+    const watchedPages = new WeakSet<WebContents>();
     let status: DictationState["status"] = "idle";
     /** The last dictations' words, to copy again (memory only). */
     const recent = createRecent();
@@ -330,7 +331,12 @@ export function setUpDictation(host: DictationHost) {
         if (owner !== undefined) {
             owner(message);
         } else if (message.id > 0) {
-            host.toPage(message);
+            const pair = pageDictations.get(message.id);
+
+            if (message.type === "end") pageDictations.end(message.id);
+            if (pair !== undefined && !pair.page.isDestroyed()) {
+                pair.page.send("host:dictation", { ...message, id: pair.pageId });
+            }
         }
     };
 
@@ -540,7 +546,7 @@ export function setUpDictation(host: DictationHost) {
     };
 
     ipcMain.handle("host:dictation-start", async (event, id: unknown) => {
-        if (!host.fromServerPage(event) || typeof id !== "number") {
+        if (!host.fromServerPage(event) || typeof id !== "number" || !Number.isSafeInteger(id) || id <= 0 || pageDictations.find(event.sender, id) !== undefined) {
             return { error: "service-not-allowed" };
         }
 
@@ -552,14 +558,30 @@ export function setUpDictation(host: DictationHost) {
             return { error: "no speech model is downloaded yet (Desktop Settings → Dictation)" };
         }
 
-        begin(id, chosen);
+        const page = event.sender;
+
+        if (!watchedPages.has(page)) {
+            watchedPages.add(page);
+            const forget = () => {
+                for (const appId of pageDictations.forget(page)) stopOne(appId, true);
+            };
+
+            page.once("destroyed", forget);
+            page.on("did-start-navigation", (details) => {
+                if (details.isMainFrame && !details.isSameDocument) forget();
+            });
+        }
+
+        begin(pageDictations.start(page, id), chosen);
 
         return { ok: true };
     });
 
     ipcMain.on("host:dictation-audio", (event, id: unknown, samples: unknown) => {
-        if (host.fromServerPage(event) && typeof id === "number" && id === active && samples instanceof Float32Array) {
-            post({ type: "audio", id, samples });
+        const appId = typeof id === "number" ? pageDictations.find(event.sender, id) : undefined;
+
+        if (host.fromServerPage(event) && appId !== undefined && appId === active && samples instanceof Float32Array) {
+            post({ type: "audio", id: appId, samples });
         }
     });
 
@@ -568,7 +590,9 @@ export function setUpDictation(host: DictationHost) {
             return;
         }
 
-        stopOne(id, drop === true);
+        const appId = pageDictations.find(event.sender, id);
+
+        if (appId !== undefined) stopOne(appId, drop === true);
     });
 
     void scan();

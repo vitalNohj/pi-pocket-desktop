@@ -4,6 +4,7 @@ import { globalShortcut } from "electron";
 import type { Settings } from "../../shared/types";
 import { setLaunchAtLogin } from "../core/platform";
 import { toggleWindow } from "../window/views";
+import { otherWindows } from "../window/other-windows";
 import { createTray } from "../tray/tray";
 import { state as appState } from "../app/state";
 
@@ -55,5 +56,10 @@ export function applyDesktopSettings(before: Settings | undefined): void {
     }
 
     state.appearance?.apply(settings);
+    for (const other of otherWindows()) {
+        other.window.setAutoHideMenuBar(!settings.window.showMenuBar);
+        other.window.setMenuBarVisibility(settings.window.showMenuBar);
+        other.appearance.apply(settings);
+    }
     state.desktop?.refreshTray();
 }

@@ -3,7 +3,7 @@
  * notifications, the pinned sessions, menu items), and what the app tells it (its window shown or hidden, a session to
  * open, an approval answered in a notification). It also owns the tray's menu and icon, which show the pins and badge.
  *
- * Every call is checked: it must come from the main window's server view, its top frame, on the server's origin.
+ * Every call is checked: it must come from a registered server page, its top frame, on the server's origin.
  */
 import { join } from "node:path";
 import {
@@ -33,13 +33,17 @@ import { buildTrayMenu, readAccent } from "../tray/tray-menu";
 import { setUpTrayPopup } from "../tray/tray-popup";
 import { type NewSessionView, PendingNewSession, readPageEvents } from "./new-session";
 import { activity, diagnose } from "../diagnostics/stall-watchdog";
+import { NotificationOnce } from "./notification-once";
 
 /** What the bridge needs from the rest of the app. */
 export interface DesktopHost {
     assets: string;
     window: () => BaseWindow;
-    /** The server view's contents: the only page that gets the bridge. */
+    /** The main window's server page. */
     contents: () => WebContents;
+    pages: () => { window: BaseWindow; contents: WebContents; origin: string }[];
+    lastUsedWindow: () => BaseWindow | undefined;
+    newWindow: () => void;
     /** The configured server's origin. */
     origin: () => string;
     settings: () => Settings;
@@ -69,7 +73,7 @@ export interface DesktopHost {
     /** The dictation key as the page names it (KeyboardEvent.code); undefined: none. */
     dictationKey: () => string | undefined;
     /** A right-click the page left alone, as its preload saw it (src/main/window/themed-menu.ts reads it). */
-    pageRightClick: (click: unknown) => void;
+    pageRightClick: (contents: WebContents, click: unknown) => void;
     /** The tray's Dictate item (Dictate anywhere is on), with what a click does; undefined when it is off. */
     dictateItem: () => { label: string; click: () => void } | undefined;
     /** The tray's Copy last dictation, while a recent dictation is kept; undefined when none is. */
@@ -91,9 +95,6 @@ const FINISHED_ID = "pi-finished";
 let finished: Notification | undefined;
 let pins: PinnedSession[] = [];
 let badge = 0;
-let lastVisible: boolean | undefined;
-/** The host events the page said it handles, as it subscribed; undefined until it did. */
-let pageEvents: Set<string> | undefined;
 let trayIcons: { plain: NativeImage; dot: NativeImage; recording: NativeImage; brand: string; dotColor: string } | undefined;
 /** Dictate anywhere records: the tray's π is red. */
 let recording = false;
@@ -106,7 +107,9 @@ export function setUpDesktop(host: DesktopHost): {
     /** The call came from the server's page: its view, its top frame, on the server's origin. */
     fromServerPage: (event: IpcMainEvent | IpcMainInvokeEvent) => boolean;
     /** The server view left the server, or loaded again: what its page said no longer holds. */
-    reset: () => void;
+    reset: (contents?: WebContents) => void;
+    /** A window was registered: give it the app's current badge overlay too. */
+    windowsChanged: () => void;
     /**
      * New session: show the window, and ask the page to open its New session sheet when it shows and can. On the
      * settings screen, with no server, or with an older Pi Pocket, only the window shows. `starting`: the app was
@@ -122,44 +125,72 @@ export function setUpDesktop(host: DesktopHost): {
         const frame = event.senderFrame;
 
         return (
-            event.sender === host.contents() &&
+            host.pages().some((page) => page.contents === event.sender && page.origin === host.origin()) &&
             frame !== null &&
             frame.parent === null &&
             originOf(frame.url) === host.origin()
         );
     };
 
-    const visible = (): boolean => {
-        const window = host.window();
+    // Visibility and subscriptions belong to documents, not to the app.
+    const pages = new Map<WebContents, { lastVisible?: boolean; events?: Set<string> }>();
+    const notices = new NotificationOnce();
+    const pageState = (contents: WebContents) => {
+        let page = pages.get(contents);
 
-        return window.isVisible() && !window.isMinimized() && host.showingServer();
+        if (page === undefined) {
+            page = {};
+            pages.set(contents, page);
+        }
+
+        return page;
+    };
+    const visible = (contents: WebContents): boolean => {
+        const page = host.pages().find((page) => page.contents === contents);
+
+        return page !== undefined && page.window.isVisible() && !page.window.isMinimized() &&
+            (contents !== host.contents() || host.showingServer());
     };
 
-    /** The person looks at Pi Pocket: its window shows it, in front. */
-    const looking = (): boolean => visible() && host.window().isFocused();
+    /** The person looks at any Pi Pocket page, not just at the main window. */
+    const looking = (): boolean => host.pages().some((page) => visible(page.contents) && page.window.isFocused());
 
-    const send = (event: HostEvent): void => {
-        const contents = host.contents();
+    const send = (event: HostEvent, contents = host.contents()): void => {
+        if (!contents.isDestroyed()) contents.send("host:event", event);
+    };
+    const showPage = (page: { window: BaseWindow; contents: WebContents }): void => {
+        if (page.window.isMinimized()) page.window.restore();
+        page.window.show();
+        page.window.focus();
+        page.contents.focus();
+    };
+    const lastOtherPage = () => host.pages().find((page) => page.window === host.lastUsedWindow() && page.contents !== host.contents());
 
-        if (!contents.isDestroyed()) {
-            contents.send("host:event", event);
+    // Only the main window waits for a page that is loading, as it did before other windows existed.
+    const pendingNewSession = new PendingNewSession(() => send({ type: "newSession" }));
+    const view = (): NewSessionView => ({ showingServer: host.showingServer(), serverLoaded: host.serverLoaded(), pageEvents: pages.get(host.contents())?.events });
+
+    const newSession = (starting = false): void => {
+        const page = lastOtherPage();
+
+        if (page !== undefined && pages.get(page.contents)?.events?.has("newSession")) {
+            showPage(page);
+            send({ type: "newSession" }, page.contents);
+        } else {
+            host.showWindow();
+            pendingNewSession.request(view(), starting);
         }
     };
 
-    // A New session that waits for the page to subscribe (it is loading).
-    const pendingNewSession = new PendingNewSession(() => send({ type: "newSession" }));
-    const view = (): NewSessionView => ({ showingServer: host.showingServer(), serverLoaded: host.serverLoaded(), pageEvents });
-
-    const newSession = (starting = false): void => {
-        host.showWindow();
-        pendingNewSession.request(view(), starting);
-    };
-
     const open = (url: string): void => {
-        host.showWindow();
+        const page = lastOtherPage();
 
-        if (host.showServer()) {
-            send({ type: "open", url });
+        if (page !== undefined) {
+            showPage(page);
+            send({ type: "open", url }, page.contents);
+        } else {
+            host.showWindow();
+            if (host.showServer()) send({ type: "open", url });
         }
     };
 
@@ -229,6 +260,7 @@ export function setUpDesktop(host: DesktopHost): {
         return [
             { label: badge > 0 ? `Open Pi Pocket  (${badge} need you)` : "Open Pi Pocket", click: host.showWindow },
             { label: "New session", click: () => newSession() },
+            { label: "New window", click: host.newWindow },
             ...(dictate === undefined ? [] : [{ label: dictate.label, click: dictate.click }]),
             ...(copyDictation === undefined ? [] : [{ label: copyDictation.label, click: copyDictation.click }]),
             ...(reload === undefined ? [] : [{ label: reload.label, click: reload.click }]),
@@ -271,6 +303,7 @@ export function setUpDesktop(host: DesktopHost): {
             pins,
             showWindow: host.showWindow,
             newSession: () => newSession(),
+            newWindow: host.newWindow,
             dictate: host.dictateItem(),
             copyDictation: host.copyDictationItem(),
             openSettings: host.openSettings,
@@ -302,23 +335,23 @@ export function setUpDesktop(host: DesktopHost): {
               })
             : undefined;
 
+    const applyOverlays = (): void => {
+        if (process.platform !== "win32") return;
+        const size = 16;
+        const icon = badge > 0 ? nativeImage.createFromBitmap(dotBitmap(size), { width: size, height: size }) : null;
+
+        for (const page of host.pages()) {
+            const window = page.window as BaseWindow & { setOverlayIcon?: (overlay: NativeImage | null, description: string) => void };
+
+            window.setOverlayIcon?.(icon, badge > 0 ? `${badge} need you` : "");
+        }
+    };
+
     const setBadge = (count: number): void => {
         badge = count;
         // macOS's dock, and Unity launchers on Linux. Windows has no count: an overlay dot instead.
         app.setBadgeCount(count);
-
-        if (process.platform === "win32") {
-            const window = host.window() as BaseWindow & {
-                setOverlayIcon?: (overlay: NativeImage | null, description: string) => void;
-            };
-            const size = 16;
-
-            window.setOverlayIcon?.(
-                count > 0 ? nativeImage.createFromBitmap(dotBitmap(size), { width: size, height: size }) : null,
-                count > 0 ? `${count} need you` : "",
-            );
-        }
-
+        applyOverlays();
         refreshTray();
     };
 
@@ -385,7 +418,7 @@ export function setUpDesktop(host: DesktopHost): {
     powerMonitor.on("unlock-screen", () => finishes.asleep(false));
     powerMonitor.on("user-did-become-active", () => finishes.asleep(false));
 
-    const notify = (message: HostNotification): void => {
+    const notify = (message: HostNotification, sender?: WebContents): void => {
         const settings = host.settings().notifications;
 
         if (!settings.enabled || !Notification.isSupported()) {
@@ -443,7 +476,9 @@ export function setUpDesktop(host: DesktopHost): {
             }
 
             // The page answers with its own sign-in; the server checks again that the person may.
-            send({ type: "approve", id: approval.id, allow: chosen === "Allow" });
+            const page = host.pages().find((page) => page.contents === sender) ?? host.pages()[0];
+
+            if (page !== undefined) send({ type: "approve", id: approval.id, allow: chosen === "Allow" }, page.contents);
         });
         notification.on("close", forget);
         notification.on("failed", forget);
@@ -452,10 +487,9 @@ export function setUpDesktop(host: DesktopHost): {
     };
 
     ipcMain.on("host:hello", (event) => {
-        // Only the server view's top frame on the server's origin gets the bridge: never a frame, another window, or a
-        // sign-in page in front of the server.
+        // Registered server pages only: never an iframe, a pop-out, or a sign-in page in front of the server.
         const hello: HostHello | null = fromServerPage(event)
-            ? { visible: visible(), dictation: host.dictation(), dictationKey: host.dictationKey() ?? null }
+            ? { visible: visible(event.sender), dictation: host.dictation(), dictationKey: host.dictationKey() ?? null }
             : null;
 
         event.returnValue = hello;
@@ -467,8 +501,8 @@ export function setUpDesktop(host: DesktopHost): {
             return;
         }
 
-        pageEvents = readPageEvents(input);
-        pendingNewSession.pageSubscribed(view());
+        pageState(event.sender).events = readPageEvents(input);
+        if (event.sender === host.contents()) pendingNewSession.pageSubscribed(view());
     });
 
     ipcMain.on("host:invoke", (event, id: unknown) => {
@@ -480,13 +514,14 @@ export function setUpDesktop(host: DesktopHost): {
     // The page's Reload button (src/preload/server.ts, offerBootReload): its boot screen took too long.
     ipcMain.on("host:reload", (event) => {
         if (fromServerPage(event)) {
-            host.reloadServer();
+            if (event.sender === host.contents()) host.reloadServer();
+            else event.sender.reload();
         }
     });
 
     ipcMain.on("host:context-menu", (event, click: unknown) => {
         if (fromServerPage(event)) {
-            host.pageRightClick(click);
+            host.pageRightClick(event.sender, click);
         }
     });
 
@@ -501,8 +536,8 @@ export function setUpDesktop(host: DesktopHost): {
     ipcMain.on("host:notify", (event, input: unknown) => {
         const message = readNotification(input);
 
-        if (fromServerPage(event) && message !== undefined) {
-            notify(message);
+        if (fromServerPage(event) && message !== undefined && notices.accept(event.sender.id, message)) {
+            notify(message, event.sender);
         }
     });
 
@@ -527,11 +562,14 @@ export function setUpDesktop(host: DesktopHost): {
             // The settings screen shows: a New session asked for on the server no longer opens the sheet.
             pendingNewSession.screenChanged(host.showingServer());
 
-            const now = visible();
+            for (const page of host.pages()) {
+                const own = pageState(page.contents);
+                const now = visible(page.contents);
 
-            if (now !== lastVisible) {
-                lastVisible = now;
-                send({ type: "visibility", visible: now });
+                if (now !== own.lastVisible) {
+                    own.lastVisible = now;
+                    send({ type: "visibility", visible: now }, page.contents);
+                }
             }
 
             // The person looks at Pi Pocket: the sessions that finished are there to see. Their notification stays.
@@ -542,17 +580,15 @@ export function setUpDesktop(host: DesktopHost): {
         refreshTray,
         fromServerPage,
         notifyDownload: (body) => notify({ title: "Pi Pocket", body, url: "/", tag: "", urgency: "normal" }),
-        reset: () => {
-            pins = [];
+        windowsChanged: applyOverlays,
+        reset: (contents = host.contents()) => {
+            pages.delete(contents);
 
-            if (badge !== 0) {
-                setBadge(0);
-            } else {
-                refreshTray();
+            if (!host.pages().some((page) => pages.get(page.contents)?.events !== undefined)) {
+                pins = [];
+                if (badge !== 0) setBadge(0);
+                else refreshTray();
             }
-
-            lastVisible = undefined;
-            pageEvents = undefined;
         },
         newSession,
         setRecording: (on) => {

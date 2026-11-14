@@ -9,7 +9,8 @@ import { ASSETS } from "../core/paths";
 import { pushConfigState, showConfig } from "../settings-screen/screen";
 import { stopHealth, startHealth } from "../connection/health";
 import { stopRetry } from "../connection/retry";
-import { checkAddress } from "../connection/address";
+import { checkAddress, originOf } from "../connection/address";
+import { closeOtherWindows, reloadFailedOtherWindows } from "../window/other-windows";
 import { show } from "../window/views";
 import { openSettingsOn } from "../app/menu";
 import { connect } from "../connection/connect";
@@ -43,10 +44,12 @@ export function openLocal(url: string, loginPath: string, display: boolean): voi
     const state = appState.gui!;
 
     useServer("local");
+    closeOtherWindows(originOf(url));
     stopHealth();
     stopRetry();
     state.retryAttempt = 0;
     state.loadedUrl = url;
+    reloadFailedOtherWindows();
     state.unverified = false;
     state.signingIn = true;
     void checkAddress(url);
@@ -74,6 +77,7 @@ export function useServer(side: Side): void {
     const state = appState.gui!;
 
     if (state.settings.server.mode !== side) {
+        closeOtherWindows();
         state.settings = { ...state.settings, server: { ...state.settings.server, mode: side } };
         saveSettings(state.configPath, state.settings);
     }
@@ -108,6 +112,8 @@ export function localDown(why: LocalDown): void {
 
         return;
     }
+
+    if (!keepsLocalAsked(why)) closeOtherWindows();
 
     stopHealth();
     stopRetry();

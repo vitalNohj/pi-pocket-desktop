@@ -51,6 +51,7 @@ export interface TrayMenuInput {
     pins: PinnedSession[];
     showWindow: () => void;
     newSession: () => void;
+    newWindow: () => void;
     /** Dictate anywhere's item, while it is on. */
     dictate?: { label: string; click: () => void } | undefined;
     /** Copy last dictation, while a recent dictation is kept. */
@@ -61,7 +62,7 @@ export interface TrayMenuInput {
 }
 
 /**
- * The tray's items, in the order the native menu uses: Open Pi Pocket (with the needs-you count), New session, Dictate (while Dictate anywhere is on), Copy last dictation (while one is kept), Reload
+ * The tray's items, in the order the native menu uses: Open Pi Pocket (with the needs-you count), New session, New window, Dictate (while Dictate anywhere is on), Copy last dictation (while one is kept), Reload
  * while the window is up, the update when there is one, the pinned sessions, Desktop Settings…, Quit.
  */
 export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
@@ -71,6 +72,7 @@ export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
         run: input.showWindow,
     };
     const newSession: TrayMenuAction = { id: "new-session", label: "New session", run: input.newSession };
+    const newWindow: TrayMenuAction = { id: "new-window", label: "New window", run: input.newWindow };
     const dictate: TrayMenuAction | undefined =
         input.dictate === undefined ? undefined : { id: "dictate", label: input.dictate.label, run: input.dictate.click };
     const copyDictation: TrayMenuAction | undefined =
@@ -88,10 +90,11 @@ export function buildTrayMenu(input: TrayMenuInput): TrayMenuModel {
     }));
     const settings: TrayMenuAction = { id: "settings", label: "Desktop Settings…", run: input.openSettings };
     const quit: TrayMenuAction = { id: "quit", label: "Quit", run: input.quit };
-    const actions = [open, newSession, ...(dictate === undefined ? [] : [dictate]), ...(copyDictation === undefined ? [] : [copyDictation]), ...(reload === undefined ? [] : [reload]), ...(update === undefined ? [] : [update]), ...pins, settings, quit];
+    const actions = [open, newSession, newWindow, ...(dictate === undefined ? [] : [dictate]), ...(copyDictation === undefined ? [] : [copyDictation]), ...(reload === undefined ? [] : [reload]), ...(update === undefined ? [] : [update]), ...pins, settings, quit];
     const rows: TrayMenuRow[] = [
         rowOf(open),
         rowOf(newSession),
+        rowOf(newWindow),
         ...(dictate === undefined ? [] : [rowOf(dictate)]),
         ...(copyDictation === undefined ? [] : [rowOf(copyDictation)]),
         ...(reload === undefined ? [] : [rowOf(reload)]),

@@ -7,6 +7,7 @@ import { checkAddress, serverUrl, originOf, currentOrigin } from "./address";
 import { serverLost } from "./retry";
 import { buildMenu } from "../app/menu";
 import { showWindow } from "../window/views";
+import { reloadFailedOtherWindows } from "../window/other-windows";
 import { state as appState } from "../app/state";
 
 /**
@@ -53,6 +54,8 @@ export function startHealth(): void {
 
         // Detected: Pi Pocket answers its info (a server still starting answers 503, which is not up yet).
         const up = found.kind === "detected";
+
+        if (up) reloadFailedOtherWindows();
 
         // The last load of this computer's Pi Pocket failed while it restarted: it answers now, load it again.
         if (up && appState.gui.loadFailed) {

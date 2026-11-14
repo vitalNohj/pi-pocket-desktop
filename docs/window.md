@@ -56,6 +56,26 @@ The same window on Linux (X11), where the buttons also sit at the top right.
 | <img src="images/linux-files.png" alt="On Linux, the Files and Changes panel beside the conversation" width="100%" />                               | <img src="images/linux-settings.png" alt="Desktop Settings on Linux, with the window's buttons at the top right" width="100%" />                        |
 | Files and Changes beside the conversation.                                                                                                          | Desktop Settings.                                                                                                                                     |
 
+## More than one window
+
+Open **New Window** from the File menu, the tray, the macOS Dock menu, or with **Ctrl+Shift+N** (**⌘⇧N** on macOS).
+It opens the session list on the same server, with the same sign-in. Open a session in each window to keep them side
+by side. **Ctrl+N** (**⌘N**) starts a session in the window you used last.
+
+In the View menu, **Reload** and **Developer tools** act on the window in front. Desktop Settings always opens in the main window. The global shortcut and **Open Pi Pocket** in the tray still show
+or hide that window. Connection checks and recovery notices stay there too. Other windows have the same title bar,
+background, theme, downloads, and dictation.
+
+An extra window closes when you close it. Closing the main window hides it while another window is open, or minimizes
+it if there is no tray. With **Close to tray** off, the app quits once you have closed every window: the main window,
+then the last extra one. A main window that you only minimized, or hid with the shortcut, keeps the app running. With
+**Close to tray** on, the app stays in the tray. **Quit** closes every window. Extra windows do not save their size or place.
+
+A network drop leaves extra windows open. Their pages reconnect when the server returns. A page that failed to load
+reloads when the main window finds the server again. Switching to another server, or between **This computer** and
+**Another server**, closes extra windows from the previous server. If this computer's server stops and will not
+restart by itself, its extra windows close too.
+
 ## See-through background
 
 Turn on **See-through background** in **Desktop Settings → Appearance**, and set the **Opacity** from 0% to 100%. Menus,
