@@ -352,9 +352,9 @@ test("a link that no longer works shows why and the link form, with the address 
 
 test("a failed link shows the runner's message in the form, without Electron's prefix", async () => {
     const screen = await page(async () => found);
-    const requests: { server: string; code: string }[] = [];
+    const requests: unknown[] = [];
 
-    screen.gui.linkRunner = async (request: { server: string; code: string }) => {
+    screen.gui.linkRunner = async (request: unknown) => {
         requests.push(request);
         throw new Error("Error invoking remote method 'config:link-runner': Error: Update Pi Pocket's runner on this computer.");
     };
@@ -363,10 +363,30 @@ test("a failed link shows the runner's message in the form, without Electron's p
     await screen.click("runner-link");
 
     // The request is made in the page's own context: compare what it holds, not its prototype.
-    assert.equal(JSON.stringify(requests), JSON.stringify([{ server: url, code: "ABCD-EFGH-JKLM" }]));
+    assert.equal(JSON.stringify(requests), JSON.stringify([{ server: url, code: "ABCD-EFGH-JKLM", allowHttp: false }]));
     assert.equal(screen.element("runner-link-error").hidden, false);
     assert.equal(screen.element("runner-link-error").textContent, "Update Pi Pocket's runner on this computer.");
     assert.equal(screen.element("runner-code").value, "ABCD-EFGH-JKLM", "the code stays to correct");
+});
+
+test("Link sends the plain HTTP switch as it is at the click, before its setting is saved", async () => {
+    const screen = await page(async () => found);
+    const requests: { allowHttp?: unknown }[] = [];
+
+    screen.gui.linkRunner = async (request: { allowHttp?: unknown }) => { requests.push(request); };
+    screen.element("runner-server").value = "http://pocket.lan:8787";
+    screen.element("runner-code").value = "ABCD-EFGH-JKLM";
+
+    // Switched on and Link at once: the settings save waits 300 ms, and no timer has run yet.
+    screen.element("runner-allow-http").checked = true;
+    await screen.click("runner-link");
+    // Switched off again and Link at once.
+    screen.element("runner-allow-http").checked = false;
+    screen.element("runner-code").value = "ABCD-EFGH-JKLM";
+    await screen.click("runner-link");
+
+    assert.deepEqual(requests.map((request) => request.allowHttp), [true, false]);
+    assert.equal(screen.element("runner-code").value, "", "a link that worked clears the code");
 });
 
 test("the Runner card has no settings that the server owns, and plain HTTP is a choice of the link form", () => {
@@ -386,6 +406,7 @@ test("the Runner card has no settings that the server owns, and plain HTTP is a 
     // Plain HTTP applies when the link is made (`runner link --allow-http`): it is asked there, before the trust note.
     assert.ok(at("runner-link-form") < at("runner-http-row"));
     assert.ok(at("runner-http-row") < at("runner-trust"));
+    assert.ok(at("runner-http-row") < at("runner-allow-http") && at("runner-allow-http") < at("runner-trust"), "the switch Link reads is that row's");
     assert.ok(at("runner-trust") < at("runner-link"));
 });
 

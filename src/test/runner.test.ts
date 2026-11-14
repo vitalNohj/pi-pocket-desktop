@@ -16,7 +16,6 @@ function host(home: string, overrides: Partial<RunnerHost> = {}): RunnerHost {
         setEnabled: async (next) => {
             enabled = next;
         },
-        allowHttp: () => false,
         runtime: () => undefined,
         prepare: async () => {},
         environment: async () => ({ ...process.env }),
@@ -117,7 +116,7 @@ test("off and on again quickly while it stops: it runs again, as the setting say
     const runner = setUpRunner(host(home, { enabled: () => enabled, setEnabled: async (next) => { enabled = next; }, runtime: () => runtime }));
 
     try {
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        await runner.linkTo("https://pocket.example", "GOOD-CODE", false);
         await until(() => runner.state().status === "connected", "connected");
 
         enabled = false;
@@ -138,9 +137,9 @@ test("a failed link keeps the link before running", async () => {
     const runner = setUpRunner(host(home, { runtime: () => runtime }));
 
     try {
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        await runner.linkTo("https://pocket.example", "GOOD-CODE", false);
         await until(() => runner.state().status === "connected", "connected");
-        await assert.rejects(runner.linkTo("https://other.example", "BAD-CODE"), /^Error: refused the code$/);
+        await assert.rejects(runner.linkTo("https://other.example", "BAD-CODE", false), /^Error: refused the code$/);
         await until(() => runner.state().status === "connected", "connected again");
         assert.equal(runner.state().link?.server, "https://pocket.example");
     } finally {
@@ -170,7 +169,7 @@ test("the app only links and starts the runner: no settings, folders, or authent
     const file = join(home, "runner.json");
 
     try {
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        await runner.linkTo("https://pocket.example", "GOOD-CODE", false);
         await until(() => runner.state().status === "connected", "connected");
         runner.state();
         await new Promise((resolve) => setTimeout(resolve, 200));
@@ -211,7 +210,7 @@ test("the card follows the runner's own lines: dropped, back, and why it cannot 
     };
 
     try {
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        await runner.linkTo("https://pocket.example", "GOOD-CODE", false);
         await until(() => note() === "connected", "connected");
         await until(() => note() === "connecting", "dropped");
         await until(() => note() === "connected", "back");
@@ -228,27 +227,26 @@ test("the card follows the runner's own lines: dropped, back, and why it cannot 
     }
 });
 
-test("Allow plain HTTP goes with the link, and only with it", async () => {
+test("Allow plain HTTP is each link's own choice, and only the link keeps it", async () => {
     const home = mkdtempSync(join(tmpdir(), "runner-"));
     const runtime = fakeRuntime(home);
-    let allow = true;
-    const runner = setUpRunner(host(home, { runtime: () => runtime, allowHttp: () => allow }));
+    const runner = setUpRunner(host(home, { runtime: () => runtime }));
     const saved = () => (JSON.parse(readFileSync(join(home, "runner.json"), "utf8")) as { allowHttp?: boolean }).allowHttp;
 
     try {
-        await runner.linkTo("http://pocket.lan:8787", "GOOD-CODE");
+        await runner.linkTo("http://pocket.lan:8787", "GOOD-CODE", true);
         await until(() => runner.state().status === "connected", "connected");
         assert.deepEqual(calls(home)[0]?.slice(1, 5), ["link", "http://pocket.lan:8787", "GOOD-CODE", "--allow-http"]);
         assert.equal(saved(), true);
 
-        // The switch is for the next link: turning it off changes nothing for this one, and runs no command.
-        allow = false;
+        // Nothing changes it afterwards: a restart runs no command but the start.
         await runner.restart();
         await until(() => runner.state().status === "connected", "connected again");
         assert.equal(saved(), true);
         assert.equal(calls(home).filter((args) => args[1] !== "link" && args[1] !== "start").length, 0);
 
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        // The next link says no: it gets no flag, whatever the link before had.
+        await runner.linkTo("https://pocket.example", "GOOD-CODE", false);
         assert.equal(saved(), undefined);
         assert.equal(calls(home).filter((args) => args[1] === "link").at(-1)?.includes("--allow-http"), false);
     } finally {
@@ -281,7 +279,7 @@ test("a link the runner refuses with its help shows one short message in the for
     const runner = setUpRunner(host(home, { runtime: () => runtime }));
 
     try {
-        await assert.rejects(runner.linkTo("https://pocket.example", "GOOD-CODE"), (error: Error) => {
+        await assert.rejects(runner.linkTo("https://pocket.example", "GOOD-CODE", false), (error: Error) => {
             assert.equal(error.message, "Update Pi Pocket's runner on this computer.");
 
             return true;
@@ -320,7 +318,7 @@ test("a link from an older Pi Pocket says Link again, is never started, and a ne
         assert.equal(runner.state().status, "ended", "it stays so through Reconnect and the switch");
         assert.deepEqual(calls(home), [], "the runner would only stop at once: it is not started");
 
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        await runner.linkTo("https://pocket.example", "GOOD-CODE", false);
         await until(() => runner.state().status === "connected", "connected");
         assert.equal(runner.state().message, undefined);
     } finally {
@@ -335,7 +333,7 @@ test("a link the server ended stops for good; Unlink forgets it", async () => {
     const runner = setUpRunner(host(home, { runtime: () => runtime }));
 
     try {
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        await runner.linkTo("https://pocket.example", "GOOD-CODE", false);
         await until(() => runner.state().status === "ended", "ended");
         assert.equal(runner.state().message, "The server ended this link.");
         await new Promise((resolve) => setTimeout(resolve, 150));
@@ -357,7 +355,7 @@ test("a runner that stops by itself starts again, and the card says when", async
     const runner = setUpRunner(host(home, { runtime: () => runtime }));
 
     try {
-        await runner.linkTo("https://pocket.example", "GOOD-CODE");
+        await runner.linkTo("https://pocket.example", "GOOD-CODE", false);
         await until(() => runner.state().status === "failed", "failed");
         assert.match(runner.state().message ?? "", /^The runner stopped \(code 1\)\. Restarting in 2 s\. The server ended this link\.$/);
     } finally {
@@ -373,7 +371,7 @@ test("linking installs Pi Pocket first when no runtime has the runner, and says 
     try {
         const runner = setUpRunner(host(home, { prepare: async () => { prepared++; } }));
 
-        await assert.rejects(runner.linkTo("https://pocket.example", "ABCD-EFGH-JKLM"), /The runner is not available\. Update Pi Pocket/);
+        await assert.rejects(runner.linkTo("https://pocket.example", "ABCD-EFGH-JKLM", false), /The runner is not available\. Update Pi Pocket/);
         assert.equal(prepared, 1);
         assert.equal(runner.state().busy, undefined);
     } finally {

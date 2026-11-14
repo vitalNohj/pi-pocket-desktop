@@ -36,8 +36,6 @@ export interface RunnerHost {
     /** Whether the person wants it running (the settings' runner.enabled). */
     enabled: () => boolean;
     setEnabled: (enabled: boolean) => Promise<void>;
-    /** Whether the next link may use plain HTTP to a server that is not this computer or on their tailnet. */
-    allowHttp: () => boolean;
     /** The installed runtime to run it from; undefined when there is none with the runner. */
     runtime: () => { node: string; launcher: string; bin: string } | undefined;
     /** Install Pi Pocket on this computer, or update it, so a runtime has the runner. */
@@ -383,9 +381,10 @@ export function setUpRunner(host: RunnerHost) {
         },
         /**
          * Link this computer to `server` with a one-time code from it, then run the runner. Installs or updates Pi
-         * Pocket on this computer first when it has no runner.
+         * Pocket on this computer first when it has no runner. `allowHttp`: the person allows plain HTTP to a server
+         * that is not this computer or on their tailnet, for this link; the runner keeps it in the link file.
          */
-        linkTo: (server: string, code: string): Promise<void> =>
+        linkTo: (server: string, code: string, allowHttp: boolean): Promise<void> =>
             step("Linking this computer…", async () => {
                 if (host.runtime() === undefined) {
                     busy = "Installing the runner…";
@@ -404,8 +403,7 @@ export function setUpRunner(host: RunnerHost) {
                     await mkdir(host.home, { recursive: true });
                     busy = "Linking this computer…";
                     host.changed();
-                    // Plain HTTP is a choice made with the link: the runner keeps it in the link file.
-                    log(await runOnce(["link", server, code, ...(host.allowHttp() ? ["--allow-http"] : [])]));
+                    log(await runOnce(["link", server, code, ...(allowHttp ? ["--allow-http"] : [])]));
                     failures = 0;
                     await host.setEnabled(true);
                 } finally {

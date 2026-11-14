@@ -254,7 +254,7 @@
                             <label class="field grow"><span>Server address</span><input id="runner-server" type="text" spellcheck="false" autocomplete="off" placeholder="https://pocket.example.com" /></label>
                             <label class="field runner-code"><span>Link code</span><input id="runner-code" type="text" spellcheck="false" autocomplete="off" placeholder="ABCD-EFGH-JKLM" /></label>
                         </div>
-                        <label class="row" id="runner-http-row"><span><strong>Allow plain HTTP</strong><small>The runner uses HTTPS, or plain HTTP only to this computer or a device on your tailnet. Turn on only for a server on a network you trust. It applies to the link you make now.</small></span><input type="checkbox" data-key="runner.allowHttp" /></label>
+                        <label class="row" id="runner-http-row"><span><strong>Allow plain HTTP</strong><small>The runner uses HTTPS, or plain HTTP only to this computer or a device on your tailnet. Turn on only for a server on a network you trust. It applies to the link you make now.</small></span><input type="checkbox" id="runner-allow-http" data-key="runner.allowHttp" /></label>
                         <p class="row-note security-note" id="runner-trust"><strong>This computer will trust that server fully.</strong> Sessions started here run commands and change files as your user on this computer, with everything you can reach. Nothing runs in a sandbox. Link only to a server you trust.</p>
                         <p class="row-note error" id="runner-link-error" role="alert" hidden></p>
                         <div class="actions"><button type="button" class="primary" id="runner-link">Link</button></div>

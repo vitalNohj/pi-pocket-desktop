@@ -136,7 +136,10 @@ export interface Settings {
     runner: {
         /** Run `pi-pocket runner` while the app runs, once this computer is linked. */
         enabled: boolean;
-        /** For the next link: allow plain HTTP to a server that is not this computer or a device on the person's tailnet. */
+        /**
+         * The link form's switch, remembered: allow plain HTTP to a server that is not this computer or a device on the
+         * person's tailnet. A link takes the switch's value from its own request (`RunnerLinkRequest.allowHttp`).
+         */
         allowHttp: boolean;
     };
 }
@@ -171,6 +174,11 @@ export type RunnerAction = "unlink" | "restart";
 export interface RunnerLinkRequest {
     server: string;
     code: string;
+    /**
+     * Allow plain HTTP for this link, as the form's switch says at the click. It goes with the request: the setting
+     * `runner.allowHttp` only remembers the switch, and is saved a moment after a change.
+     */
+    allowHttp: boolean;
 }
 
 /** One speech model, as the settings show it. */

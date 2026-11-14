@@ -291,7 +291,6 @@ export async function start(): Promise<void> {
         home: join(app.getPath("userData"), "runner"),
         platform: process.platform,
         enabled: () => appState.gui!.settings.runner.enabled,
-        allowHttp: () => appState.gui!.settings.runner.allowHttp,
         setEnabled: async (enabled) => {
             const state = appState.gui!;
 

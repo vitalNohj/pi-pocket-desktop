@@ -41,7 +41,7 @@ Everything in them is made up: the people, folders, sessions, and the model's an
    `linux-people.png`, `linux-files.png`, and `linux-settings.png` (the Linux overlay's buttons are 113 px wide, which
    `frame.mjs` passes as `controls`).
 
-   For the runner: in Desktop Settings, link with `gui.linkRunner({ server, code: runnerCode })`. Take
+   For the runner: in Desktop Settings, link with `gui.linkRunner({ server, code: runnerCode, allowHttp: false })`. Take
    `runner-card.png` with the Runner card in view; hide the runner log for the shot. Take `mac-runners.png` with the
    macOS layout and Pi Pocket's Runners sheet open
    (`import('/store.js').then((m) => m.openSheet({ type: "computers" }))`).

@@ -1900,6 +1900,8 @@ function linkRunner(): void {
     .linkRunner({
       server: element<HTMLInputElement>("runner-server").value,
       code: code.value,
+      // The switch as it is now: its setting is saved a moment after a change, and the link keeps this choice.
+      allowHttp: element<HTMLInputElement>("runner-allow-http").checked,
     })
     .then(() => {
       code.value = "";
