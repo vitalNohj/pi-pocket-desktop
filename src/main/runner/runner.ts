@@ -147,13 +147,14 @@ export function setUpRunner(host: RunnerHost) {
 
     /** Runs the launcher with these runner arguments to its end: what it printed, or what it said went wrong. */
     const runOnce = async (args: string[]): Promise<string> => {
+        const env = await host.environment();
+        // Read only now, with nothing to wait for before it runs: an update may replace the runtimes meanwhile.
         const runtime = host.runtime();
 
         if (runtime === undefined) {
             throw new Error("The runner is not installed on this computer.");
         }
 
-        const env = await host.environment();
         const proc = spawn(runtime.node, [runtime.launcher, "runner", ...args, "--config", linkFile], {
             cwd: homedir(),
             env: { ...env, NO_COLOR: "1" },
@@ -207,10 +208,8 @@ export function setUpRunner(host: RunnerHost) {
             return;
         }
 
-        const runtime = host.runtime();
-
-        if (runtime === undefined) {
-            set("failed", "Install or update Pi Pocket under This computer on Home to use the runner.");
+        if (host.runtime() === undefined) {
+            set("failed", "Choose Check now under Updates to get the runner.");
 
             return;
         }
@@ -218,6 +217,16 @@ export function setUpRunner(host: RunnerHost) {
         const env = await host.environment();
 
         if (attempt !== generation || child !== undefined || quitting || holding || !host.enabled()) {
+            return;
+        }
+
+        // Read only now, with nothing to wait for before it runs: an update may have replaced the runtimes meanwhile,
+        // and the one from before the wait may be gone.
+        const runtime = host.runtime();
+
+        if (runtime === undefined) {
+            set("failed", "Choose Check now under Updates to get the runner.");
+
             return;
         }
 
@@ -481,22 +490,24 @@ export function setUpRunner(host: RunnerHost) {
          * The runtimes changed (an update): run from the newest one, since older ones go away. Ends once the runner no
          * longer runs from an older one; it starts again from the newest by itself.
          */
-        runtimeChanged: (): Promise<void> => {
+        runtimeChanged: async (): Promise<void> => {
+            // A start under way has no child yet: wait for it, so what it started is seen here.
+            await starting;
+
             const now = host.runtime()?.launcher;
 
             if (child !== undefined && now !== undefined && now !== runningFrom) {
                 const stopped = stop();
 
                 void stopped.then(start);
+                await stopped;
 
-                return stopped;
+                return;
             }
 
             if (child === undefined && status === "failed" && now !== undefined && host.enabled()) {
                 void start();
             }
-
-            return Promise.resolve();
         },
         linked: (): boolean => existsSync(linkFile),
         quit: async (): Promise<void> => {

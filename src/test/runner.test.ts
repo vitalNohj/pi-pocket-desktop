@@ -48,7 +48,7 @@ test("without a link it is unlinked, and with one but no runtime it says what to
         const state = runner.state();
 
         assert.equal(state.status, "failed");
-        assert.match(state.message ?? "", /Install or update Pi Pocket under This computer on Home/);
+        assert.match(state.message ?? "", /Choose Check now under Updates to get the runner/);
         assert.deepEqual(state.link, { server: "https://pocket.example", id: "a", name: "Mac" });
         assert.equal(JSON.stringify(state).includes("secret"), false, "no key leaves the file");
     } finally {
@@ -444,6 +444,57 @@ test("a server that needs a newer runner than the app could get: the form says w
         assert.equal(prepared, 1);
         assert.equal(runner.state().status, "unlinked");
     } finally {
+        await runner.quit();
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test("a start that still waits when an update replaces the runtimes runs from the newest one", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const older = join(home, "older");
+    const newer = join(home, "newer");
+
+    mkdirSync(older);
+    mkdirSync(newer);
+
+    const old = fakeRuntime(older);
+    const fresh = fakeRuntime(newer);
+    let current = old;
+    let release!: () => void;
+    const waiting = new Promise<void>((done) => (release = done));
+    const runner = setUpRunner(
+        host(home, {
+            runtime: () => current,
+            // The person's environment takes a while to read: the start waits for it.
+            environment: async () => {
+                await waiting;
+
+                return { ...process.env };
+            },
+        }),
+    );
+
+    try {
+        writeFileSync(join(home, "runner.json"), link());
+        runner.boot();
+
+        // An update replaces the runtimes meanwhile, and removes the older one once this ends.
+        current = fresh;
+
+        const replaced = runner.runtimeChanged();
+        let ended = false;
+
+        void replaced.then(() => (ended = true));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        assert.equal(ended, false, "it waits for the start under way");
+
+        release();
+        await replaced;
+        await until(() => runner.state().status === "connected", "connected");
+        assert.deepEqual(calls(older), [], "nothing ran from the older runtime");
+        assert.deepEqual(calls(newer).map((args) => args[1]), ["start"]);
+    } finally {
+        release();
         await runner.quit();
         rmSync(home, { recursive: true, force: true });
     }
