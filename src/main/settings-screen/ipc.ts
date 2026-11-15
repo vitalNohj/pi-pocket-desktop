@@ -189,7 +189,13 @@ export function registerIpc(): void {
         }
     });
 
-    handle("config:check-updates", () => appState.gui!.updates?.check(true));
+    // Check now looks for all the app keeps current: itself, and Pi Pocket on this computer, which the runner runs from.
+    // The second goes on by itself (it may build a runtime for minutes); the Updates card shows where it stands.
+    handle("config:check-updates", () => {
+        void appState.gui!.local?.checkUpdates();
+
+        return appState.gui!.updates?.check(true);
+    });
 
     handle("config:update-action", () => appState.gui!.updates?.act());
 
@@ -221,11 +227,6 @@ export function registerIpc(): void {
         }
 
         await appState.gui!.runner!.linkTo(server.trim(), code.trim().toUpperCase(), allowHttp);
-
-        // The runner runs from Pi Pocket on this computer: keep that current, also while another server is in use.
-        if (appState.gui!.settings.server.mode !== "local") {
-            appState.gui!.local!.keepCurrent();
-        }
     });
 
     handle("config:record-key", (_event, on: unknown) => {

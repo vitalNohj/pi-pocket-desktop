@@ -18,7 +18,9 @@ for the server side and for computers without this app, is
 1. In Pi Pocket, open **Menu → Runners → Link a computer**, name this computer, and choose **Get a link code**. The
    code works once and expires after 10 minutes.
 2. In the app's **Runner** card, enter the server's address (filled in with the server the app uses) and the code, then
-   choose **Link**. The first link installs Node.js and Pi Pocket for the runner if needed (about 60 MB).
+   choose **Link**. The first link installs Node.js and Pi Pocket for the runner if needed (about 60 MB). Each link
+   looks for a newer Pi Pocket first and installs it, so the newest runner makes the link: a runner older than its
+   server cannot link.
 3. Under **Menu → Runners**, choose **New session** on this computer and pick a folder. The session title shows which
    computer it uses.
 
@@ -82,6 +84,18 @@ The app's runner runs while the app runs. To have it start when you sign in, tur
 hidden**, the app waits in the tray). The separate `pi-pocket runner service` command, which installs a systemd user
 service on Linux, a scheduled task on Windows, or a launch agent on macOS, belongs to the Pi Pocket command line, for a
 computer without this app; the app does not install it.
+
+## Updates
+
+The runner is part of Pi Pocket on this computer, the copy the app installs (see
+[Pi Pocket on this computer](local-server.md)). The app keeps that copy current on every computer that has it, linked
+or not, also while the app uses another server: it looks for a newer one when it starts, each time you open Settings,
+before each link, and when you choose **Check now** under **Settings → Updates**. A newer one is installed in the
+background, and the runner moves to it at once: it stops and starts again, which takes a few seconds. Updating the
+desktop app alone does not update the runner.
+
+When a link fails with "needs a newer runner than this computer has", the app could not get the newer one: the card
+says why. Choose **Check now** under **Settings → Updates**, wait for "is up to date", and link again.
 
 ## The server must support runners
 

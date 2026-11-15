@@ -235,9 +235,10 @@
             </section>
 
             <section class="section" id="sec-updates" aria-labelledby="h-updates">
-                <div class="section-head"><h2 id="h-updates">Updates</h2><p>Keep the desktop app up to date. It checks when it starts and each time you open Settings. Server updates are under Server.</p></div>
+                <div class="section-head"><h2 id="h-updates">Updates</h2><p>Keep the desktop app, and Pi Pocket on this computer, up to date. The app looks for both when it starts, each time you open Settings, and when you choose Check now.</p></div>
                 <div class="card rows" id="updates-card">
                     <div class="row"><span><strong id="update-status">Not checked yet</strong><small id="update-detail"></small></span><span class="buttons"><button type="button" id="update-action" hidden></button><button type="button" id="update-check" class="secondary">Check now</button></span></div>
+                    <div class="row" id="runtime-update-row" hidden><span><strong id="runtime-update-status">Not checked yet</strong><small id="runtime-update-detail"></small></span></div>
                 </div>
             </section>
 
@@ -249,7 +250,7 @@
                     <p class="row-note security-note" id="runner-linked-note">This computer trusts its server fully: sessions run commands as your user here, not in a sandbox. Who may use this computer, in which folders, and who approves a new one are set on the server: in Pi Pocket, open <strong>Menu → Runners</strong>.</p>
                     <label class="row" id="runner-enabled-row"><span><strong>Enable runner</strong><small>When off, the server shows this computer as offline.</small></span><input type="checkbox" data-key="runner.enabled" /></label>
                     <div id="runner-link-form" class="runner-link-form">
-                        <p class="row-note">In Pi Pocket, open <strong>Menu → Runners → Link a computer</strong>, name this computer, and choose <strong>Get a link code</strong>. Enter the address and code it shows. The first link installs the runner (about 60 MB).</p>
+                        <p class="row-note">In Pi Pocket, open <strong>Menu → Runners → Link a computer</strong>, name this computer, and choose <strong>Get a link code</strong>. Enter the address and code it shows. The first link installs the runner (about 60 MB), and each link gets the newest one first.</p>
                         <div class="fields">
                             <label class="field grow"><span>Server address</span><input id="runner-server" type="text" spellcheck="false" autocomplete="off" placeholder="https://pocket.example.com" /></label>
                             <label class="field runner-code"><span>Link code</span><input id="runner-code" type="text" spellcheck="false" autocomplete="off" placeholder="ABCD-EFGH-JKLM" /></label>
@@ -284,7 +285,7 @@
                         </select>
                     </label>
                     <h4 class="row-group">Server updates</h4>
-                    <label class="row"><span><strong>Keep Pi Pocket up to date</strong><small>Install server and Node.js updates. Restart the server to use them.</small></span><input type="checkbox" data-key="local.keepUpdated" /></label>
+                    <label class="row"><span><strong>Keep Pi Pocket up to date</strong><small>Install Pi Pocket and Node.js updates, for the server here and for the runner. Restart the server to use them; the runner uses them at once.</small></span><input type="checkbox" data-key="local.keepUpdated" /></label>
                     <div class="row">
                         <span><strong id="local-update-status">Not checked yet</strong><small id="local-update-detail"></small></span>
                         <span class="buttons"><button type="button" class="secondary" data-local="check-updates" id="local-update-check">Check now</button></span>
