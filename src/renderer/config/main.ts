@@ -519,6 +519,58 @@ function renderUpdate(next: ConfigState): void {
   check.disabled = busy;
 }
 
+/** A Pi Pocket build by name: its version, and its commit when it comes from a branch (two builds can share a version). */
+function buildName(pocket: string | undefined, commit: string | undefined): string {
+  return `${pocket ?? ""}${commit === undefined ? "" : ` (${commit.slice(0, 7)})`}`.trim();
+}
+
+/**
+ * The Updates card's second row: Pi Pocket on this computer, which the server here and the runner both run from. In
+ * either mode, linked or not; hidden while this computer has none.
+ */
+function renderRuntimeUpdate(next: ConfigState): void {
+  const local = next.local;
+  const update = local.update;
+  const installed = local.installed;
+  const found = buildName(update.pocket, update.commit);
+  const when =
+    update.checkedAt === undefined
+      ? ""
+      : `Checked ${new Date(update.checkedAt).toLocaleString()}.`;
+  let status = "Pi Pocket on this computer: not checked yet";
+  let detail = next.settings.local.keepUpdated
+    ? "The server on this computer and the runner both run from it."
+    : "Automatic checks are turned off: only Check now looks for a newer one.";
+
+  switch (update.status) {
+    case "checking":
+      status = "Checking Pi Pocket on this computer…";
+      break;
+    case "current":
+      status = `Pi Pocket ${buildName(installed?.pocket, installed?.commit)} on this computer is up to date`;
+      break;
+    case "building":
+      status = `Installing Pi Pocket ${found}…${update.percent === undefined ? "" : ` ${String(update.percent)}%`}`;
+      detail = update.message ?? detail;
+      break;
+    case "ready":
+      status = `Pi Pocket ${found} is ready`;
+      detail =
+        "The runner uses it now. The server on this computer uses it after its restart.";
+      break;
+    case "error":
+      status = "Pi Pocket on this computer could not be updated";
+      detail = update.message ?? "";
+      break;
+    default:
+      break;
+  }
+
+  element("runtime-update-row").hidden = installed === undefined;
+  element("runtime-update-status").textContent = status;
+  element("runtime-update-detail").textContent = `${detail} ${when}`.trim();
+}
+
 element("update-check").addEventListener("click", () => {
   void gui.checkUpdates();
 });
@@ -710,8 +762,8 @@ function renderLocal(next: ConfigState): void {
     idle: "Not checked yet",
     checking: "Checking…",
     current: "Up to date",
-    building: `Installing Pi Pocket ${update.pocket ?? ""}${update.percent === undefined ? "" : ` (${String(update.percent)}%)`}…`,
-    ready: `Pi Pocket ${update.pocket ?? ""} is ready`,
+    building: `Installing Pi Pocket ${buildName(update.pocket, update.commit)}${update.percent === undefined ? "" : ` (${String(update.percent)}%)`}…`,
+    ready: `Pi Pocket ${buildName(update.pocket, update.commit)} is ready`,
     error: "Server update failed",
   };
 
@@ -802,6 +854,7 @@ function render(next: ConfigState): void {
   renderRunner(next);
   element("app-version").textContent = next.appVersion;
   renderUpdate(next);
+  renderRuntimeUpdate(next);
   element("config-path").textContent = next.configPath;
 
   if (!editing) {
@@ -1855,8 +1908,15 @@ function renderRunner(next: ConfigState): void {
     detail = `Linked as “${link.name}” to ${link.server}.${runner.message === undefined ? "" : ` ${runner.message}`}`;
   }
 
+  // A link that waits for a newer runner: how far its install is, which can take minutes.
+  const update = next.local.update;
+  const installing =
+    runner.preparing === true && update.status === "building"
+      ? `Installing the newer runner…${update.percent === undefined ? "" : ` ${String(update.percent)}%`}`
+      : undefined;
+
   element("runner-status").textContent =
-    runner.busy ?? RUNNER_STATUS[runner.status] ?? "";
+    installing ?? runner.busy ?? RUNNER_STATUS[runner.status] ?? "";
   element("runner-detail").textContent = detail;
   // The form shows until a link works: also after the server ended one, to link again.
   const linking = link === undefined || runner.status === "ended";

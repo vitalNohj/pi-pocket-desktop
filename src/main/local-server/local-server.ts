@@ -13,7 +13,6 @@ import { downloadChecked } from "../core/download";
 import { withPath } from "../core/env-path";
 import type { LocalDown } from "../connection/server-choice";
 import { activity, diagnose } from "../diagnostics/stall-watchdog";
-import { UpdateSchedule } from "../updates/update-schedule";
 import {
     cleanLine,
     compareVersions,
@@ -66,6 +65,11 @@ export interface LocalHost {
     down: (why: LocalDown) => void;
     /** The launcher restarted its server by itself (no new sign-in): a page that waited for it may need a reload. */
     restarted: () => void;
+    /**
+     * An update built a newer runtime, and older ones are about to be removed: what else runs from one (the runner)
+     * moves to the newest. Ends once nothing of it runs from an older one.
+     */
+    runtimesReplaced: () => Promise<void>;
 }
 
 /** One runtime, as current.json keeps it. */
@@ -445,8 +449,13 @@ export function setUpLocalServer(host: LocalHost) {
 
     // ——— The app's own update check ———
 
+    // When: at the app's start, each time the person opens Settings, before a runner link, and on Check now. On every
+    // computer with a runtime, in either mode and linked or not: the runner runs from it too (src/main/runner/runner.ts),
+    // and a runner older than its server cannot link. No timer: an app that stays open for days checks when Settings
+    // opens. All but Check now do nothing when the settings turn the checks off (`keepUpdated`).
+    //
     // One check at a time: two at once could both build a runtime, and each one's prune would remove the other's. A check
-    // asked for while one runs (Settings opened again, Check now) joins it.
+    // asked for while one runs (Settings opened again, Check now, a link) joins it.
     let checking: Promise<void> | undefined;
 
     const checkUpdates = (force: boolean): Promise<void> => {
@@ -460,7 +469,7 @@ export function setUpLocalServer(host: LocalHost) {
     const checkOnce = async (force: boolean): Promise<void> => {
         const settings = host.settings();
 
-        if ((!force && !settings.local.keepUpdated) || building !== undefined || update.status === "building") {
+        if (quitting || (!force && !settings.local.keepUpdated) || building !== undefined || update.status === "building") {
             return;
         }
 
@@ -485,13 +494,15 @@ export function setUpLocalServer(host: LocalHost) {
             if (!newerPocket && !newerNode) {
                 update = current.next === undefined
                     ? { status: "current", checkedAt: Date.now() }
-                    : { status: "ready", pocket, node: installed.node, checkedAt: Date.now() };
+                    : { status: "ready", pocket, node: installed.node, ...(installed.commit === undefined ? {} : { commit: installed.commit }), checkedAt: Date.now() };
                 changed();
 
                 return;
             }
 
-            update = { status: "building", pocket: versions.pocket, node: versions.node.version };
+            const found = { pocket: versions.pocket, node: versions.node.version, ...(versions.build.commit === undefined ? {} : { commit: versions.build.commit }) };
+
+            update = { status: "building", ...found };
             changed();
 
             const runtime = await build(versions, (text, percent) => {
@@ -500,10 +511,12 @@ export function setUpLocalServer(host: LocalHost) {
             });
 
             await writeCurrent({ ...readCurrent(), next: runtime });
+            // The runner may run from a runtime that now goes away (one built before, that this one replaces).
+            await host.runtimesReplaced();
             await prune();
-            update = { status: "ready", pocket: versions.pocket, node: versions.node.version, checkedAt: Date.now() };
+            update = { status: "ready", ...found, checkedAt: Date.now() };
 
-            // Nothing runs: the new versions can take over now.
+            // No server runs here: the new versions can take over now.
             if (child === undefined) {
                 await adoptNext();
             }
@@ -514,9 +527,6 @@ export function setUpLocalServer(host: LocalHost) {
             changed();
         }
     };
-
-    // Checks at the start, then each time Settings opens (`update-schedule.ts`).
-    const updates = new UpdateSchedule(() => checkUpdates(false));
 
     /** The runtime an update built becomes the current one; the one before stays until the new one has started. */
     const adoptNext = async (): Promise<boolean> => {
@@ -923,7 +933,9 @@ export function setUpLocalServer(host: LocalHost) {
                 ...(message === undefined ? {} : { message }),
                 ...(crash === undefined ? {} : { crash }),
                 ...(progress === undefined ? {} : { progress }),
-                ...(runtime !== undefined && pocket !== undefined ? { installed: { pocket, node: runtime.node } } : {}),
+                ...(runtime !== undefined && pocket !== undefined
+                    ? { installed: { pocket, node: runtime.node, ...(runtime.commit === undefined ? {} : { commit: runtime.commit }) } }
+                    : {}),
                 ...(url === undefined ? {} : { url }),
                 log: lines.slice(-40),
                 restartNeeded: child !== undefined && startedWith !== undefined && startedWith !== settingsKey(),
@@ -934,13 +946,15 @@ export function setUpLocalServer(host: LocalHost) {
         },
         installed: () => usable(readCurrent().current),
         /**
-         * The runtime to run `pi-pocket runner` from (src/main/runner/runner.ts): the current one, or the one an update built
-         * for the next start, whichever has the runner. Undefined when neither has.
+         * The runtime to run `pi-pocket runner` from (src/main/runner/runner.ts): the newest on this computer that has the
+         * runner. That is the one an update built, also while the server here still runs the one before and waits for
+         * its restart: the runner's server may be another computer's, and a runner older than its server cannot link.
+         * Undefined when none has the runner.
          */
         runnerRuntime: (): { node: string; launcher: string; bin: string } | undefined => {
             const current = readCurrent();
 
-            for (const runtime of [current.current, current.next]) {
+            for (const runtime of [current.next, current.current]) {
                 if (usable(runtime) && existsSync(join(paths(runtime).pocket, "src", "runner", "main.ts"))) {
                     const where = paths(runtime);
 
@@ -952,10 +966,11 @@ export function setUpLocalServer(host: LocalHost) {
         },
         /** The person's own environment, as a terminal has it, for what the app starts. */
         environment: loginEnvironment,
-        /** Look for newer versions now and when Settings opens, also while another server is in use (the runner runs from it). */
-        keepCurrent: (): void => {
-            updates.ensure();
-        },
+        /**
+         * Look for newer versions, unless the settings turn the checks off: at the app's start while another server is
+         * in use, and before a runner link. Ends once the check has ended, with the new runtime built when there is one.
+         */
+        lookForUpdates: () => checkUpdates(false),
         /** Pi Pocket's data folder: the running one's while it runs, else the one the settings name for its next start. */
         dataFolder: (): string => runningData ?? dataFolderOf(host.settings().local, defaults().data),
         url: () => url,
@@ -970,23 +985,21 @@ export function setUpLocalServer(host: LocalHost) {
                 await start();
             }
 
-            updates.now();
+            void checkUpdates(false);
         },
         /** Installs it; `run` (the person asked here): then starts it, in either mode. */
         install: async (run = false): Promise<void> => {
             wanted ||= run;
             await install();
-            // Kept current from now on, also when another server is in use (unless `keepUpdated` is off).
-            updates.ensure();
         },
         /** The person starts it: in either mode. */
         start: async (): Promise<void> => {
             wanted = true;
-            updates.ensure();
             await start();
         },
         stop,
         restart,
+        /** Check now: also when the settings turn the checks off. */
         checkUpdates: () => checkUpdates(true),
         /**
          * Removes what the app installed (the runtimes with Node.js and Pi Pocket, the downloads, the log): stops it
@@ -997,7 +1010,6 @@ export function setUpLocalServer(host: LocalHost) {
                 throw new Error("An install is under way. Wait for it to end.");
             }
 
-            updates.stop();
             await stop();
             child = undefined;
             await rm(runtimes, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
@@ -1011,8 +1023,10 @@ export function setUpLocalServer(host: LocalHost) {
             set("absent");
             host.down({ kind: "unavailable" });
         },
-        /** The person opened Settings: look for newer versions, when this Pi Pocket is kept current. */
-        settingsOpened: (): void => updates.settingsOpened(),
+        /** The person opened Settings: look for newer versions, so what it shows, and the runner, are current. */
+        settingsOpened: (): void => {
+            void checkUpdates(false);
+        },
         /** The tray's line for a new version waiting for a restart. */
         trayItem: (): { label: string; click: () => void } | undefined =>
             update.status === "ready" && child !== undefined
@@ -1022,7 +1036,6 @@ export function setUpLocalServer(host: LocalHost) {
         /** At the app's quit: stop it, and wait. */
         quit: async (): Promise<void> => {
             quitting = true;
-            updates.stop();
             await stop();
         },
     };

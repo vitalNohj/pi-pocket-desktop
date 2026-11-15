@@ -62,9 +62,12 @@ Pocket**: existing settings, sign-in, runner links, and launch-at-login entries 
 
 ## Updates
 
-**Desktop Settings → Updates** manages the desktop app, not the server. The app checks at startup and each time you
-open Settings, so what Settings shows is current. There is no timed check. Choose **Check now** to check again. Server
-updates are under **Settings → Server → This computer → Server updates**.
+**Desktop Settings → Updates** manages the desktop app and Pi Pocket on this computer, the copy the app installs for
+the server here and for the [runner](runner.md). The app checks both at startup and each time you open Settings, so
+what Settings shows is current. There is no timed check. Choose **Check now** to check both again. The second row of
+the card shows Pi Pocket on this computer, once it is installed: its version and commit, and an install under way.
+The switch that turns its checks off is under **Settings → Server → This computer → Server updates**
+([details](local-server.md#keeping-it-current)).
 
 - **Windows and the AppImage** download it and install it when the app restarts. The app asks first. On Windows the
   installer runs without its window: it keeps your earlier choice (only for you, or for everyone) and folder, and asks

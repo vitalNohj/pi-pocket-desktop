@@ -9,7 +9,8 @@
  * are set on the server (its Menu → Runners): after the link, the runner trusts its server.
  *
  * The runner comes from the Pi Pocket runtime the app installs (src/main/local-server/local-server.ts): one is installed for it
- * when there is none yet, also when the app connects to another server.
+ * when there is none yet, also when the app connects to another server. The app keeps that runtime current, and looks
+ * for a newer one before each link: a runner older than its server cannot link.
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -28,6 +29,8 @@ const STOP_LIMIT_MS = 5000;
 const OUTPUT_LIMIT = 16000;
 /** The most of a failed command's message the card shows. */
 const ERROR_LIMIT = 600;
+/** The server's words for a link request in an older runner's form (Pi Pocket's src/server/http.ts). */
+const OLDER_RUNNER = /Update Pi Pocket's runner on this computer/;
 
 export interface RunnerHost {
     /** Where the link and its log go. */
@@ -38,8 +41,13 @@ export interface RunnerHost {
     setEnabled: (enabled: boolean) => Promise<void>;
     /** The installed runtime to run it from; undefined when there is none with the runner. */
     runtime: () => { node: string; launcher: string; bin: string } | undefined;
-    /** Install Pi Pocket on this computer, or update it, so a runtime has the runner. */
+    /**
+     * Before a link: install Pi Pocket on this computer, or look for a newer one, so the newest runner links. A check
+     * that fails leaves the runtime there is.
+     */
     prepare: () => Promise<void>;
+    /** What to do when the server needs a newer runner than this computer has, and why the app did not get it. */
+    newerRunnerHint: () => string;
     environment: () => Promise<NodeJS.ProcessEnv>;
     changed: () => void;
 }
@@ -103,6 +111,8 @@ export function setUpRunner(host: RunnerHost) {
     let restartTimer: NodeJS.Timeout | undefined;
     let runningFrom: string | undefined;
     let busy: string | undefined;
+    /** A link waits for the newest runner: the check, and the install of a newer one. */
+    let preparing = false;
     let quitting = false;
     /** A step (linking, unlinking) stopped it on purpose: what it does next is the step's to decide. */
     let holding = false;
@@ -137,13 +147,14 @@ export function setUpRunner(host: RunnerHost) {
 
     /** Runs the launcher with these runner arguments to its end: what it printed, or what it said went wrong. */
     const runOnce = async (args: string[]): Promise<string> => {
+        const env = await host.environment();
+        // Read only now, with nothing to wait for before it runs: an update may replace the runtimes meanwhile.
         const runtime = host.runtime();
 
         if (runtime === undefined) {
             throw new Error("The runner is not installed on this computer.");
         }
 
-        const env = await host.environment();
         const proc = spawn(runtime.node, [runtime.launcher, "runner", ...args, "--config", linkFile], {
             cwd: homedir(),
             env: { ...env, NO_COLOR: "1" },
@@ -197,10 +208,8 @@ export function setUpRunner(host: RunnerHost) {
             return;
         }
 
-        const runtime = host.runtime();
-
-        if (runtime === undefined) {
-            set("failed", "Install or update Pi Pocket under This computer on Home to use the runner.");
+        if (host.runtime() === undefined) {
+            set("failed", "Choose Check now under Updates to get the runner.");
 
             return;
         }
@@ -208,6 +217,16 @@ export function setUpRunner(host: RunnerHost) {
         const env = await host.environment();
 
         if (attempt !== generation || child !== undefined || quitting || holding || !host.enabled()) {
+            return;
+        }
+
+        // Read only now, with nothing to wait for before it runs: an update may have replaced the runtimes meanwhile,
+        // and the one from before the wait may be gone.
+        const runtime = host.runtime();
+
+        if (runtime === undefined) {
+            set("failed", "Choose Check now under Updates to get the runner.");
+
             return;
         }
 
@@ -358,6 +377,7 @@ export function setUpRunner(host: RunnerHost) {
                 ...(message === undefined ? {} : { message }),
                 ...(link === undefined ? {} : { link }),
                 ...(busy === undefined ? {} : { busy }),
+                ...(preparing ? { preparing } : {}),
                 enabled: host.enabled(),
                 available: host.runtime() !== undefined,
                 log: lines.slice(-40),
@@ -380,20 +400,25 @@ export function setUpRunner(host: RunnerHost) {
             }
         },
         /**
-         * Link this computer to `server` with a one-time code from it, then run the runner. Installs or updates Pi
-         * Pocket on this computer first when it has no runner. `allowHttp`: the person allows plain HTTP to a server
-         * that is not this computer or on their tailnet, for this link; the runner keeps it in the link file.
+         * Link this computer to `server` with a one-time code from it, then run the runner. First installs Pi Pocket
+         * on this computer when it has no runner, or looks for a newer one: the link is made by the newest runner.
+         * `allowHttp`: the person allows plain HTTP to a server that is not this computer or on their tailnet, for
+         * this link; the runner keeps it in the link file.
          */
         linkTo: (server: string, code: string, allowHttp: boolean): Promise<void> =>
             step("Linking this computer…", async () => {
-                if (host.runtime() === undefined) {
-                    busy = "Installing the runner…";
-                    host.changed();
-                    await host.prepare();
+                busy = host.runtime() === undefined ? "Installing the runner…" : "Looking for a newer runner…";
+                preparing = true;
+                host.changed();
 
-                    if (host.runtime() === undefined) {
-                        throw new Error("The runner is not available. Update Pi Pocket under This computer on Home, then try again.");
-                    }
+                try {
+                    await host.prepare();
+                } finally {
+                    preparing = false;
+                }
+
+                if (host.runtime() === undefined) {
+                    throw new Error("The runner is not available. Choose Check now under Updates, then try again.");
                 }
 
                 holding = true;
@@ -403,7 +428,14 @@ export function setUpRunner(host: RunnerHost) {
                     await mkdir(host.home, { recursive: true });
                     busy = "Linking this computer…";
                     host.changed();
-                    log(await runOnce(["link", server, code, ...(allowHttp ? ["--allow-http"] : [])]));
+                    log(
+                        await runOnce(["link", server, code, ...(allowHttp ? ["--allow-http"] : [])]).catch((error: Error) => {
+                            // The server's words name no place in this app: say where the newer runner comes from.
+                            throw OLDER_RUNNER.test(error.message)
+                                ? new Error(`${server} needs a newer runner than this computer has. ${host.newerRunnerHint()}`)
+                                : error;
+                        }),
+                    );
                     failures = 0;
                     await host.setEnabled(true);
                 } finally {
@@ -454,13 +486,26 @@ export function setUpRunner(host: RunnerHost) {
             failures = 0;
             await start();
         },
-        /** The runtimes changed (an update): run from the new one, since the old one goes away. */
-        runtimeChanged: (): void => {
+        /**
+         * The runtimes changed (an update): run from the newest one, since older ones go away. Ends once the runner no
+         * longer runs from an older one; it starts again from the newest by itself.
+         */
+        runtimeChanged: async (): Promise<void> => {
+            // A start under way has no child yet: wait for it, so what it started is seen here.
+            await starting;
+
             const now = host.runtime()?.launcher;
 
             if (child !== undefined && now !== undefined && now !== runningFrom) {
-                void stop().then(start);
-            } else if (child === undefined && status === "failed" && now !== undefined && host.enabled()) {
+                const stopped = stop();
+
+                void stopped.then(start);
+                await stopped;
+
+                return;
+            }
+
+            if (child === undefined && status === "failed" && now !== undefined && host.enabled()) {
                 void start();
             }
         },

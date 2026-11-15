@@ -249,8 +249,9 @@ export async function start(): Promise<void> {
         changed: () => {
             pushConfigState();
             appState.gui?.desktop?.refreshTray();
-            appState.gui?.runner?.runtimeChanged();
+            void appState.gui?.runner?.runtimeChanged();
         },
+        runtimesReplaced: () => appState.gui?.runner?.runtimeChanged() ?? Promise.resolve(),
         ready: (url, loginPath) => {
             void appState.gui?.billionContext?.serverReady();
             localReady(url, loginPath);
@@ -300,15 +301,30 @@ export async function start(): Promise<void> {
             }
         },
         runtime: () => appState.gui!.local!.runnerRuntime(),
-        // No Pi Pocket here yet: install it (it starts only in "This computer" mode). One without the runner: update it.
+        // Before a link. No Pi Pocket here yet: install it (it starts only in "This computer" mode). One without the
+        // runner: update it, whatever the settings say. Else look for a newer one, so the runner that links is the newest.
         prepare: async () => {
             const local = appState.gui!.local!;
 
             if (!local.installed()) {
                 await local.install();
-            } else {
+            } else if (local.runnerRuntime() === undefined) {
                 await local.checkUpdates();
+            } else {
+                await local.lookForUpdates();
             }
+        },
+        newerRunnerHint: () => {
+            const state = appState.gui!;
+            const update = state.local!.state().update;
+
+            if (update.status === "error") {
+                return `The app could not get a newer one: ${update.message ?? "the check failed"} Choose Check now under Updates, then link again.`;
+            }
+
+            return state.settings.local.keepUpdated
+                ? "Choose Check now under Updates, then link again."
+                : "Updates of Pi Pocket on this computer are turned off. Choose Check now under Updates, then link again.";
         },
         environment: () => appState.gui!.local!.environment(),
         changed: () => {
@@ -608,9 +624,10 @@ export async function start(): Promise<void> {
     // This computer as a runner, for whichever server it is linked to.
     appState.gui.runner!.boot();
 
-    // Its runner comes from Pi Pocket on this computer: keep that current also while another server is in use.
-    if (appState.gui.settings.server.mode !== "local" && appState.gui.runner!.linked()) {
-        appState.gui.local!.keepCurrent();
+    // Pi Pocket on this computer is kept current also while another server is in use, linked or not: the runner runs
+    // from it, and a runner older than its server cannot link. (In "This computer" mode, its boot looks.)
+    if (appState.gui.settings.server.mode !== "local") {
+        void appState.gui.local!.lookForUpdates();
     }
 
     // This computer's Pi Pocket: the window opens it once it is ready, and shows its state until then.

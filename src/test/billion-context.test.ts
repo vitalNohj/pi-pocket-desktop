@@ -117,6 +117,7 @@ test("the extension folder stays the running Pi Pocket's until it restarts with 
         ready: () => ready(),
         down: () => {},
         restarted: () => {},
+        runtimesReplaced: () => Promise.resolve(),
     });
 
     assert.equal(local.dataFolder(), started);

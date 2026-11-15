@@ -95,13 +95,19 @@ The app starts Pi Pocket's launcher, the same command a person types, with the r
 
 - Pi Pocket updates itself the way it does on any computer: its Settings → Updates checks npm, and can install by
   itself when no session has worked for 10 minutes.
-- The app checks, at start and then as often as its own updates, for a newer Node.js LTS and a newer Pi Pocket. When there is
-  one, it builds a new runtime in the background. The new runtime takes over at the next start of the app, or at once
-  from Settings or the tray ("Restart Pi Pocket to update"). Sessions resume after the restart.
+- The app checks for a newer Node.js LTS and a newer Pi Pocket when it starts, each time Settings opens, before a
+  runner link, and on **Check now** (under **Settings → Updates**, or under **Server updates**). It does so on every
+  computer that has a runtime: in either mode, and whether or not the runner is linked. There is no timed check. A
+  build from the branch is newer when its commit is, so two builds can have the same version number; Settings shows
+  the commit beside the version.
+- When there is a newer one, the app builds a new runtime in the background. For the server here, the new runtime
+  takes over at the next start of the app, or at once from Settings or the tray ("Restart Pi Pocket to update").
+  Sessions resume after the restart. The [runner](runner.md) moves to it at once, without waiting for that restart:
+  its server may be on another computer, and a runner older than its server cannot link.
 - If the new runtime stops before it is ready, or is not ready within 2 minutes, the app goes back to the previous one
   and says so. Old runtimes and archives are removed once a new one has started.
-- "Keep Pi Pocket up to date" (on by default) turns the app's checks on or off; Pi Pocket's own setting is separate.
-  The checks follow Settings → Updates → How often.
+- "Keep Pi Pocket up to date" (on by default) turns the app's own checks on or off; **Check now** looks either way.
+  Pi Pocket's own setting is separate.
 
 ## Not done yet
 

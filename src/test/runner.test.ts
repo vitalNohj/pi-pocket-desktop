@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -18,6 +18,7 @@ function host(home: string, overrides: Partial<RunnerHost> = {}): RunnerHost {
         },
         runtime: () => undefined,
         prepare: async () => {},
+        newerRunnerHint: () => "Choose Check now under Updates, then link again.",
         environment: async () => ({ ...process.env }),
         changed: () => {},
         ...overrides,
@@ -47,7 +48,7 @@ test("without a link it is unlinked, and with one but no runtime it says what to
         const state = runner.state();
 
         assert.equal(state.status, "failed");
-        assert.match(state.message ?? "", /Install or update Pi Pocket under This computer on Home/);
+        assert.match(state.message ?? "", /Choose Check now under Updates to get the runner/);
         assert.deepEqual(state.link, { server: "https://pocket.example", id: "a", name: "Mac" });
         assert.equal(JSON.stringify(state).includes("secret"), false, "no key leaves the file");
     } finally {
@@ -275,12 +276,12 @@ test("a failed command's message is its first paragraph: never the runner's help
 
 test("a link the runner refuses with its help shows one short message in the form and the log", async () => {
     const home = mkdtempSync(join(tmpdir(), "runner-"));
-    const runtime = fakeRuntime(home, { linkError: `pi-pocket runner: Update Pi Pocket's runner on this computer.\n\n${HELP}` });
+    const runtime = fakeRuntime(home, { linkError: `pi-pocket runner: The address is not a Pi Pocket server.\n\n${HELP}` });
     const runner = setUpRunner(host(home, { runtime: () => runtime }));
 
     try {
         await assert.rejects(runner.linkTo("https://pocket.example", "GOOD-CODE", false), (error: Error) => {
-            assert.equal(error.message, "Update Pi Pocket's runner on this computer.");
+            assert.equal(error.message, "The address is not a Pi Pocket server.");
 
             return true;
         });
@@ -371,10 +372,165 @@ test("linking installs Pi Pocket first when no runtime has the runner, and says 
     try {
         const runner = setUpRunner(host(home, { prepare: async () => { prepared++; } }));
 
-        await assert.rejects(runner.linkTo("https://pocket.example", "ABCD-EFGH-JKLM", false), /The runner is not available\. Update Pi Pocket/);
+        await assert.rejects(runner.linkTo("https://pocket.example", "ABCD-EFGH-JKLM", false), /The runner is not available\. Choose Check now under Updates/);
         assert.equal(prepared, 1);
         assert.equal(runner.state().busy, undefined);
     } finally {
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test("every link looks for a newer runner first, and is made by the one found", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const older = join(home, "older");
+    const newer = join(home, "newer");
+
+    mkdirSync(older);
+    mkdirSync(newer);
+
+    // The runner this computer has is too old for its server; the check before the link brings the newer one.
+    const old = fakeRuntime(older, { linkError: "pi-pocket runner: https://pocket.example did not accept the code: Update Pi Pocket's runner on this computer, then link it again." });
+    const fresh = fakeRuntime(newer);
+    let current = old;
+    const shown: string[] = [];
+    const runner = setUpRunner(
+        host(home, {
+            runtime: () => current,
+            prepare: async () => {
+                current = fresh;
+            },
+            changed: () => {
+                shown.push(`${runner.state().busy ?? ""}${runner.state().preparing === true ? " (preparing)" : ""}`);
+            },
+        }),
+    );
+
+    try {
+        await runner.linkTo("https://pocket.example", "GOOD-CODE", false);
+        await until(() => runner.state().status === "connected", "connected");
+        assert.ok(shown.includes("Looking for a newer runner… (preparing)"), "the card says what it waits for");
+        assert.equal(shown.at(-1), "", "and nothing once the link is made");
+        assert.equal(runner.state().preparing, undefined);
+        assert.deepEqual(calls(older), [], "the older runner never sent the code");
+        assert.equal(calls(newer)[0]?.[1], "link");
+    } finally {
+        await runner.quit();
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test("a server that needs a newer runner than the app could get: the form says where the newer one comes from", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const runtime = fakeRuntime(home, { linkError: "pi-pocket runner: https://pocket.example did not accept the code: Update Pi Pocket's runner on this computer, then link it again." });
+    let prepared = 0;
+    const runner = setUpRunner(
+        host(home, {
+            runtime: () => runtime,
+            // The check found nothing newer, or failed: the runtime there is stays.
+            prepare: async () => { prepared++; },
+            newerRunnerHint: () => "The app could not get a newer one: api.github.com answered HTTP 403. Choose Check now under Updates, then link again.",
+        }),
+    );
+
+    try {
+        await assert.rejects(runner.linkTo("https://pocket.example", "GOOD-CODE", false), (error: Error) => {
+            assert.equal(
+                error.message,
+                "https://pocket.example needs a newer runner than this computer has. The app could not get a newer one: api.github.com answered HTTP 403. Choose Check now under Updates, then link again.",
+            );
+
+            return true;
+        });
+        assert.equal(prepared, 1);
+        assert.equal(runner.state().status, "unlinked");
+    } finally {
+        await runner.quit();
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test("a start that still waits when an update replaces the runtimes runs from the newest one", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const older = join(home, "older");
+    const newer = join(home, "newer");
+
+    mkdirSync(older);
+    mkdirSync(newer);
+
+    const old = fakeRuntime(older);
+    const fresh = fakeRuntime(newer);
+    let current = old;
+    let release!: () => void;
+    const waiting = new Promise<void>((done) => (release = done));
+    const runner = setUpRunner(
+        host(home, {
+            runtime: () => current,
+            // The person's environment takes a while to read: the start waits for it.
+            environment: async () => {
+                await waiting;
+
+                return { ...process.env };
+            },
+        }),
+    );
+
+    try {
+        writeFileSync(join(home, "runner.json"), link());
+        runner.boot();
+
+        // An update replaces the runtimes meanwhile, and removes the older one once this ends.
+        current = fresh;
+
+        const replaced = runner.runtimeChanged();
+        let ended = false;
+
+        void replaced.then(() => (ended = true));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        assert.equal(ended, false, "it waits for the start under way");
+
+        release();
+        await replaced;
+        await until(() => runner.state().status === "connected", "connected");
+        assert.deepEqual(calls(older), [], "nothing ran from the older runtime");
+        assert.deepEqual(calls(newer).map((args) => args[1]), ["start"]);
+    } finally {
+        release();
+        await runner.quit();
+        rmSync(home, { recursive: true, force: true });
+    }
+});
+
+test("an update moves a running runner to the newest runtime before the older one goes away", async () => {
+    const home = mkdtempSync(join(tmpdir(), "runner-"));
+    const older = join(home, "older");
+    const newer = join(home, "newer");
+
+    mkdirSync(older);
+    mkdirSync(newer);
+
+    const old = fakeRuntime(older);
+    const fresh = fakeRuntime(newer);
+    let current = old;
+    const runner = setUpRunner(host(home, { runtime: () => current }));
+
+    try {
+        await runner.linkTo("https://pocket.example", "GOOD-CODE", false);
+        await until(() => runner.state().status === "connected", "connected");
+        assert.equal(calls(newer).length, 0);
+
+        current = fresh;
+        await runner.runtimeChanged();
+        // Its promise ends once nothing runs from the older runtime: only then may that one be removed.
+        assert.notEqual(runner.state().status, "connected", "the older runner has stopped");
+        await until(() => runner.state().status === "connected", "connected again");
+        assert.deepEqual(calls(newer).map((args) => args[1]), ["start"]);
+
+        // Nothing changed: it keeps running.
+        await runner.runtimeChanged();
+        assert.equal(runner.state().status, "connected");
+        assert.equal(calls(newer).length, 1);
+    } finally {
+        await runner.quit();
         rmSync(home, { recursive: true, force: true });
     }
 });

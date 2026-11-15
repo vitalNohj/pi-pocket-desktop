@@ -160,6 +160,8 @@ export interface RunnerState {
     link?: { server: string; id: string; name: string };
     /** A step under way (installing Pi Pocket for it, linking). */
     busy?: string;
+    /** A link waits for the newest runner: the check of Pi Pocket on this computer, and the install of a newer one. */
+    preparing?: boolean;
     enabled: boolean;
     /** An installed Pi Pocket on this computer has the runner. */
     available: boolean;
@@ -371,6 +373,8 @@ export interface LocalUpdate {
     /** The versions found (checking, building) or built and waiting for a restart (ready). */
     pocket?: string;
     node?: string;
+    /** The commit of that Pi Pocket, when it comes from a branch: its version alone does not tell two builds apart. */
+    commit?: string;
     message?: string;
     percent?: number;
     checkedAt?: number;
@@ -384,8 +388,8 @@ export interface LocalState {
     crash?: string;
     /** While installing: the step, and how far a download is. */
     progress?: { step: string; percent?: number };
-    /** The versions in use. */
-    installed?: { pocket: string; node: string };
+    /** The versions in use, and the commit of that Pi Pocket when it comes from a branch. */
+    installed?: { pocket: string; node: string; commit?: string };
     /** The address it is open at, while it runs. */
     url?: string;
     /** The launcher's last lines, without login tokens. */
