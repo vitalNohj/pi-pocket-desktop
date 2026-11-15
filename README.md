@@ -145,7 +145,9 @@ for **This computer**. Everything about the runner: [docs/runner.md](docs/runner
 - **Badge:** how many sessions need you, on the dock or taskbar icon.
 - **Notifications:** native ones, even with the window hidden. An approval can be answered from the notification.
   Sessions that finish share one notification ("3 sessions finished"), and while you are away (sleep, lock, or idle)
-  they wait and show once when you are back.
+  they wait and show once when you are back. They are separate from Pi Pocket's web notifications, which you turn on
+  for each browser or phone in Pi Pocket (Menu → **Notifications**); what you are notified about is chosen there for
+  both.
 
 ## A window that feels native
 
