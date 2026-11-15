@@ -16,14 +16,14 @@ or **Back to Pi Pocket**. Below are the two choices, **This computer** and **Ano
 **Settings** is one scrolling page. The sidebar marks the section you read and jumps to any of them. Each part has a
 short description. Ports, timeouts, and limits are in closed **Advanced** sections. Settings save automatically.
 
-| Section           | What it controls                                                                                                                                                                                                                   |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Window**        | Close to tray, launch at login, start hidden, the title bar, the menu bar, where links to Pi Pocket pages open, and the global shortcut.                                                                                           |
-| **Appearance**    | The see-through background, its opacity and blur, and on Windows the tray menu's style.                                                                                                                                            |
-| **Notifications** | Desktop alerts, sound, and approve from notifications (when the full command is shown, always, or never), with the command length shown.                                                                                         |
-| **Dictation**     | Speech models, the dictation key, words as you speak, custom words, recent dictations, and Dictate anywhere. See [dictation.md](dictation.md).                                                                                     |
-| **Updates**       | Desktop app updates, checked at startup and each time Settings opens.                                                                                                                                                              |
-| **Runner**        | Let your server use this computer's files and commands. See [runner.md](runner.md).                                                                                                                                                |
+| Section           | What it controls                                                                                                                                                                                                                             |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Window**        | Close to tray, launch at login, start hidden, the title bar, the menu bar, where links to Pi Pocket pages open, and the global shortcut.                                                                                                     |
+| **Appearance**    | The see-through background, its opacity and blur, and on Windows the tray menu's style.                                                                                                                                                      |
+| **Notifications** | The app's own (native) notifications, separate from Pi Pocket's web notifications: on or off, sound, and when you can allow an approval from one (when the whole command is shown, always, or never), with the longest command shown.        |
+| **Dictation**     | Speech models, the dictation key, words as you speak, custom words, recent dictations, and Dictate anywhere. See [dictation.md](dictation.md).                                                                                               |
+| **Updates**       | Desktop app updates, checked at startup and each time Settings opens.                                                                                                                                                                        |
+| **Runner**        | Let your server use this computer's files and commands. See [runner.md](runner.md).                                                                                                                                                          |
 | **Server**        | Only the side chosen on Home. **This computer**: session folder, who can connect, and server updates. **Another server**: connect at startup, other allowed addresses, and check and retry limits. **Extensions**: Billion context, on both. |
 
 The two choices on Home, **This computer** and **Another server**, only show that side, with a status for each. A click
@@ -48,11 +48,11 @@ connection fails.
 The settings are also a JSON file you can edit by hand. A value that is not valid falls back to its default, and the
 settings screen lists it. **Show file**, at the bottom of Desktop Settings, opens it.
 
-|         |                                                         |
-| ------- | ------------------------------------------------------- |
-| Linux   | `~/.config/pi-pocket-gui/config.json`                   |
+|         |                                                           |
+| ------- | --------------------------------------------------------- |
+| Linux   | `~/.config/pi-pocket-gui/config.json`                     |
 | macOS   | `~/Library/Application Support/pi-pocket-gui/config.json` |
-| Windows | `%APPDATA%\pi-pocket-gui\config.json`                   |
+| Windows | `%APPDATA%\pi-pocket-gui\config.json`                     |
 
 These folder names keep the project's first name, `pi-pocket-gui`, on purpose, and the installed app stays **Pi
 Pocket**: existing settings, sign-in, runner links, and launch-at-login entries do not move. The same folder holds
@@ -97,8 +97,8 @@ stalls. A stall is a time of more than 3 seconds when the app cannot answer (for
 log names the last task the app started before the stall. Open it from **Help → Open diagnostics log**, and attach it
 to a bug report. It stays under 1 MiB.
 
-|         |                                                             |
-| ------- | ----------------------------------------------------------- |
-| Linux   | `~/.config/pi-pocket-gui/diagnostics.log`                   |
+|         |                                                               |
+| ------- | ------------------------------------------------------------- |
+| Linux   | `~/.config/pi-pocket-gui/diagnostics.log`                     |
 | macOS   | `~/Library/Application Support/pi-pocket-gui/diagnostics.log` |
-| Windows | `%APPDATA%\pi-pocket-gui\diagnostics.log`                   |
+| Windows | `%APPDATA%\pi-pocket-gui\diagnostics.log`                     |

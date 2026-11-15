@@ -185,14 +185,15 @@
             </section>
 
             <section class="section" id="sec-notifications" aria-labelledby="h-notifications">
-                <div class="section-head"><h2 id="h-notifications">Notifications</h2><p>Get alerts and answer approvals from your desktop.</p></div>
+                <div class="section-head"><h2 id="h-notifications">Notifications</h2><p>Native notifications on this computer. You can answer approvals from them.</p></div>
                 <div class="card rows" id="notifications-card">
-                    <label class="row"><span><strong>Show notifications</strong><small>Works while the app runs, including in the tray. Requires server desktop support.</small></span><input type="checkbox" data-key="notifications.enabled" /></label>
+                    <p class="row-note" id="notifications-note">These are this app's own notifications (native notifications). They are separate from Pi Pocket's notifications (web notifications), which you turn on for each browser or phone in Pi Pocket under <strong>Menu → Notifications</strong>. What you are notified about is also chosen there, and applies to both.</p>
+                    <label class="row"><span><strong>Show notifications</strong><small>Shown while the app is running, including when it is only in the tray. The server needs Pi Pocket 0.28.0 or later.</small></span><input type="checkbox" data-key="notifications.enabled" /></label>
                     <label class="row"><span><strong>Play a sound</strong></span><input type="checkbox" data-key="notifications.sound" /></label>
-                    <label class="row"><span><strong>Approve from notifications</strong><small>Deny is always available. Shortened commands can hide important details.</small></span><select data-key="notifications.allowFromNotification"><option value="whenFullyShown">When the full command is shown</option><option value="always">Always</option><option value="never">Never; use the app</option></select></label>
+                    <label class="row"><span><strong>Approve from notifications</strong><small>You can always deny from a notification. Allowing is riskier when the command is cut short, because the hidden part can matter.</small></span><select data-key="notifications.allowFromNotification"><option value="whenFullyShown">When the whole command is shown</option><option value="always">Always</option><option value="never">Never (allow in the app)</option></select></label>
                     <details class="advanced">
                         <summary><span>Advanced<small>Command length</small></span></summary>
-                        <div class="rows nested"><label class="row"><span><strong>Command character limit</strong><small>Longer commands are shortened in notifications.</small></span><input type="number" data-key="notifications.maxCallLength" class="short" min="20" max="2000" /></label></div>
+                        <div class="rows nested"><label class="row"><span><strong>Longest command shown</strong><small>In characters. A longer command is cut short in the notification.</small></span><input type="number" data-key="notifications.maxCallLength" class="short" min="20" max="2000" /></label></div>
                     </details>
                 </div>
             </section>
