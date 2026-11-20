@@ -202,30 +202,73 @@ export function showsFullScreenBoot(boots: ArrayLike<{ classList: { contains: (n
     return false;
 }
 
+// Like Pi Pocket's notices: a tinted panel and a level square. The whole notice is one button.
 const BOOT_RELOAD_CSS = `
 :host {
     all: initial;
     position: fixed;
     top: calc(env(safe-area-inset-top, 0px) + 12px);
     left: 50%;
+    width: min(300px, calc(100% - 24px));
     transform: translateX(-50%);
     z-index: 2147483647;
 }
 button {
-    font: 500 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
-    color: var(--fg);
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: 7px 14px;
+    appearance: none;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 7px 7px 7px 14px;
+    font: 500 13.5px/1.4 var(--sans, "Pocket Sans", "Geist", system-ui, sans-serif);
+    text-align: left;
+    color: var(--reload-text);
+    background:
+        linear-gradient(100deg, color-mix(in srgb, var(--reload-accent) 9%, transparent), transparent 58%),
+        var(--reload-panel);
+    border: 1px solid var(--reload-line);
+    border-radius: var(--r-card, 8px);
+    box-shadow: 0 10px 24px -12px var(--sh, rgba(0, 0, 0, 0.35));
     cursor: pointer;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
     animation: in 300ms ease-out;
 }
-button:hover { border-color: var(--fg); }
-button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+button::before {
+    content: "";
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: calc(var(--r-mark, 2px) - 0.5px);
+    background: var(--reload-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--reload-accent) 18%, transparent);
+}
+.action {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    margin-inline-start: auto;
+    padding: 0 10px;
+    border-radius: var(--r-row, 6px);
+    background: var(--reload-action);
+    font-weight: 600;
+}
+.action svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: var(--reload-accent);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+@media (hover: hover) {
+    button:enabled:hover { border-color: color-mix(in srgb, var(--reload-accent) 45%, var(--reload-line)); }
+    button:enabled:hover .action { background: color-mix(in srgb, var(--reload-text) 8%, var(--reload-action)); }
+}
+button:focus-visible { outline: 2px solid var(--reload-focus); outline-offset: 2px; }
 button:disabled { cursor: progress; opacity: 0.7; }
-b { font-weight: 650; }
 @keyframes in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { button { animation: none; } }
 :host(.still) button { animation: none; }
@@ -268,15 +311,29 @@ function offerBootReload(): void {
         const shadow = host.attachShadow({ mode: "closed" });
         const sheet = document.createElement("style");
         const button = document.createElement("button");
-        const strong = document.createElement("b");
+        const action = document.createElement("span");
+        const svg = "http://www.w3.org/2000/svg";
+        const icon = document.createElementNS(svg, "svg");
+        const path = document.createElementNS(svg, "path");
+        const accent = color(style, ["accent"], light ? "#34548a" : "#7aa2f7");
 
         sheet.textContent = BOOT_RELOAD_CSS;
         button.type = "button";
-        button.style.setProperty("--fg", color(style, ["text"], light ? "#343b58" : "#c0caf5"));
-        button.style.setProperty("--bg", color(style, ["card"], light ? "#e6e7ed" : "#1f2335"));
-        button.style.setProperty("--line", color(style, ["border", "line"], light ? "#c4c8da" : "#3b4261"));
-        strong.textContent = "Reload";
-        button.append("Taking a while? ", strong);
+        button.style.setProperty("--reload-text", color(style, ["text"], light ? "#343b58" : "#c0caf5"));
+        button.style.setProperty("--reload-panel", color(style, ["panel", "card"], light ? "#f2f3f7" : "#1a1b26"));
+        button.style.setProperty("--reload-line", color(style, ["border", "line"], light ? "#c4c8da" : "#3b4261"));
+        button.style.setProperty("--reload-accent", accent);
+        button.style.setProperty("--reload-action", color(style, ["card-2", "card"], light ? "#e6e7ed" : "#24283b"));
+        button.style.setProperty("--reload-focus", color(style, ["focus-ring"], accent));
+
+        // The reload icon from Pi Pocket's web/ui.js, as an SVG that needs no external asset.
+        icon.setAttribute("viewBox", "0 0 24 24");
+        icon.setAttribute("aria-hidden", "true");
+        path.setAttribute("d", "M20 12a8 8 0 11-2.3-5.7M20 4v5h-5");
+        icon.append(path);
+        action.className = "action";
+        action.append(icon, "Reload");
+        button.append("Taking a while? ", action);
         button.addEventListener("click", () => {
             button.disabled = true;
             ipcRenderer.send("host:reload");
