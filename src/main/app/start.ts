@@ -33,7 +33,7 @@ import { pageHangChanged, startHealth, reloadServer, reloadShowing } from "../co
 import { originOf, currentOrigin, checkAddress } from "../connection/address";
 import { pushConfigState, lockConfigView, showConfig } from "../settings-screen/screen";
 import { openSettings, openSettingsOn, quit, buildMenu, newSession } from "./menu";
-import { localReady, localDown } from "../local-server/use";
+import { checkGitBash, localReady, localDown } from "../local-server/use";
 import { show, showWindow, toggleWindow, layout } from "../window/views";
 import { serverPreferences } from "../window/server-preferences";
 import { holdMainClose, lastUsedWindow, otherWindows, serverPages, isServerPage, windowFocused } from "../window/other-windows";
@@ -252,6 +252,7 @@ export async function start(): Promise<void> {
             void appState.gui?.runner?.runtimeChanged();
         },
         runtimesReplaced: () => appState.gui?.runner?.runtimeChanged() ?? Promise.resolve(),
+        checkGitBash,
         ready: (url, loginPath) => {
             void appState.gui?.billionContext?.serverReady();
             localReady(url, loginPath);

@@ -33,6 +33,10 @@ until you click **Stop**; its **Open** switches the window back to it.
 Settings that existed before this choice keep opening their server (Another server); a new install starts on This
 computer.
 
+On Windows, the app shows a notice if it cannot find Git Bash when it installs or starts Pi Pocket on this computer.
+Pi's `bash` tool needs [Git for Windows](https://git-scm.com/download/win) or another `bash.exe` on `PATH`. The notice
+does not stop Pi Pocket from installing or starting.
+
 While the app runs, so does Pi Pocket: closing the window keeps both in the tray. Quitting the app stops Pi Pocket;
 Pi Durable picks running sessions up at the next start. Launch at login, with Start hidden, makes this computer's Pi
 Pocket an always-on server for a phone.
