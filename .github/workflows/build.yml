@@ -93,6 +93,15 @@ jobs:
                   node-version: 22
                   cache: npm
             - run: npm ci
+            - uses: actions/cache@v4
+              with:
+                  path: ${{ runner.temp }}/electron
+                  key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
+            # Install once so test workers do not try to download Electron at the same time.
+            - name: Install Electron for tests
+              run: npx --no install-electron
+              env:
+                  electron_config_cache: ${{ runner.temp }}/electron
             - run: npm run typecheck
             - run: npm test
 

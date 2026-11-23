@@ -145,9 +145,10 @@ test("with the checks turned off, only Check now looks", async () => {
 
 test("the runner runs from the newest runtime, also one that waits for the server's restart", () => {
     const { home, local, done } = computer("aaa");
+    const launcher = (id: string) => join(home, "runtimes", id, "lib", "node_modules", "pi-pocket", "bin", "pi-pocket.js");
 
     try {
-        assert.match(local.runnerRuntime()?.launcher ?? "", /runtimes\/r1\//);
+        assert.equal(local.runnerRuntime()?.launcher, launcher("r1"));
 
         // An update built r2 while the server here ran: the server waits for its restart, the runner does not.
         runtime(home, "r2");
@@ -155,7 +156,7 @@ test("the runner runs from the newest runtime, also one that waits for the serve
             join(home, "current.json"),
             JSON.stringify({ current: { id: "r1", node: "22.19.0", commit: "aaa" }, next: { id: "r2", node: "22.19.0", commit: "bbb" } }),
         );
-        assert.match(local.runnerRuntime()?.launcher ?? "", /runtimes\/r2\//);
+        assert.equal(local.runnerRuntime()?.launcher, launcher("r2"));
 
         // A newer one without the runner: the one that has it.
         runtime(home, "r3", { runner: false });
@@ -163,7 +164,7 @@ test("the runner runs from the newest runtime, also one that waits for the serve
             join(home, "current.json"),
             JSON.stringify({ current: { id: "r1", node: "22.19.0", commit: "aaa" }, next: { id: "r3", node: "22.19.0", commit: "ccc" } }),
         );
-        assert.match(local.runnerRuntime()?.launcher ?? "", /runtimes\/r1\//);
+        assert.equal(local.runnerRuntime()?.launcher, launcher("r1"));
     } finally {
         done();
     }

@@ -1,8 +1,8 @@
 import { strict as assert } from "node:assert";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import type { BillionContextState, ExtensionStatus } from "../shared/types";
@@ -84,20 +84,19 @@ test("automatic installation and updates are on by default and keep an explicit 
     assert.equal(validateSettings({ billionContext: { autoUpdate: "yes" } }).problems.length, 1);
 });
 
-test("the extension folder stays the running Pi Pocket's until it restarts with a new data folder", async () => {
-    const { mkdirSync, symlinkSync, writeFileSync: write } = await import("node:fs");
+test("the extension folder stays the running Pi Pocket's until it restarts with a new data folder", { timeout: 15_000 }, async (t) => {
     const { setUpLocalServer } = await import("../main/local-server/local-server");
+    const { runtimePaths } = await import("../main/local-server/local-versions");
     const { defaultSettings } = await import("../main/core/settings");
     const home = mkdtempSync(join(tmpdir(), "bc-local-"));
-    const runtime = join(home, "runtimes", "r1");
-    const launcher = join(runtime, "lib", "node_modules", "pi-pocket", "bin", "pi-pocket.js");
+    const { node, launcher, pocket } = runtimePaths(join(home, "runtimes", "r1"), process.platform);
 
-    mkdirSync(join(runtime, "bin"), { recursive: true });
-    mkdirSync(join(launcher, ".."), { recursive: true });
-    symlinkSync(process.execPath, join(runtime, "bin", "node"));
-    write(join(launcher, "..", "..", "package.json"), JSON.stringify({ version: "1.0.0" }));
-    write(launcher, 'console.log("  Sign in  http://127.0.0.1:8787/login?token=t"); setInterval(() => {}, 1000);\n');
-    write(join(home, "current.json"), JSON.stringify({ current: { id: "r1", node: "22.19.0" } }));
+    mkdirSync(dirname(node), { recursive: true });
+    mkdirSync(dirname(launcher), { recursive: true });
+    symlinkSync(process.execPath, node);
+    writeFileSync(join(pocket, "package.json"), JSON.stringify({ version: "1.0.0" }));
+    writeFileSync(launcher, 'console.log("  Sign in  http://127.0.0.1:8787/login?token=t"); setInterval(() => {}, 1000);\n');
+    writeFileSync(join(home, "current.json"), JSON.stringify({ current: { id: "r1", node: "22.19.0" } }));
 
     const settings = defaultSettings();
     const started = join(home, "data-a");
@@ -108,8 +107,8 @@ test("the extension folder stays the running Pi Pocket's until it restarts with 
     const isReady = new Promise<void>((done) => (ready = done));
     const local = setUpLocalServer({
         home,
-        platform: "linux",
-        arch: "x64",
+        platform: process.platform,
+        arch: process.arch,
         settings: () => settings,
         fetch: () => Promise.reject(new Error("offline")),
         probe: () => Promise.resolve({ kind: "other", url: "", status: 0, message: "", canOpen: false }),
@@ -118,6 +117,10 @@ test("the extension folder stays the running Pi Pocket's until it restarts with 
         down: () => {},
         restarted: () => {},
         runtimesReplaced: () => Promise.resolve(),
+    });
+    t.after(async () => {
+        await local.stop();
+        rmSync(home, { recursive: true, force: true, maxRetries: 3 });
     });
 
     assert.equal(local.dataFolder(), started);
