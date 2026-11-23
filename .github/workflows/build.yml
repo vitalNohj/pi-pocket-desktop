@@ -79,6 +79,53 @@ jobs:
                       release/latest*.yml
                   if-no-files-found: error
 
+    windows-test:
+        name: Windows typecheck and tests
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        runs-on: windows-latest
+        timeout-minutes: 15
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+            - run: npm ci
+            - uses: actions/cache@v4
+              with:
+                  path: ${{ runner.temp }}/electron
+                  key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
+            # Install once so test workers do not try to download Electron at the same time.
+            - name: Install Electron for tests
+              run: npx --no install-electron
+              env:
+                  electron_config_cache: ${{ runner.temp }}/electron
+            - run: npm run typecheck
+            - run: npm test
+
+    windows-smoke:
+        name: Windows installer smoke test
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        needs: build
+        runs-on: windows-latest
+        timeout-minutes: 15
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+            - uses: actions/download-artifact@v4
+              with:
+                  name: pi-pocket-desktop-windows
+                  path: ${{ runner.temp }}/installer
+            - name: Install, start, sign in, and uninstall
+              shell: pwsh
+              run: ./scripts/ci/windows-smoke.ps1 -Artifacts (Join-Path $env:RUNNER_TEMP 'installer')
+
     release:
         if: startsWith(github.ref, 'refs/tags/v')
         needs: build

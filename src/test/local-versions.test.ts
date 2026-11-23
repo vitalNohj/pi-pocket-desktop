@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
-import { cause } from "../main/local-server/local-server";
+import { join } from "node:path";
 import { test } from "node:test";
+import { cause } from "../main/local-server/local-server";
 import { cleanLine, compareVersions, pickNode, runtimePaths, satisfies, shasumFor, signInLine } from "../main/local-server/local-versions";
 import { validateSettings } from "../main/core/settings";
 
@@ -59,8 +60,8 @@ test("runtimePaths follow each system's Node.js layout", () => {
     const unix = runtimePaths("/r", "linux");
     const windows = runtimePaths("C:\\r", "win32");
 
-    assert.equal(unix.node, "/r/bin/node");
-    assert.equal(unix.launcher, "/r/lib/node_modules/pi-pocket/bin/pi-pocket.js");
+    assert.equal(unix.node, join("/r", "bin", "node"));
+    assert.equal(unix.launcher, join("/r", "lib", "node_modules", "pi-pocket", "bin", "pi-pocket.js"));
     assert.ok(windows.node.endsWith("node.exe"));
     assert.ok(windows.launcher.replaceAll("\\", "/").endsWith("node_modules/pi-pocket/bin/pi-pocket.js"));
     assert.ok(!windows.launcher.includes("lib"));

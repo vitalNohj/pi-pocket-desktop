@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { test } from "node:test";
 import { engineNative, engineSize, MODELS, modelById, modelConfig, VAD } from "../main/dictation/dictation-catalog";
 import { validateSettings } from "../main/core/settings";
@@ -24,8 +24,8 @@ test("every model is pinned: https, a size, and a SHA-256 for each file", () => 
 
 test("each model's config names files it downloads", () => {
     for (const model of MODELS) {
-        const config = modelConfig(model, "/m", 2, join);
-        const names = new Set(model.files.map((file) => join("/m", file.name)));
+        const config = modelConfig(model, "/m", 2, posix.join);
+        const names = new Set(model.files.map((file) => posix.join("/m", file.name)));
         const paths = JSON.stringify(config).match(/"\/m\/[^"]+"/g) ?? [];
 
         assert.ok(paths.length > 0, model.id);
@@ -62,7 +62,7 @@ test("the chosen model is a known id or none", () => {
 
 test("each model file has one role: no two config fields name the same file", () => {
     for (const model of MODELS) {
-        const paths = JSON.stringify(modelConfig(model, "/m", 2, join)).match(/"\/m\/[^"]+"/g) ?? [];
+        const paths = JSON.stringify(modelConfig(model, "/m", 2, posix.join)).match(/"\/m\/[^"]+"/g) ?? [];
 
         assert.equal(new Set(paths).size, paths.length, model.id);
     }

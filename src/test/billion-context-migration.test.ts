@@ -655,13 +655,22 @@ test("a state path through a linked parent is protected even before its final di
     assert.ok(existsSync(join(f.root, LEGACY_INTEGRATION.folder, "old-runtime.js")));
 });
 
+/** Run the command in sh without letting it download or extract on any host. */
+function runRemoteCommand(home: string): void {
+    const commands = `curl() { printf attempted > "$HOME/curl-ran"; }
+        tar() { printf attempted > "$HOME/tar-ran"; }
+        ${REMOTE_COMMAND}`;
+
+    execFileSync("sh", ["-c", commands], { env: { ...process.env, HOME: home }, encoding: "utf8", stdio: "pipe" });
+}
+
 test("the remote command stops before curl when an old settings file exists", (t) => {
     const f = fixture(t);
     const remoteRoot = join(f.home, ".pi-pocket", "extensions");
 
     f.json(join(remoteRoot, LEGACY_INTEGRATION.settings), { extensionName: "custom" });
     assert.throws(
-        () => execFileSync("sh", ["-c", REMOTE_COMMAND], { env: { ...process.env, HOME: f.home }, encoding: "utf8", stdio: "pipe" }),
+        () => runRemoteCommand(f.home),
         (error: unknown) => {
             const result = error as { status: number; stdout: string; stderr: string };
 
@@ -678,20 +687,15 @@ for (const customModule of [undefined, "billion-context-pi.ts"]) {
     test(`the remote command refuses a helper ${customModule === undefined ? "without a module" : "with the live custom module name"}`, (t) => {
         const f = fixture(t);
         const root = join(f.home, ".pi-pocket", "extensions");
-        const bin = join(f.home, "bin");
         const config = { extensionName: "bcp-adapter", stateDir: "bcp" };
 
         f.json(join(root, INTEGRATION.folder, "bundle.json"), { version: "0.1.83" });
         f.json(join(root, INTEGRATION.settings), config);
         if (customModule !== undefined) writeFileSync(join(root, customModule), "// existing custom module\n");
-        mkdirSync(bin);
-        for (const name of ["curl", "tar"]) {
-            writeFileSync(join(bin, name), `#!/bin/sh\nprintf attempted > "$HOME/${name}-ran"\n`, { mode: 0o755 });
-        }
         const before = readdirSync(root).sort();
 
         assert.throws(
-            () => execFileSync("sh", ["-c", REMOTE_COMMAND], { env: { ...process.env, HOME: f.home, PATH: `${bin}:${process.env.PATH ?? ""}` }, encoding: "utf8", stdio: "pipe" }),
+            () => runRemoteCommand(f.home),
             (error: unknown) => {
                 const result = error as { status: number; stdout: string; stderr: string };
 
@@ -712,15 +716,10 @@ for (const customModule of [undefined, "billion-context-pi.ts"]) {
 test("the remote command permits updates with the matching canonical module and helper", (t) => {
     const f = fixture(t);
     const root = join(f.home, ".pi-pocket", "extensions");
-    const bin = join(f.home, "bin");
 
     f.json(join(root, INTEGRATION.folder, "bundle.json"), { version: "0.1.83" });
     writeFileSync(join(root, INTEGRATION.file), "// matching module\n");
-    mkdirSync(bin);
-    for (const name of ["curl", "tar"]) {
-        writeFileSync(join(bin, name), `#!/bin/sh\nprintf attempted > "$HOME/${name}-ran"\n`, { mode: 0o755 });
-    }
-    execFileSync("sh", ["-c", REMOTE_COMMAND], { env: { ...process.env, HOME: f.home, PATH: `${bin}:${process.env.PATH ?? ""}` }, encoding: "utf8", stdio: "pipe" });
+    runRemoteCommand(f.home);
     assert.equal(readFileSync(join(f.home, "curl-ran"), "utf8"), "attempted");
     assert.equal(readFileSync(join(f.home, "tar-ran"), "utf8"), "attempted");
     assert.equal(readFileSync(join(root, INTEGRATION.file), "utf8"), "// matching module\n");

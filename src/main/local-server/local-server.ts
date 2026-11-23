@@ -59,6 +59,8 @@ export interface LocalHost {
     probe: (url: string) => Promise<ProbeResult>;
     /** Anything in the state changed: show it. */
     changed: () => void;
+    /** Check for Git Bash in the background when installing or starting this computer's server. */
+    checkGitBash?: () => Promise<void>;
     /** The server is ready: open the login link (a path with its token) at the address. */
     ready: (url: string, loginPath: string) => void;
     /** It stopped, failed, or was found running outside the app: the window cannot show it. Why, for the window. */
@@ -417,6 +419,10 @@ export function setUpLocalServer(host: LocalHost) {
             progress = { step: "Looking for the newest Pi Pocket…" };
             changed();
 
+            if (wanted || host.settings().server.mode === "local") {
+                void host.checkGitBash?.();
+            }
+
             let installed = false;
 
             try {
@@ -716,6 +722,7 @@ export function setUpLocalServer(host: LocalHost) {
             return;
         }
 
+        void host.checkGitBash?.();
         const env = await loginEnvironment();
         const args = [
             where.launcher,

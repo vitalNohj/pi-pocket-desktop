@@ -133,7 +133,7 @@ test("a page's report opens the menu only when Electron's event did not come for
 });
 
 test("the preload reports only a right-click the page left alone (Pi Pocket's session menu keeps its own)", () => {
-    const preload = readFileSync(join(__dirname, "..", "..", "src", "preload", "server.ts"), "utf8");
+    const preload = readFileSync(join(__dirname, "..", "..", "src", "preload", "server.ts"), "utf8").replaceAll("\r\n", "\n");
     const report = preload.slice(preload.indexOf("function reportRightClicks"));
 
     assert.match(report, /addEventListener\("contextmenu", \(event\) => \{\n\s+if \(event\.defaultPrevented\) \{\n\s+return;/);

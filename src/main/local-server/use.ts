@@ -15,6 +15,46 @@ import { show } from "../window/views";
 import { openSettingsOn } from "../app/menu";
 import { connect } from "../connection/connect";
 import { state as appState } from "../app/state";
+import { missingGitBash } from "./git-bash";
+
+const GIT_FOR_WINDOWS = "https://git-scm.com/download/win";
+let gitBashNotice: "idle" | "checking" | "shown" = "idle";
+
+/** One notice per app run, without holding the window or the server's install/start. */
+export async function checkGitBash(): Promise<void> {
+    if (gitBashNotice !== "idle") {
+        return;
+    }
+
+    gitBashNotice = "checking";
+
+    try {
+        if (!(await missingGitBash(process.platform, process.env)) || appState.gui?.quitting) {
+            return;
+        }
+
+        gitBashNotice = "shown";
+        const { response } = await dialog.showMessageBox({
+            type: "info",
+            title: "Pi Pocket",
+            message: "Pi's bash tool needs Git Bash.",
+            detail: `Install Git for Windows, or put another bash.exe on PATH. Pi Pocket can still run without it.\n\n${GIT_FOR_WINDOWS}`,
+            buttons: ["OK", "Open download page"],
+            defaultId: 0,
+            cancelId: 0,
+        });
+
+        if (response === 1) {
+            await shell.openExternal(GIT_FOR_WINDOWS);
+        }
+    } catch {
+        // A notice that cannot open never interferes with Pi Pocket.
+    } finally {
+        if (gitBashNotice === "checking") {
+            gitBashNotice = "idle";
+        }
+    }
+}
 
 /** This computer's Pi Pocket is ready: open it when the person asked for it, or when the window uses it. */
 export function localReady(url: string, loginPath: string): void {
