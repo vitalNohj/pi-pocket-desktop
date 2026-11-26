@@ -1,3 +1,21 @@
+> [!NOTE]
+> **This project is unaffiliated with Pi Pocket.** Pi Pocket decided to build its own native desktop apps, so this one won't become the official app. Native apps are faster and use less memory, but a lot of the work in this app needs a different set of dependencies there, until there's enough work done to port.
+>
+> I'll keep working on this separately, and I'll push what I can upstream as pull requests.
+>
+> What I'm working on:
+> - **Real multiplayer**: anyone can add their own machine and control who has access to it.
+> - Multi-machine orchestration
+> - A large MCP registry
+> - ACP interface, incoming and outgoing
+> - Memory fixes with dreaming
+> - A complete extension API with UI, and an entirely configurable layout
+> - Per-session voice calls
+> - Customizable PiP directives, tools, and even its name
+> - Built-in load balancing using Pi's OAuth
+> - **Working sandboxes for Linux and macOS**
+
+
 <div align="center">
 
 <img src="assets/icon.svg" width="96" alt="Pi Pocket" />
@@ -9,7 +27,14 @@
 Run Pi Pocket on this computer or open your server's, keep your sessions in the tray, dictate offline,<br />
 and let your server work on this computer's files with the built-in runner.
 
-[**Download**](https://github.com/vitalNohj/pi-pocket-desktop/releases/latest) · [What it does](#what-it-does) · [Install](#install) · [The runner](#the-runner) · [More](#more)
+[![Download for macOS](https://img.shields.io/badge/Download-macOS-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/vitalNohj/pi-pocket-desktop/releases/latest)
+[![Download for Windows](https://img.shields.io/badge/Download-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/vitalNohj/pi-pocket-desktop/releases/latest/download/pi-pocket-gui-win-x64.exe)
+[![Download for Linux](https://img.shields.io/badge/Download-Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/vitalNohj/pi-pocket-desktop/releases/latest)
+
+[![Latest release](https://img.shields.io/github/v/release/vitalNohj/pi-pocket-desktop?label=latest)](https://github.com/vitalNohj/pi-pocket-desktop/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/vitalNohj/pi-pocket-desktop/total)](https://github.com/vitalNohj/pi-pocket-desktop/releases/latest)
+
+[What it does](#what-it-does) · [Install](#install) · [The runner](#the-runner) · [More](#more)
 
 <img src="docs/images/hero.png" alt="Pi Pocket in the desktop app: the session list on the left, a conversation on the right, the macOS traffic lights over the sidebar" width="100%" />
 
