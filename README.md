@@ -1,7 +1,7 @@
 > [!NOTE]
 > **This project is unaffiliated with Pi Pocket.** Pi Pocket decided to build its own native desktop apps, so this one won't become the official app. Native apps are faster and use less memory, but a lot of the work in this app needs a different set of dependencies there, until there's enough work done to port.
 >
-> I'll keep working on this separately, and I'll push what I can upstream as pull requests.
+> I'll keep working on this separately, and I'll push what I can upstream as pull requests till the native app gets up to par - by then the extension api will also be good enough I can port everything over.
 >
 > What I'm working on:
 > - **Real multiplayer**: anyone can add their own machine and control who has access to it.
